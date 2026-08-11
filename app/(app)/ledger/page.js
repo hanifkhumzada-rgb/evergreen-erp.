@@ -1,0 +1,37 @@
+import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
+import { ExportExcelButton, PrintButton, Th, Td, pkr } from "@/components/ui";
+
+export const dynamic = "force-dynamic";
+
+export default async function LedgerPage() {
+  const supabase = createClient();
+  const { data: customers } = await supabase.from("customers").select("*").order("name");
+  const exportRows = (customers || []).map((c) => ({ Customer: c.name, Opening: c.opening_balance, CurrentBalance: c.balance, CreditLimit: c.credit_limit }));
+
+  return (
+    <div>
+      <h2 className="font-display text-2xl font-semibold mb-4">Customer Ledger</h2>
+      <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
+        <div className="flex-1" />
+        <ExportExcelButton rows={exportRows} filename="evergreen-ledger.xlsx" sheetName="Ledger" />
+        <PrintButton />
+      </div>
+      <div className="overflow-x-auto border border-line rounded-2xl">
+        <table className="w-full text-[13.5px] border-collapse">
+          <thead><tr className="bg-foam"><Th>Customer</Th><Th>Opening</Th><Th>Current Balance</Th><Th>Credit Limit</Th></tr></thead>
+          <tbody>
+            {(customers || []).map((c) => (
+              <tr key={c.id} className="hover:bg-foam">
+                <Td><Link href={`/customers/${c.id}`} className="font-semibold text-navy hover:text-aqua">{c.name}</Link></Td>
+                <Td>{pkr(c.opening_balance)}</Td>
+                <Td><span className={c.balance > 0 ? "text-coral font-semibold" : "text-green font-semibold"}>{pkr(c.balance)}</span></Td>
+                <Td>{pkr(c.credit_limit)}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
