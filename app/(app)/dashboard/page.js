@@ -9,7 +9,7 @@ function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d
 export const dynamic = "force-dynamic"; // always fetch fresh — this is a live multi-user dashboard
 
 export default async function DashboardPage() {
-  const supabase = createClient();
+const supabase = await createClient();
   const today = todayISO();
 
   const [{ data: todaySales }, { data: todayDeliveries }, { data: todayExpenses }, { data: customers }, { data: products }, { data: recentSales }, { data: allExpenses }, { data: journalLines }] = await Promise.all([
