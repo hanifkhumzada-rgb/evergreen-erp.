@@ -4,7 +4,7 @@ import { PrintButton, pkr } from "@/components/ui";
 export const dynamic = "force-dynamic";
 
 export default async function BalanceSheetPage({ searchParams }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const asOf = searchParams?.asOf || new Date().toISOString().slice(0, 10);
 
   const { data: lines } = await supabase

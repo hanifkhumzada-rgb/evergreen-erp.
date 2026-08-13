@@ -5,7 +5,7 @@ import { AddVehicleForm, AddVehicleExpenseForm } from "@/components/FleetForms";
 export const dynamic = "force-dynamic";
 
 export default async function FleetPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const [{ data: vehicles }, { data: employees }, { data: vehExpenses }] = await Promise.all([
     supabase.from("vehicles").select("*, employees(name)"),
     supabase.from("employees").select("id, name"),

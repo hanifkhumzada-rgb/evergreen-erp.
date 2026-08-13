@@ -7,7 +7,7 @@ import ImportExcelButton from "@/components/ImportExcelButton";
 export const dynamic = "force-dynamic";
 
 export default async function CustomersPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const [{ data: customers }, { data: zones }] = await Promise.all([
     supabase.from("customers").select("*, zones(name)").order("created_at", { ascending: false }),
     supabase.from("zones").select("*"),

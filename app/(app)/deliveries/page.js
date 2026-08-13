@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 
 export default async function DeliveriesPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
 

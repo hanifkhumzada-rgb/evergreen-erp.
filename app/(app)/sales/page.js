@@ -6,7 +6,7 @@ import AddSaleForm from "@/components/AddSaleForm";
 export const dynamic = "force-dynamic";
 
 export default async function SalesPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const [{ data: sales }, { data: customers }] = await Promise.all([
     supabase.from("sales").select("*, customers(name)").order("created_at", { ascending: false }).limit(200),
     supabase.from("customers").select("id, name, rate"),

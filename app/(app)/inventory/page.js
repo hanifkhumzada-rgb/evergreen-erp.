@@ -4,7 +4,7 @@ import { Badge, ExportExcelButton, PrintButton, Th, Td, pkr } from "@/components
 export const dynamic = "force-dynamic";
 
 export default async function InventoryPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: products } = await supabase.from("products").select("*").order("name");
   const exportRows = (products || []).map(({ id, active, created_at, updated_at, ...r }) => r);
 

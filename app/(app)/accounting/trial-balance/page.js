@@ -4,7 +4,7 @@ import { ExportExcelButton, PrintButton, Th, Td, pkr } from "@/components/ui";
 export const dynamic = "force-dynamic";
 
 export default async function TrialBalancePage({ searchParams }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const from = searchParams?.from;
   const to = searchParams?.to;
 

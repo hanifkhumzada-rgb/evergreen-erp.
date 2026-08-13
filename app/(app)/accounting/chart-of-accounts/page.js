@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 const TYPE_TONE = { ASSET: "aqua", LIABILITY: "coral", EQUITY: "slate", INCOME: "green", COGS: "amber", EXPENSE: "amber" };
 
 export default async function ChartOfAccountsPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: accounts } = await supabase.from("chart_of_accounts").select("*").order("code");
   const exportRows = (accounts || []).map(({ id, is_system, active, created_at, ...r }) => r);
 

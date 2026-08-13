@@ -4,7 +4,7 @@ import { ExportExcelButton, PrintButton, Th, Td, pkr } from "@/components/ui";
 export const dynamic = "force-dynamic";
 
 export default async function EmployeesPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const [{ data: employees }, { data: deliveries }] = await Promise.all([
     supabase.from("employees").select("*"),
     supabase.from("deliveries").select("employee_id, status, cash_collected"),

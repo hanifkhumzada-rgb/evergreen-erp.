@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 
 export default async function DailyClosingPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: closings } = await supabase.from("daily_closings").select("*").order("close_date", { ascending: false }).limit(30);
   const lastClosing = closings?.[0];
   const defaultOpening = lastClosing ? Number(lastClosing.actual_cash || lastClosing.expected_cash) : 0;

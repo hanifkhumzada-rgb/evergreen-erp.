@@ -6,7 +6,7 @@ const TOTAL_OWNED = 500;
 const BOTTLE_COST = 800; // replacement cost per 19L bottle, used for valuation
 
 export default async function BottleLedgerPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const [{ data: customers }, { data: movements }] = await Promise.all([
     supabase.from("customers").select("name, bottles_delivered, bottles_returned"),
     supabase.from("bottle_movements").select("*, customers(name)").order("moved_at", { ascending: false }).limit(150),

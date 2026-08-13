@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 const SEV_TONE = { critical: "coral", warning: "amber", info: "aqua", success: "green" };
 
 export default async function NotificationsPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: notifications } = await supabase.from("notifications").select("*").order("created_at", { ascending: false }).limit(100);
 
   return (

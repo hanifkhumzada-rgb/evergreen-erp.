@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 const TOTAL_OWNED = 500;
 
 export default async function BottlesPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: customers } = await supabase.from("customers").select("name, bottles_delivered, bottles_returned");
   const withCustomers = (customers || []).reduce((a, c) => a + (c.bottles_delivered - c.bottles_returned), 0);
   const full = TOTAL_OWNED - withCustomers;

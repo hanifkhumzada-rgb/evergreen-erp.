@@ -6,7 +6,7 @@ import { Badge, pkr, fmtDate, PrintButton } from "@/components/ui";
 export const dynamic = "force-dynamic";
 
 export default async function InvoicePage({ params }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: s } = await supabase.from("sales").select("*, customers(*)").eq("id", params.id).single();
 
   if (!s) {

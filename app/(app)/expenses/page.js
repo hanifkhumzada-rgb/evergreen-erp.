@@ -5,7 +5,7 @@ import AddExpenseForm from "@/components/AddExpenseForm";
 export const dynamic = "force-dynamic";
 
 export default async function ExpensesPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: expenses } = await supabase.from("expenses").select("*").order("created_at", { ascending: false }).limit(200);
   const exportRows = (expenses || []).map(({ id, created_by, ...r }) => r);
 

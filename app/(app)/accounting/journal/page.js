@@ -4,7 +4,7 @@ import { ExportExcelButton, PrintButton, Th, Td, pkr, fmtDate } from "@/componen
 export const dynamic = "force-dynamic";
 
 export default async function JournalPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data: entries } = await supabase
     .from("journal_entries")
     .select("*, journal_lines(debit, credit, chart_of_accounts(name, code))")

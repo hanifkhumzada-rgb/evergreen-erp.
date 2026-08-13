@@ -6,7 +6,7 @@ import { KPI, Badge, Th, Td, pkr, fmtDate, PrintButton } from "@/components/ui";
 export const dynamic = "force-dynamic";
 
 export default async function CustomerProfilePage({ params }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const [{ data: c }, { data: sales }, { data: payments }] = await Promise.all([
     supabase.from("customers").select("*, zones(name)").eq("id", params.id).single(),
     supabase.from("sales").select("*").eq("customer_id", params.id).order("sale_date", { ascending: false }).limit(8),

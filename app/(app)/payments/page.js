@@ -5,7 +5,7 @@ import AddPaymentForm from "@/components/AddPaymentForm";
 export const dynamic = "force-dynamic";
 
 export default async function PaymentsPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const [{ data: payments }, { data: customers }] = await Promise.all([
     supabase.from("payments").select("*, customers(name)").order("created_at", { ascending: false }).limit(200),
     supabase.from("customers").select("id, name, balance"),

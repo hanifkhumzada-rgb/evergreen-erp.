@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 function monthStart() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10); }
 
 export default async function ProfitLossPage({ searchParams }) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const from = searchParams?.from || monthStart();
   const to = searchParams?.to || new Date().toISOString().slice(0, 10);
 

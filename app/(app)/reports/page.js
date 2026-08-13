@@ -5,7 +5,7 @@ import { FileSpreadsheet } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 export default async function ReportsPage() {
-  const supabase = createClient();
+  const supabase = await createClient();
   const [{ data: sales }, { data: expenses }, { data: customers }, { data: deliveries }, { data: products }, { data: employees }] = await Promise.all([
     supabase.from("sales").select("*, customers(name)"),
     supabase.from("expenses").select("*"),
