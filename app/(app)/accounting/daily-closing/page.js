@@ -5,9 +5,25 @@ import { Badge, Th, Td, pkr, fmtDate } from "@/components/ui";
 export const dynamic = "force-dynamic";
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 
+function parseClosing(txn) {
+  let summary = {};
+  try { summary = JSON.parse(txn.description); } catch {}
+  return {
+    id: txn.id,
+    close_date: txn.txn_date,
+    opening_cash: summary.opening_cash ?? 0,
+    collections_total: summary.collections_total ?? 0,
+    expenses_total: summary.expenses_total ?? 0,
+    expected_cash: summary.expected_cash ?? 0,
+    actual_cash: summary.actual_cash ?? 0,
+    difference: Number(txn.amount),
+  };
+}
+
 export default async function DailyClosingPage() {
   const supabase = await createClient();
-  const { data: closings } = await supabase.from("daily_closings").select("*").order("close_date", { ascending: false }).limit(30);
+  const { data: txns } = await supabase.from("cash_transactions").select("*").eq("reference_type", "daily_closing").order("txn_date", { ascending: false }).limit(30);
+  const closings = (txns || []).map(parseClosing);
   const lastClosing = closings?.[0];
   const defaultOpening = lastClosing ? Number(lastClosing.actual_cash || lastClosing.expected_cash) : 0;
   const today = todayISO();

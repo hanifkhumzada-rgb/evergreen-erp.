@@ -9,28 +9,22 @@ export default async function ProfitLossPage({ searchParams }) {
   const from = searchParams?.from || monthStart();
   const to = searchParams?.to || new Date().toISOString().slice(0, 10);
 
-  const { data: lines } = await supabase
-    .from("journal_lines")
-    .select("debit, credit, chart_of_accounts(name, type), journal_entries!inner(entry_date)")
-    .gte("journal_entries.entry_date", from)
-    .lte("journal_entries.entry_date", to);
+  const [{ data: invoices }, { data: expenses }] = await Promise.all([
+    supabase.from("invoices").select("net_amount").neq("status", "void").gte("invoice_date", from).lte("invoice_date", to),
+    supabase.from("expenses").select("amount, expense_categories(name)").neq("status", "rejected").gte("expense_date", from).lte("expense_date", to),
+  ]);
 
-  const sum = (type) => (lines || []).filter((l) => l.chart_of_accounts?.type === type)
-    .reduce((a, l) => a + (type === "INCOME" ? Number(l.credit) - Number(l.debit) : Number(l.debit) - Number(l.credit)), 0);
-  const byName = (type) => {
+  const income = (invoices || []).reduce((a, i) => a + Number(i.net_amount), 0);
+  const cogs = 0;
+  const grossProfit = income - cogs;
+  const opex = (expenses || []).reduce((a, e) => a + Number(e.amount), 0);
+  const netProfit = grossProfit - opex;
+  const byExpenseCategory = () => {
     const m = {};
-    (lines || []).filter((l) => l.chart_of_accounts?.type === type).forEach((l) => {
-      const n = l.chart_of_accounts.name;
-      m[n] = (m[n] || 0) + (type === "INCOME" ? Number(l.credit) - Number(l.debit) : Number(l.debit) - Number(l.credit));
-    });
+    (expenses || []).forEach((e) => { const n = e.expense_categories?.name || "Other"; m[n] = (m[n] || 0) + Number(e.amount); });
     return Object.entries(m);
   };
-
-  const income = sum("INCOME");
-  const cogs = sum("COGS");
-  const grossProfit = income - cogs;
-  const opex = sum("EXPENSE");
-  const netProfit = grossProfit - opex;
+  const byName = (type) => (type === "INCOME" ? [["Sales revenue", income]] : type === "EXPENSE" ? byExpenseCategory() : []);
 
   return (
     <div>
@@ -50,7 +44,7 @@ export default async function ProfitLossPage({ searchParams }) {
         <Section title="Operating Expenses" items={byName("EXPENSE")} total={opex} negative />
         <Row label="Net Profit" value={netProfit} bold big />
       </div>
-      <p className="text-xs text-slate mt-3">Figures are calculated live from journal_entries / journal_lines — nothing here is hardcoded.</p>
+      <p className="text-xs text-slate mt-3">Figures are calculated live from invoices and expenses — nothing here is hardcoded. This is a heuristic P&amp;L (no cost-of-goods-sold or chart-of-accounts engine in the live database yet).</p>
     </div>
   );
 }

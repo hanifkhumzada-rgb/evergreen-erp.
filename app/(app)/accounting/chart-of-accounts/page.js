@@ -1,36 +1,17 @@
-import { createClient } from "@/lib/supabase/server";
-import { Badge, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
+import { Badge } from "@/components/ui";
 
-export const dynamic = "force-dynamic";
-const TYPE_TONE = { ASSET: "aqua", LIABILITY: "coral", EQUITY: "slate", INCOME: "green", COGS: "amber", EXPENSE: "amber" };
-
-export default async function ChartOfAccountsPage() {
-  const supabase = await createClient();
-  const { data: accounts } = await supabase.from("chart_of_accounts").select("*").order("code");
-  const exportRows = (accounts || []).map(({ id, is_system, active, created_at, ...r }) => r);
-
+export default function ChartOfAccountsPage() {
   return (
     <div>
       <h2 className="font-display text-2xl font-semibold mb-1">Chart of Accounts</h2>
-      <p className="text-slate text-sm mb-5">The backbone of the accounting engine — every sale, payment and expense posts here automatically.</p>
-      <div className="no-print flex gap-2.5 mb-4">
-        <ExportExcelButton rows={exportRows} filename="chart-of-accounts.xlsx" sheetName="Accounts" />
-        <PrintButton />
-      </div>
-      <div className="overflow-x-auto border border-line rounded-2xl">
-        <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Code</Th><Th>Account</Th><Th>Type</Th><Th>System</Th></tr></thead>
-          <tbody>
-            {(accounts || []).map((a) => (
-              <tr key={a.id} className="hover:bg-foam">
-                <Td><span className="font-mono-num">{a.code}</span></Td>
-                <Td className="font-semibold">{a.name}</Td>
-                <Td><Badge text={a.type} tone={TYPE_TONE[a.type]} /></Td>
-                <Td>{a.is_system ? "Yes" : "—"}</Td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <p className="text-slate text-sm mb-5">A full chart-of-accounts / double-entry ledger.</p>
+      <div className="border border-line rounded-2xl p-6 max-w-lg">
+        <Badge text="Not available yet — the live database has no chart-of-accounts engine" tone="slate" />
+        <p className="text-[13px] text-slate leading-relaxed mt-3">
+          Sales, payments and expenses are recorded directly against customers and cash accounts.
+          A formal chart of accounts with automatic double-entry posting is planned but not yet built
+          into the live database.
+        </p>
       </div>
     </div>
   );
