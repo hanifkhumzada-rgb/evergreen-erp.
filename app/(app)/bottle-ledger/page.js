@@ -7,15 +7,15 @@ const BOTTLE_COST = 800; // replacement cost per 19L bottle, used for valuation
 
 export default async function BottleLedgerPage() {
   const supabase = await createClient();
-  const [{ data: customers }, { data: movements }] = await Promise.all([
-    supabase.from("customers").select("name, bottles_delivered, bottles_returned"),
-    supabase.from("bottle_movements").select("*, customers(name)").order("moved_at", { ascending: false }).limit(150),
+  const [{ data: balances }, { data: movements }] = await Promise.all([
+    supabase.from("v_customer_bottle_balance").select("bottles_with_customer"),
+    supabase.from("bottle_transactions").select("*, customers(name)").order("created_at", { ascending: false }).limit(150),
   ]);
 
-  const withCustomers = (customers || []).reduce((a, c) => a + (c.bottles_delivered - c.bottles_returned), 0);
+  const withCustomers = (balances || []).reduce((a, b) => a + Number(b.bottles_with_customer), 0);
   const full = TOTAL_OWNED - withCustomers;
   const liabilityValue = withCustomers * BOTTLE_COST;
-  const exportRows = (movements || []).map((m) => ({ Date: m.moved_at, Customer: m.customers?.name, Type: m.movement_type, Qty: m.qty }));
+  const exportRows = (movements || []).map((m) => ({ Date: m.txn_date, Customer: m.customers?.name, From: m.from_state, To: m.to_state, Qty: m.quantity }));
 
   return (
     <div>
@@ -35,14 +35,14 @@ export default async function BottleLedgerPage() {
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Movement</Th><Th>Qty</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>From</Th><Th>To</Th><Th>Qty</Th></tr></thead>
           <tbody>
-            {(movements || []).length === 0 && <tr><td colSpan={4} className="text-center py-8 text-slate">No movements recorded yet.</td></tr>}
-            {(movements || []).map((m) => <tr key={m.id} className="hover:bg-foam"><Td>{fmtDate(m.moved_at)}</Td><Td>{m.customers?.name || "—"}</Td><Td>{m.movement_type}</Td><Td>{m.qty}</Td></tr>)}
+            {(movements || []).length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate">No movements recorded yet.</td></tr>}
+            {(movements || []).map((m) => <tr key={m.id} className="hover:bg-foam"><Td>{fmtDate(m.txn_date)}</Td><Td>{m.customers?.name || "—"}</Td><Td>{m.from_state}</Td><Td>{m.to_state}</Td><Td>{m.quantity}</Td></tr>)}
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-slate mt-3">Note: bottle liability here is shown for reporting only — it is not yet posted as a formal journal entry against &quot;Customer Bottle Deposit Liability&quot;. See Settings for what&apos;s still pending.</p>
+      <p className="text-xs text-slate mt-3">Note: bottle liability here is shown for reporting only — it is not posted as a formal ledger entry against a &quot;Customer Bottle Deposit Liability&quot; account (the live database has no chart-of-accounts engine). See Settings for what&apos;s still pending.</p>
     </div>
   );
 }

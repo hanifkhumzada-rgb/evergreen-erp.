@@ -10,6 +10,32 @@ async function requireUser() {
   return { supabase, user };
 }
 
+// The live schema has one primary retail product (19L bottle, sku "19L"). The
+// UI only ever asks for a quantity (no product picker), so every sale /
+// delivery is recorded against this product.
+async function getDefaultProduct(supabase) {
+  const { data } = await supabase.from("products").select("id").eq("sku", "19L").single();
+  return data?.id || null;
+}
+
+async function getEffectiveRate(supabase, customerId, productId) {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: custPrice } = await supabase.from("customer_prices").select("price")
+    .eq("customer_id", customerId).eq("product_id", productId)
+    .lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`)
+    .order("effective_from", { ascending: false }).limit(1).maybeSingle();
+  if (custPrice) return Number(custPrice.price);
+  const { data: prodPrice } = await supabase.from("product_prices").select("price")
+    .eq("product_id", productId)
+    .lte("effective_from", today).or(`effective_to.is.null,effective_to.gte.${today}`)
+    .order("effective_from", { ascending: false }).limit(1).maybeSingle();
+  return Number(prodPrice?.price || 0);
+}
+
+function genCode(prefix) {
+  return `${prefix}-${Date.now().toString(36).toUpperCase()}${Math.floor(Math.random() * 36).toString(36).toUpperCase()}`;
+}
+
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
@@ -19,18 +45,35 @@ export async function signOut() {
 export async function createCustomer(formData) {
   const { supabase, user } = await requireUser();
   const payload = {
+    code: genCode("CUST"),
     name: formData.get("name"),
-    phone: formData.get("phone"),
+    mobile: formData.get("phone"),
+    whatsapp_number: formData.get("phone"),
     zone_id: formData.get("zone_id") || null,
     customer_type: formData.get("customer_type"),
-    rate: Number(formData.get("rate")) || 0,
-    regular_qty: Number(formData.get("regular_qty")) || 1,
     address: formData.get("address") || "",
-    whatsapp: formData.get("phone"),
     created_by: user.id,
   };
-  const { error } = await supabase.from("customers").insert(payload);
+  const { data: created, error } = await supabase.from("customers").insert(payload).select("id").single();
   if (error) return { error: error.message };
+
+  // The live schema no longer stores a per-customer default rate directly on
+  // the customer row — pricing is per-product (product_prices / customer_prices).
+  // Preserve the "rate per bottle" the form still asks for by saving it as
+  // this customer's override price for the default (19L) product.
+  const rate = Number(formData.get("rate"));
+  if (rate > 0) {
+    const productId = await getDefaultProduct(supabase);
+    if (productId) {
+      await supabase.from("customer_prices").insert({
+        customer_id: created.id,
+        product_id: productId,
+        price: rate,
+        effective_from: new Date().toISOString().slice(0, 10),
+        created_by: user.id,
+      });
+    }
+  }
   revalidatePath("/customers");
   return { ok: true };
 }
@@ -41,25 +84,49 @@ export async function createSale(formData) {
   const qty = Number(formData.get("qty"));
   const paid = Number(formData.get("paid")) || 0;
 
-  const { data: customer } = await supabase.from("customers").select("rate").eq("id", customerId).single();
-  if (!customer) return { error: "Customer not found" };
-  const total = qty * customer.rate;
+  const productId = await getDefaultProduct(supabase);
+  if (!productId) return { error: "No default product configured" };
+  const rate = await getEffectiveRate(supabase, customerId, productId);
+  const total = qty * rate;
 
-  const { data: invNo } = await supabase.rpc("next_invoice_no");
+  const { data: invNo } = await supabase.rpc("fn_next_invoice_no");
+  const status = paid >= total && total > 0 ? "paid" : paid > 0 ? "partially_paid" : "sent";
 
-  const { error } = await supabase.from("sales").insert({
+  const { data: invoice, error } = await supabase.from("invoices").insert({
     invoice_no: invNo,
     customer_id: customerId,
-    qty,
-    unit_price: customer.rate,
-    total,
-    paid,
-    balance: total - paid,
-    payment_method: formData.get("payment_method"),
-    payment_status: paid >= total ? "Paid" : paid === 0 ? "Pending" : "Partially Paid",
+    subtotal: total,
+    discount: 0,
+    tax: 0,
+    net_amount: total,
+    status,
     created_by: user.id,
-  });
+  }).select("id").single();
   if (error) return { error: error.message };
+
+  const { error: itemErr } = await supabase.from("invoice_items").insert({
+    invoice_id: invoice.id,
+    product_id: productId,
+    description: "19L Bottle",
+    quantity: qty,
+    rate,
+    discount: 0,
+  });
+  if (itemErr) return { error: itemErr.message };
+
+  if (paid > 0) {
+    const { data: receiptNo } = await supabase.rpc("fn_next_receipt_no");
+    const methodMap = { Cash: "cash", "Bank Transfer": "bank", JazzCash: "jazzcash", Easypaisa: "easypaisa" };
+    await supabase.from("payments").insert({
+      receipt_no: receiptNo,
+      customer_id: customerId,
+      amount: paid,
+      method: methodMap[formData.get("payment_method")] || "cash",
+      received_by: user.id,
+      reference: invNo,
+    });
+  }
+
   revalidatePath("/sales");
   revalidatePath("/dashboard");
   revalidatePath("/customers");
@@ -68,11 +135,14 @@ export async function createSale(formData) {
 
 export async function createPayment(formData) {
   const { supabase, user } = await requireUser();
+  const { data: receiptNo } = await supabase.rpc("fn_next_receipt_no");
+  const methodMap = { Cash: "cash", "Bank Transfer": "bank", JazzCash: "jazzcash", Easypaisa: "easypaisa" };
   const { error } = await supabase.from("payments").insert({
+    receipt_no: receiptNo,
     customer_id: formData.get("customer_id"),
     amount: Number(formData.get("amount")),
-    method: formData.get("method"),
-    created_by: user.id,
+    method: methodMap[formData.get("method")] || "cash",
+    received_by: user.id,
   });
   if (error) return { error: error.message };
   revalidatePath("/payments");
@@ -84,11 +154,21 @@ export async function createPayment(formData) {
 
 export async function createExpense(formData) {
   const { supabase, user } = await requireUser();
+  const categoryName = formData.get("category");
+  let { data: category } = await supabase.from("expense_categories").select("id").eq("name", categoryName).maybeSingle();
+  if (!category) {
+    ({ data: category } = await supabase.from("expense_categories").select("id").eq("name", "Other").maybeSingle());
+  }
+  if (!category) return { error: "No expense category configured" };
+  const methodMap = { Cash: "cash", "Bank Transfer": "bank" };
   const { error } = await supabase.from("expenses").insert({
-    category: formData.get("category"),
+    expense_no: genCode("EXP"),
+    category_id: category.id,
     description: formData.get("description"),
     amount: Number(formData.get("amount")),
-    method: formData.get("method"),
+    payment_method: methodMap[formData.get("method")] || "cash",
+    status: "approved",
+    submitted_by: user.id,
     created_by: user.id,
   });
   if (error) return { error: error.message };
@@ -98,46 +178,72 @@ export async function createExpense(formData) {
 }
 
 export async function markDelivered(deliveryId, emptyReceived) {
-  const { supabase } = await requireUser();
-  const { data: d } = await supabase.from("deliveries").select("qty, customer_id, customers(rate)").eq("id", deliveryId).single();
+  const { supabase, user } = await requireUser();
+  const { data: d } = await supabase.from("deliveries").select("delivery_date, customer_id, delivery_items(product_id, expected_qty, unit_price)").eq("id", deliveryId).single();
   if (!d) return { error: "Delivery not found" };
-  const { error } = await supabase.from("deliveries").update({
-    status: "Delivered",
-    empty_received: emptyReceived,
-    cash_collected: d.qty * (d.customers?.rate || 0),
-    updated_at: new Date().toISOString(),
-  }).eq("id", deliveryId);
+
+  const items = [];
+  for (const it of d.delivery_items || []) {
+    const unitPrice = Number(it.unit_price) > 0 ? Number(it.unit_price) : await getEffectiveRate(supabase, d.customer_id, it.product_id);
+    items.push({ product_id: it.product_id, delivered_qty: it.expected_qty, returned_qty: emptyReceived, unit_price: unitPrice });
+  }
+  const total = items.reduce((a, it) => a + it.delivered_qty * it.unit_price, 0);
+  const { data: cashAccount } = await supabase.from("cash_accounts").select("id").eq("is_active", true).limit(1).maybeSingle();
+
+  const { error } = await supabase.rpc("record_delivery_completion", {
+    p_delivery_id: deliveryId,
+    p_items: items,
+    p_status: "delivered",
+    p_amount_collected: total,
+    p_payment_method: "cash",
+    p_cash_account_id: cashAccount?.id || null,
+  });
   if (error) return { error: error.message };
   revalidatePath("/deliveries");
   revalidatePath("/bottles");
+  revalidatePath("/bottle-ledger");
   return { ok: true };
 }
 
+// NOTE: the live schema has no `daily_closings` table (this accounting
+// feature was dropped from the newer schema). To keep the Daily Closing page
+// working without altering the database schema, each closing is recorded as
+// a `cash_transactions` row (type "adjustment", reference_type
+// "daily_closing") on the default cash account, with the reconciliation
+// figures packed into `description` as JSON so the history table can still
+// show them. This is a best-effort workaround, not a real accounting table.
 export async function closeDay(formData) {
   const { supabase, user } = await requireUser();
   const closeDate = formData.get("close_date");
   const openingCash = Number(formData.get("opening_cash")) || 0;
   const actualCash = Number(formData.get("actual_cash"));
 
-  const { data: sales } = await supabase.from("sales").select("total, paid").eq("sale_date", closeDate);
-  const { data: payments } = await supabase.from("payments").select("amount").eq("pay_date", closeDate);
-  const { data: expenses } = await supabase.from("expenses").select("amount").eq("exp_date", closeDate);
+  const { data: invoices } = await supabase.from("invoices").select("net_amount").eq("invoice_date", closeDate);
+  const { data: payments } = await supabase.from("payments").select("amount").eq("payment_date", closeDate);
+  const { data: expenses } = await supabase.from("expenses").select("amount").eq("expense_date", closeDate);
 
-  const salesTotal = (sales || []).reduce((a, s) => a + Number(s.total), 0);
-  const collectionsTotal = (sales || []).reduce((a, s) => a + Number(s.paid), 0) + (payments || []).reduce((a, p) => a + Number(p.amount), 0);
+  const salesTotal = (invoices || []).reduce((a, s) => a + Number(s.net_amount), 0);
+  const collectionsTotal = (payments || []).reduce((a, p) => a + Number(p.amount), 0);
   const expensesTotal = (expenses || []).reduce((a, e) => a + Number(e.amount), 0);
   const expectedCash = openingCash + collectionsTotal - expensesTotal;
   const difference = actualCash - expectedCash;
 
-  const { error } = await supabase.from("daily_closings").upsert({
-    close_date: closeDate, opening_cash: openingCash, sales_total: salesTotal,
-    collections_total: collectionsTotal, expenses_total: expensesTotal,
-    expected_cash: expectedCash, actual_cash: actualCash, difference,
-    status: "Closed", closed_by: user.id, closed_at: new Date().toISOString(),
-  }, { onConflict: "close_date" });
+  const { data: cashAccount } = await supabase.from("cash_accounts").select("id").eq("is_active", true).limit(1).maybeSingle();
+  if (!cashAccount) return { error: "No cash account configured" };
+
+  const summary = JSON.stringify({ close_date: closeDate, opening_cash: openingCash, collections_total: collectionsTotal, expenses_total: expensesTotal, expected_cash: expectedCash, actual_cash: actualCash, difference });
+  const { error } = await supabase.from("cash_transactions").insert({
+    account_id: cashAccount.id,
+    txn_date: closeDate,
+    type: "adjustment",
+    amount: difference,
+    reference_type: "daily_closing",
+    description: summary,
+    created_by: user.id,
+  });
   if (error) return { error: error.message };
 
-  await supabase.from("audit_logs").insert({ user_id: user.id, action: "CLOSE_DAY", module: "daily_closings", new_value: { close_date: closeDate, difference } });
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "CLOSE_DAY", module: "cash_transactions", new_value: { close_date: closeDate, difference } });
   revalidatePath("/accounting/daily-closing");
   return { ok: true, difference, expectedCash };
 }
@@ -145,9 +251,9 @@ export async function closeDay(formData) {
 export async function addVehicle(formData) {
   const { supabase } = await requireUser();
   const { error } = await supabase.from("vehicles").insert({
-    vehicle_no: formData.get("vehicle_no"),
-    vehicle_type: formData.get("vehicle_type"),
-    driver_employee_id: formData.get("driver_employee_id") || null,
+    registration_no: formData.get("vehicle_no"),
+    vehicle_type: formData.get("vehicle_type") || null,
+    assigned_rider_id: formData.get("driver_employee_id") || null,
   });
   if (error) return { error: error.message };
   revalidatePath("/fleet");
@@ -156,13 +262,16 @@ export async function addVehicle(formData) {
 
 export async function addVehicleExpense(formData) {
   const { supabase, user } = await requireUser();
-  const { error } = await supabase.from("vehicle_expenses").insert({
-    vehicle_id: formData.get("vehicle_id"),
-    category: formData.get("category"),
-    amount: Number(formData.get("amount")),
-    notes: formData.get("notes"),
-    created_by: user.id,
-  });
+  const category = formData.get("category");
+  const amount = Number(formData.get("amount"));
+  const vehicleId = formData.get("vehicle_id");
+  const notes = formData.get("notes");
+
+  // The live schema splits vehicle costs into fuel logs and maintenance logs
+  // (there is no single "vehicle_expenses" table any more).
+  const { error } = category === "Fuel"
+    ? await supabase.from("vehicle_fuel_logs").insert({ vehicle_id: vehicleId, cost: amount, created_by: user.id })
+    : await supabase.from("vehicle_maintenance_logs").insert({ vehicle_id: vehicleId, description: notes || category, cost: amount, created_by: user.id });
   if (error) return { error: error.message };
   revalidatePath("/fleet");
   return { ok: true };
@@ -173,8 +282,8 @@ function todayISO2() { return new Date().toISOString().slice(0, 10); }
 
 export async function askAI(question) {
   const { supabase, user } = await requireUser();
-  const { data: profile } = await supabase.from("profiles").select("role, full_name").eq("id", user.id).single();
-  const role = profile.role;
+  const { data: profile } = await supabase.from("profiles").select("full_name, roles(key)").eq("id", user.id).single();
+  const role = profile?.roles?.key;
   const financeAllowed = ["owner", "accountant"].includes(role);
   const ql = question.toLowerCase();
 
@@ -186,78 +295,90 @@ export async function askAI(question) {
 
   if (ql.includes("net profit") || (ql.includes("profit") && ql.includes("why"))) {
     const from = monthStartISO(); const to = todayISO2();
-    const { data: lines } = await supabase.from("journal_lines").select("debit, credit, chart_of_accounts(type), journal_entries!inner(entry_date)").gte("journal_entries.entry_date", from).lte("journal_entries.entry_date", to);
-    const sum = (t, dir) => (lines || []).filter((l) => l.chart_of_accounts?.type === t).reduce((a, l) => a + (dir === "credit" ? Number(l.credit) - Number(l.debit) : Number(l.debit) - Number(l.credit)), 0);
-    const income = sum("INCOME", "credit"), cogs = sum("COGS", "debit"), exp = sum("EXPENSE", "debit");
-    const net = income - cogs - exp;
-    return { text: `This month so far: revenue ${pkrFmt(income)}, COGS ${pkrFmt(cogs)}, expenses ${pkrFmt(exp)} → net profit ${pkrFmt(net)}. This is a heuristic figure from your live journal, not a finalized statement.` };
+    const { data: invoices } = await supabase.from("invoices").select("net_amount").neq("status", "void").gte("invoice_date", from).lte("invoice_date", to);
+    const { data: expenses } = await supabase.from("expenses").select("amount").neq("status", "rejected").gte("expense_date", from).lte("expense_date", to);
+    const income = (invoices || []).reduce((a, i) => a + Number(i.net_amount), 0);
+    const exp = (expenses || []).reduce((a, e) => a + Number(e.amount), 0);
+    const net = income - exp;
+    return { text: `This month so far: revenue ${pkrFmt(income)}, expenses ${pkrFmt(exp)} → net profit ${pkrFmt(net)}. This is a heuristic figure from your live invoices and expenses (the live database has no chart-of-accounts/journal engine), not a finalized statement.` };
   }
   if (ql.includes("receivable") || ql.includes("owe") || ql.includes("outstanding")) {
-    const { data: customers } = await supabase.from("customers").select("name, balance").order("balance", { ascending: false }).limit(5);
+    const { data: customers } = await supabase.from("v_customer_balance").select("name, balance").order("balance", { ascending: false }).limit(5);
     const top = (customers || []).filter((c) => c.balance > 0);
     if (!top.length) return { text: "No outstanding receivables right now." };
     return { text: `Top receivables: ${top.map((c) => `${c.name} (${pkrFmt(c.balance)})`).join(", ")}.` };
   }
   if (ql.includes("inventory value") || ql.includes("stock value")) {
-    const { data: products } = await supabase.from("products").select("name, stock, cost");
-    const total = (products || []).reduce((a, p) => a + p.stock * Number(p.cost), 0);
-    return { text: `Inventory value at cost: ${pkrFmt(total)}, across ${(products || []).length} products.` };
+    const { data: products } = await supabase.from("products").select("id, name");
+    const { data: stock } = await supabase.from("v_bottle_reconciliation").select("product_id, warehouse");
+    const { data: prices } = await supabase.from("product_prices").select("product_id, price");
+    const priceMap = {};
+    (prices || []).forEach((p) => { priceMap[p.product_id] = Number(p.price); });
+    const stockMap = {};
+    (stock || []).forEach((s) => { stockMap[s.product_id] = Number(s.warehouse); });
+    const total = (products || []).reduce((a, p) => a + (stockMap[p.id] || 0) * (priceMap[p.id] || 0), 0);
+    return { text: `Inventory value at current selling price: ${pkrFmt(total)}, across ${(products || []).length} products.` };
   }
   if (ql.includes("collect") && (ql.includes("today") || ql.includes("day"))) {
     const today = todayISO2();
-    const { data: sales } = await supabase.from("sales").select("paid").eq("sale_date", today);
-    const { data: payments } = await supabase.from("payments").select("amount").eq("pay_date", today);
-    const total = (sales || []).reduce((a, s) => a + Number(s.paid), 0) + (payments || []).reduce((a, p) => a + Number(p.amount), 0);
+    const { data: payments } = await supabase.from("payments").select("amount").eq("payment_date", today);
+    const total = (payments || []).reduce((a, p) => a + Number(p.amount), 0);
     return { text: `Collected today: ${pkrFmt(total)}.` };
   }
   if (ql.includes("closing difference") || ql.includes("closing")) {
-    const { data: closing } = await supabase.from("daily_closings").select("*").order("close_date", { ascending: false }).limit(1).maybeSingle();
+    const { data: closing } = await supabase.from("cash_transactions").select("*").eq("reference_type", "daily_closing").order("txn_date", { ascending: false }).limit(1).maybeSingle();
     if (!closing) return { text: "No daily closing has been recorded yet." };
-    return { text: `Last closing (${closing.close_date}): expected ${pkrFmt(closing.expected_cash)}, actual ${pkrFmt(closing.actual_cash)}, difference ${pkrFmt(closing.difference)}.` };
+    let summary = {};
+    try { summary = JSON.parse(closing.description); } catch {}
+    return { text: `Last closing (${closing.txn_date}): expected ${pkrFmt(summary.expected_cash)}, actual ${pkrFmt(summary.actual_cash)}, difference ${pkrFmt(closing.amount)}.` };
   }
   if (ql.includes("bottle liability") || ql.includes("bottle") && ql.includes("liab")) {
-    const { data: customers } = await supabase.from("customers").select("bottles_delivered, bottles_returned");
-    const withCustomers = (customers || []).reduce((a, c) => a + (c.bottles_delivered - c.bottles_returned), 0);
+    const { data: balances } = await supabase.from("v_customer_bottle_balance").select("bottles_with_customer");
+    const withCustomers = (balances || []).reduce((a, b) => a + Number(b.bottles_with_customer), 0);
     return { text: `${withCustomers} bottles are currently with customers, valued at roughly ${pkrFmt(withCustomers * 800)} at replacement cost.` };
   }
   if (ql.includes("zone") && ql.includes("revenue")) {
-    const { data: sales } = await supabase.from("sales").select("total, customers(zone_id, zones(name))");
+    const { data: invoices } = await supabase.from("invoices").select("net_amount, customers(zone_id, zones(name))").neq("status", "void");
     const m = {};
-    (sales || []).forEach((s) => { const z = s.customers?.zones?.name || "Unassigned"; m[z] = (m[z] || 0) + Number(s.total); });
+    (invoices || []).forEach((s) => { const z = s.customers?.zones?.name || "Unassigned"; m[z] = (m[z] || 0) + Number(s.net_amount); });
     const sorted = Object.entries(m).sort((a, b) => b[1] - a[1]);
     if (!sorted.length) return { text: "Insufficient data to answer accurately." };
     return { text: `Top zone by revenue: ${sorted[0][0]} (${pkrFmt(sorted[0][1])}).` };
   }
   if (ql.includes("vehicle") && ql.includes("cost")) {
-    const { data: exp } = await supabase.from("vehicle_expenses").select("amount, vehicles(vehicle_no)");
+    const { data: fuel } = await supabase.from("vehicle_fuel_logs").select("cost, vehicles(registration_no)");
+    const { data: maint } = await supabase.from("vehicle_maintenance_logs").select("cost, vehicles(registration_no)");
     const m = {};
-    (exp || []).forEach((e) => { const v = e.vehicles?.vehicle_no || "Unknown"; m[v] = (m[v] || 0) + Number(e.amount); });
+    [...(fuel || []), ...(maint || [])].forEach((e) => { const v = e.vehicles?.registration_no || "Unknown"; m[v] = (m[v] || 0) + Number(e.cost); });
     const sorted = Object.entries(m).sort((a, b) => b[1] - a[1]);
     if (!sorted.length) return { text: "No vehicle expenses recorded yet." };
     return { text: `Highest-cost vehicle: ${sorted[0][0]} (${pkrFmt(sorted[0][1])} total).` };
   }
   if (ql.includes("driver") && ql.includes("best")) {
-    const { data: deliveries } = await supabase.from("deliveries").select("status, employees(name)");
+    const { data: deliveries } = await supabase.from("deliveries").select("status, profiles!deliveries_rider_id_fkey(full_name)");
     const m = {};
-    (deliveries || []).forEach((d) => { const n = d.employees?.name; if (!n) return; m[n] = m[n] || { done: 0, total: 0 }; m[n].total++; if (d.status === "Delivered") m[n].done++; });
+    (deliveries || []).forEach((d) => { const n = d.profiles?.full_name; if (!n) return; m[n] = m[n] || { done: 0, total: 0 }; m[n].total++; if (d.status === "delivered") m[n].done++; });
     const sorted = Object.entries(m).sort((a, b) => (b[1].done / b[1].total) - (a[1].done / a[1].total));
     if (!sorted.length) return { text: "Insufficient data to answer accurately." };
     return { text: `Best performing driver: ${sorted[0][0]} (${sorted[0][1].done}/${sorted[0][1].total} deliveries completed).` };
   }
   if (ql.includes("inactive")) {
-    const { data: customers } = await supabase.from("customers").select("name, status").neq("status", "Active");
+    const { data: customers } = await supabase.from("customers").select("name").eq("is_active", false);
     if (!customers?.length) return { text: "No inactive or at-risk customers right now." };
     return { text: `Inactive/at-risk: ${customers.map((c) => c.name).join(", ")}.` };
   }
   if (ql.includes("stock") || ql.includes("reorder")) {
-    const { data: products } = await supabase.from("products").select("name, stock, min_stock");
-    const low = (products || []).filter((p) => p.stock < p.min_stock);
+    const { data: products } = await supabase.from("products").select("id, name, low_stock_threshold");
+    const { data: stock } = await supabase.from("v_bottle_reconciliation").select("product_id, warehouse");
+    const stockMap = {};
+    (stock || []).forEach((s) => { stockMap[s.product_id] = Number(s.warehouse); });
+    const low = (products || []).filter((p) => (stockMap[p.id] || 0) < p.low_stock_threshold);
     if (!low.length) return { text: "All products are above their reorder level." };
     return { text: `Reorder recommended: ${low.map((p) => p.name).join(", ")}.` };
   }
   if (ql.includes("sold") || ql.includes("bottles")) {
-    const { data: sales } = await supabase.from("sales").select("qty");
-    const total = (sales || []).reduce((a, s) => a + s.qty, 0);
+    const { data: items } = await supabase.from("invoice_items").select("quantity");
+    const total = (items || []).reduce((a, i) => a + Number(i.quantity), 0);
     return { text: `${total} bottles sold across all recorded invoices.` };
   }
   return { text: "Insufficient data to answer accurately. Try asking about receivables, inventory value, today's collections, or bottle liability." };
@@ -267,15 +388,14 @@ function pkrFmt(n) { return "PKR " + Math.round(Number(n) || 0).toLocaleString("
 export async function bulkImportCustomers(rows) {
   const { supabase, user } = await requireUser();
   const payload = rows.map((r) => ({
+    code: genCode("CUST"),
     name: r.Name || r.name || "Unnamed",
-    phone: String(r.Phone || r.phone || ""),
+    mobile: String(r.Phone || r.phone || ""),
+    whatsapp_number: String(r.Phone || r.phone || ""),
     address: r.Address || "",
     customer_type: r.Type || "Household",
-    rate: Number(r.Rate) || 120,
-    regular_qty: Number(r.Qty) || 2,
-    whatsapp: String(r.Phone || r.phone || ""),
     created_by: user.id,
-  })).filter((r) => r.phone);
+  })).filter((r) => r.mobile);
   const { data, error } = await supabase.from("customers").insert(payload).select("id");
   revalidatePath("/customers");
   return { ok: !error, imported: data?.length || 0, failed: payload.length - (data?.length || 0), error: error?.message };

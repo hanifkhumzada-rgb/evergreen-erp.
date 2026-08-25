@@ -6,11 +6,11 @@ export const dynamic = "force-dynamic";
 
 export default async function PaymentsPage() {
   const supabase = await createClient();
-  const [{ data: payments }, { data: customers }] = await Promise.all([
+  const [{ data: payments }, { data: balances }] = await Promise.all([
     supabase.from("payments").select("*, customers(name)").order("created_at", { ascending: false }).limit(200),
-    supabase.from("customers").select("id, name, balance"),
+    supabase.from("v_customer_balance").select("customer_id, name, balance"),
   ]);
-  const exportRows = (payments || []).map((p) => ({ Date: p.pay_date, Customer: p.customers?.name, Amount: p.amount, Method: p.method }));
+  const exportRows = (payments || []).map((p) => ({ Date: p.payment_date, Customer: p.customers?.name, Amount: p.amount, Method: p.method }));
 
   return (
     <div>
@@ -19,7 +19,7 @@ export default async function PaymentsPage() {
         <div className="flex-1" />
         <ExportExcelButton rows={exportRows} filename="evergreen-payments.xlsx" sheetName="Payments" />
         <PrintButton />
-        <AddPaymentForm customers={customers || []} />
+        <AddPaymentForm customers={(balances || []).map((b) => ({ id: b.customer_id, name: b.name, balance: b.balance }))} />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
@@ -27,7 +27,7 @@ export default async function PaymentsPage() {
           <tbody>
             {(payments || []).length === 0 && <tr><td colSpan={4} className="text-center py-8 text-slate">No payments yet.</td></tr>}
             {(payments || []).map((p) => (
-              <tr key={p.id} className="hover:bg-foam"><Td>{fmtDate(p.pay_date)}</Td><Td>{p.customers?.name}</Td><Td>{pkr(p.amount)}</Td><Td>{p.method}</Td></tr>
+              <tr key={p.id} className="hover:bg-foam"><Td>{fmtDate(p.payment_date)}</Td><Td>{p.customers?.name}</Td><Td>{pkr(p.amount)}</Td><Td>{p.method}</Td></tr>
             ))}
           </tbody>
         </table>

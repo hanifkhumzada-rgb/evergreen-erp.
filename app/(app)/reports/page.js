@@ -1,29 +1,38 @@
 import { createClient } from "@/lib/supabase/server";
 import ReportCard from "@/components/ReportCard";
-import { FileSpreadsheet } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
 export default async function ReportsPage() {
   const supabase = await createClient();
-  const [{ data: sales }, { data: expenses }, { data: customers }, { data: deliveries }, { data: products }, { data: employees }] = await Promise.all([
-    supabase.from("sales").select("*, customers(name)"),
-    supabase.from("expenses").select("*"),
+  const [
+    { data: invoices }, { data: expenses }, { data: customers }, { data: deliveries },
+    { data: products }, { data: employees }, { data: balances }, { data: bottleBalances },
+  ] = await Promise.all([
+    supabase.from("invoices").select("*, customers(name), invoice_items(quantity)"),
+    supabase.from("expenses").select("*, expense_categories(name)"),
     supabase.from("customers").select("*"),
-    supabase.from("deliveries").select("*, customers(name), employees(name)"),
+    supabase.from("deliveries").select("*, customers(name), profiles!deliveries_rider_id_fkey(full_name), delivery_items(delivered_qty)"),
     supabase.from("products").select("*"),
-    supabase.from("employees").select("*"),
+    supabase.from("profiles").select("*, roles!inner(name, key)").neq("roles.key", "customer"),
+    supabase.from("v_customer_balance").select("customer_id, name, balance"),
+    supabase.from("v_customer_bottle_balance").select("customer_id, name, bottles_with_customer"),
   ]);
 
+  const balanceMap = {};
+  (balances || []).forEach((b) => { balanceMap[b.customer_id] = Number(b.balance); });
+  const bottleMap = {};
+  (bottleBalances || []).forEach((b) => { bottleMap[b.customer_id] = (bottleMap[b.customer_id] || 0) + Number(b.bottles_with_customer); });
+
   const reports = [
-    { name: "Sales Report", rows: (sales || []).map(({ id, customer_id, product_id, created_by, ...r }) => ({ ...r, customer: r.customers?.name })) },
-    { name: "Expense Report", rows: (expenses || []).map(({ id, created_by, ...r }) => r) },
-    { name: "Customer Ledger", rows: (customers || []).map((c) => ({ Customer: c.name, Balance: c.balance, CreditLimit: c.credit_limit })) },
-    { name: "Delivery Report", rows: (deliveries || []).map((d) => ({ Date: d.del_date, Customer: d.customers?.name, DeliveryBoy: d.employees?.name, Qty: d.qty, Status: d.status })) },
-    { name: "Bottle Report", rows: (customers || []).map((c) => ({ Customer: c.name, Delivered: c.bottles_delivered, Returned: c.bottles_returned, Balance: c.bottles_delivered - c.bottles_returned })) },
-    { name: "Inventory Report", rows: (products || []).map(({ id, active, ...r }) => r) },
-    { name: "Employee Performance", rows: (employees || []).map(({ id, user_id, zone_id, ...r }) => r) },
-    { name: "Receivables Report", rows: (customers || []).filter((c) => c.balance > 0).map((c) => ({ Customer: c.name, Phone: c.phone, Outstanding: c.balance })) },
+    { name: "Sales Report", rows: (invoices || []).map((s) => ({ Invoice: s.invoice_no, Date: s.invoice_date, Customer: s.customers?.name, Qty: (s.invoice_items || []).reduce((a, i) => a + Number(i.quantity), 0), Total: s.net_amount, Status: s.status })) },
+    { name: "Expense Report", rows: (expenses || []).map((e) => ({ Date: e.expense_date, Category: e.expense_categories?.name, Description: e.description, Amount: e.amount, Method: e.payment_method })) },
+    { name: "Customer Ledger", rows: (customers || []).map((c) => ({ Customer: c.name, Balance: balanceMap[c.id] || 0, CreditLimit: c.credit_limit })) },
+    { name: "Delivery Report", rows: (deliveries || []).map((d) => ({ Date: d.delivery_date, Customer: d.customers?.name, DeliveryBoy: d.profiles?.full_name, Qty: (d.delivery_items || []).reduce((a, i) => a + Number(i.delivered_qty), 0), Status: d.status })) },
+    { name: "Bottle Report", rows: (customers || []).map((c) => ({ Customer: c.name, Balance: bottleMap[c.id] || 0 })) },
+    { name: "Inventory Report", rows: (products || []).map(({ id, is_active, ...r }) => r) },
+    { name: "Employee Performance", rows: (employees || []).map((e) => ({ Name: e.full_name, Role: e.roles?.name, EmployeeCode: e.employee_code })) },
+    { name: "Receivables Report", rows: (customers || []).filter((c) => (balanceMap[c.id] || 0) > 0).map((c) => ({ Customer: c.name, Phone: c.mobile, Outstanding: balanceMap[c.id] || 0 })) },
   ];
 
   return (

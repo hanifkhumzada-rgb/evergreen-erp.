@@ -42,7 +42,6 @@ export default function AddCustomerForm({ zones }) {
               </select>
             </Field>
             <Field label="Rate per bottle (PKR)"><input name="rate" type="number" defaultValue={120} className="in" /></Field>
-            <Field label="Regular quantity"><input name="regular_qty" type="number" defaultValue={2} className="in" /></Field>
             <Field label="Address"><input name="address" className="in" /></Field>
             <button type="submit" className="w-full py-2.5 rounded-lg bg-aqua text-white font-bold text-sm mt-2">Save Customer</button>
           </form>

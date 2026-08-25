@@ -6,8 +6,14 @@ export const dynamic = "force-dynamic";
 
 export default async function LedgerPage() {
   const supabase = await createClient();
-  const { data: customers } = await supabase.from("customers").select("*").order("name");
-  const exportRows = (customers || []).map((c) => ({ Customer: c.name, Opening: c.opening_balance, CurrentBalance: c.balance, CreditLimit: c.credit_limit }));
+  const [{ data: customers }, { data: balances }] = await Promise.all([
+    supabase.from("customers").select("*").order("name"),
+    supabase.from("v_customer_balance").select("customer_id, balance"),
+  ]);
+  const balanceMap = {};
+  (balances || []).forEach((b) => { balanceMap[b.customer_id] = Number(b.balance); });
+  const rows = (customers || []).map((c) => ({ ...c, balance: balanceMap[c.id] || 0 }));
+  const exportRows = rows.map((c) => ({ Customer: c.name, Opening: c.opening_balance, CurrentBalance: c.balance, CreditLimit: c.credit_limit }));
 
   return (
     <div>
@@ -21,7 +27,7 @@ export default async function LedgerPage() {
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>Customer</Th><Th>Opening</Th><Th>Current Balance</Th><Th>Credit Limit</Th></tr></thead>
           <tbody>
-            {(customers || []).map((c) => (
+            {rows.map((c) => (
               <tr key={c.id} className="hover:bg-foam">
                 <Td><Link href={`/customers/${c.id}`} className="font-semibold text-navy hover:text-aqua">{c.name}</Link></Td>
                 <Td>{pkr(c.opening_balance)}</Td>

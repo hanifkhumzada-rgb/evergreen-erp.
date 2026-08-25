@@ -3,7 +3,7 @@ import { useState, useRef } from "react";
 import { Plus, X } from "lucide-react";
 import { createExpense } from "@/app/actions";
 
-const CATS = ["Fuel","Labour","Filling","Caps","Maintenance","Electricity","Rent","Salaries","Packaging","Repairs","Marketing","Other"];
+const CATS = ["Bottle Purchase","Caps","Delivery Expenses","Electricity","Fuel","Labour","Marketing","Office","Packaging","Rent","Repairs","Salaries","Vehicle Maintenance","Other"];
 
 export default function AddExpenseForm() {
   const [open, setOpen] = useState(false);

@@ -4,16 +4,19 @@ import { Badge, ExportExcelButton, PrintButton, Th, Td, pkr, fmtDate } from "@/c
 import AddSaleForm from "@/components/AddSaleForm";
 
 export const dynamic = "force-dynamic";
+const STATUS_LABEL = { paid: "Paid", partially_paid: "Partially Paid", sent: "Pending", draft: "Draft", overdue: "Overdue", void: "Void" };
+const STATUS_TONE = { paid: "green", partially_paid: "amber", sent: "coral", draft: "slate", overdue: "coral", void: "slate" };
 
 export default async function SalesPage() {
   const supabase = await createClient();
-  const [{ data: sales }, { data: customers }] = await Promise.all([
-    supabase.from("sales").select("*, customers(name)").order("created_at", { ascending: false }).limit(200),
-    supabase.from("customers").select("id, name, rate"),
+  const [{ data: invoices }, { data: customers }] = await Promise.all([
+    supabase.from("invoices").select("*, customers(name), invoice_items(quantity)").order("created_at", { ascending: false }).limit(200),
+    supabase.from("customers").select("id, name"),
   ]);
 
-  const exportRows = (sales || []).map((s) => ({
-    Invoice: s.invoice_no, Date: s.sale_date, Customer: s.customers?.name, Qty: s.qty, Total: s.total, Status: s.payment_status,
+  const qtyOf = (s) => (s.invoice_items || []).reduce((a, i) => a + Number(i.quantity), 0);
+  const exportRows = (invoices || []).map((s) => ({
+    Invoice: s.invoice_no, Date: s.invoice_date, Customer: s.customers?.name, Qty: qtyOf(s), Total: s.net_amount, Status: STATUS_LABEL[s.status] || s.status,
   }));
 
   return (
@@ -29,15 +32,15 @@ export default async function SalesPage() {
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>Invoice #</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Total</Th><Th>Status</Th></tr></thead>
           <tbody>
-            {(sales || []).length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate">No sales yet.</td></tr>}
-            {(sales || []).map((s) => (
+            {(invoices || []).length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate">No sales yet.</td></tr>}
+            {(invoices || []).map((s) => (
               <tr key={s.id} className="hover:bg-foam">
                 <Td><Link href={`/sales/${s.id}`} className="font-semibold text-navy hover:text-aqua">{s.invoice_no}</Link></Td>
-                <Td>{fmtDate(s.sale_date)}</Td>
+                <Td>{fmtDate(s.invoice_date)}</Td>
                 <Td>{s.customers?.name}</Td>
-                <Td>{s.qty}</Td>
-                <Td>{pkr(s.total)}</Td>
-                <Td><Badge text={s.payment_status} tone={s.payment_status === "Paid" ? "green" : s.payment_status === "Pending" ? "coral" : "amber"} /></Td>
+                <Td>{qtyOf(s)}</Td>
+                <Td>{pkr(s.net_amount)}</Td>
+                <Td><Badge text={STATUS_LABEL[s.status] || s.status} tone={STATUS_TONE[s.status] || "slate"} /></Td>
               </tr>
             ))}
           </tbody>

@@ -15,7 +15,7 @@ const GROUPS = [
       { href: "/dashboard", label: "Dashboard", icon: Home, roles: ["owner", "manager", "accountant"] },
       { href: "/customers", label: "Customers", icon: Users, roles: ["owner", "manager"] },
       { href: "/sales", label: "Sales", icon: ShoppingCart, roles: ["owner", "manager", "accountant"] },
-      { href: "/deliveries", label: "Deliveries", icon: Truck, roles: ["owner", "manager", "delivery_boy"] },
+      { href: "/deliveries", label: "Deliveries", icon: Truck, roles: ["owner", "manager", "rider"] },
       { href: "/inventory", label: "Inventory", icon: Package, roles: ["owner", "manager"] },
       { href: "/bottle-ledger", label: "Bottle Ledger", icon: Droplet, roles: ["owner", "manager"] },
       { href: "/fleet", label: "Fleet", icon: Car, roles: ["owner", "manager"] },

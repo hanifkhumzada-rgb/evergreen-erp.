@@ -32,7 +32,7 @@ export default function AddSaleForm({ customers }) {
             <label className="block mb-3">
               <span className="text-xs font-semibold text-slate block mb-1">Customer</span>
               <select name="customer_id" required className="in">
-                {customers.map((c) => <option key={c.id} value={c.id}>{c.name} — {c.rate}/bottle</option>)}
+                {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </label>
             <label className="block mb-3">

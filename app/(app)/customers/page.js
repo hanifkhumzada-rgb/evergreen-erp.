@@ -8,13 +8,18 @@ export const dynamic = "force-dynamic";
 
 export default async function CustomersPage() {
   const supabase = await createClient();
-  const [{ data: customers }, { data: zones }] = await Promise.all([
+  const [{ data: customers }, { data: zones }, { data: balances }] = await Promise.all([
     supabase.from("customers").select("*, zones(name)").order("created_at", { ascending: false }),
     supabase.from("zones").select("*"),
+    supabase.from("v_customer_balance").select("customer_id, balance"),
   ]);
 
-  const exportRows = (customers || []).map((c) => ({
-    Name: c.name, Phone: c.phone, Zone: c.zones?.name, Type: c.customer_type, Balance: c.balance, Status: c.status,
+  const balanceMap = {};
+  (balances || []).forEach((b) => { balanceMap[b.customer_id] = Number(b.balance); });
+  const rows = (customers || []).map((c) => ({ ...c, balance: balanceMap[c.id] || 0 }));
+
+  const exportRows = rows.map((c) => ({
+    Name: c.name, Phone: c.mobile, Zone: c.zones?.name, Type: c.customer_type, Balance: c.balance, Status: c.is_active ? "Active" : "Inactive",
   }));
 
   return (
@@ -31,15 +36,15 @@ export default async function CustomersPage() {
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>Name</Th><Th>Phone</Th><Th>Zone</Th><Th>Type</Th><Th>Balance</Th><Th>Status</Th></tr></thead>
           <tbody>
-            {(customers || []).length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate">No customers yet.</td></tr>}
-            {(customers || []).map((c) => (
+            {rows.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate">No customers yet.</td></tr>}
+            {rows.map((c) => (
               <tr key={c.id} className="hover:bg-foam">
                 <Td><Link href={`/customers/${c.id}`} className="font-semibold text-navy hover:text-aqua">{c.name}</Link></Td>
-                <Td>{c.phone}</Td>
+                <Td>{c.mobile}</Td>
                 <Td>{c.zones?.name || "—"}</Td>
                 <Td>{c.customer_type}</Td>
                 <Td><span className={c.balance > 0 ? "text-coral font-semibold" : "text-green font-semibold"}>{pkr(c.balance)}</span></Td>
-                <Td><Badge text={c.status} tone={c.status === "Active" ? "green" : c.status === "At Risk" ? "amber" : "slate"} /></Td>
+                <Td><Badge text={c.is_active ? "Active" : "Inactive"} tone={c.is_active ? "green" : "slate"} /></Td>
               </tr>
             ))}
           </tbody>

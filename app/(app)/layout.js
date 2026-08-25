@@ -8,7 +8,7 @@ export default async function AppLayout({ children }) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase.from("profiles").select("*").eq("id", user.id).single();
+  const { data: profile } = await supabase.from("profiles").select("*, roles(key, name)").eq("id", user.id).single();
 
   if (!profile) {
     return (
@@ -24,11 +24,11 @@ export default async function AppLayout({ children }) {
     );
   }
 
-  const roleLabel = { owner: "Owner", manager: "Manager", accountant: "Accountant", delivery_boy: "Delivery Boy" }[profile.role];
+  const roleLabel = profile.roles?.name || "—";
 
   return (
     <div className="min-h-screen bg-foam flex">
-      <Sidebar role={profile.role} />
+      <Sidebar role={profile.roles?.key} />
       <div className="flex-1 min-w-0 flex flex-col">
         <div className="no-print flex items-center justify-between px-6 py-3.5 border-b border-line bg-white">
           <div className="text-sm text-slate">Live data — Evergreen Plus Water</div>

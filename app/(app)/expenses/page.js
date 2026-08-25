@@ -6,8 +6,8 @@ export const dynamic = "force-dynamic";
 
 export default async function ExpensesPage() {
   const supabase = await createClient();
-  const { data: expenses } = await supabase.from("expenses").select("*").order("created_at", { ascending: false }).limit(200);
-  const exportRows = (expenses || []).map(({ id, created_by, ...r }) => r);
+  const { data: expenses } = await supabase.from("expenses").select("*, expense_categories(name)").order("created_at", { ascending: false }).limit(200);
+  const exportRows = (expenses || []).map((e) => ({ Date: e.expense_date, Category: e.expense_categories?.name, Description: e.description, Amount: e.amount, Method: e.payment_method }));
 
   return (
     <div>
@@ -24,7 +24,7 @@ export default async function ExpensesPage() {
           <tbody>
             {(expenses || []).length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate">No expenses yet.</td></tr>}
             {(expenses || []).map((e) => (
-              <tr key={e.id} className="hover:bg-foam"><Td>{fmtDate(e.exp_date)}</Td><Td>{e.category}</Td><Td>{e.description}</Td><Td>{pkr(e.amount)}</Td><Td>{e.method}</Td></tr>
+              <tr key={e.id} className="hover:bg-foam"><Td>{fmtDate(e.expense_date)}</Td><Td>{e.expense_categories?.name}</Td><Td>{e.description}</Td><Td>{pkr(e.amount)}</Td><Td>{e.payment_method}</Td></tr>
             ))}
           </tbody>
         </table>

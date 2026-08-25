@@ -6,14 +6,14 @@ export const dynamic = "force-dynamic";
 export default async function EmployeesPage() {
   const supabase = await createClient();
   const [{ data: employees }, { data: deliveries }] = await Promise.all([
-    supabase.from("employees").select("*"),
-    supabase.from("deliveries").select("employee_id, status, cash_collected"),
+    supabase.from("profiles").select("*, roles!inner(name, key)").neq("roles.key", "customer"),
+    supabase.from("deliveries").select("rider_id, status, amount_collected"),
   ]);
   const perf = (employees || []).map((e) => {
-    const d = (deliveries || []).filter((x) => x.employee_id === e.id);
-    return { ...e, assigned: d.length, done: d.filter((x) => x.status === "Delivered").length, cash: d.reduce((a, x) => a + Number(x.cash_collected), 0) };
+    const d = (deliveries || []).filter((x) => x.rider_id === e.id);
+    return { ...e, role_name: e.roles?.name, assigned: d.length, done: d.filter((x) => x.status === "delivered").length, cash: d.reduce((a, x) => a + Number(x.amount_collected), 0) };
   });
-  const exportRows = perf.map(({ id, user_id, zone_id, ...r }) => r);
+  const exportRows = perf.map((r) => ({ Name: r.full_name, Role: r.role_name, DeliveriesAssigned: r.assigned, Completed: r.done, CashCollected: r.cash }));
 
   return (
     <div>
@@ -28,7 +28,7 @@ export default async function EmployeesPage() {
           <thead><tr className="bg-foam"><Th>Name</Th><Th>Role</Th><Th>Deliveries Assigned</Th><Th>Completed</Th><Th>Cash Collected</Th></tr></thead>
           <tbody>
             {perf.length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate">No employees yet.</td></tr>}
-            {perf.map((e) => <tr key={e.id} className="hover:bg-foam"><Td>{e.name}</Td><Td>{e.role}</Td><Td>{e.assigned}</Td><Td>{e.done}</Td><Td>{pkr(e.cash)}</Td></tr>)}
+            {perf.map((e) => <tr key={e.id} className="hover:bg-foam"><Td>{e.full_name}</Td><Td>{e.role_name}</Td><Td>{e.assigned}</Td><Td>{e.done}</Td><Td>{pkr(e.cash)}</Td></tr>)}
           </tbody>
         </table>
       </div>
