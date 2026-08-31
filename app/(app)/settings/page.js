@@ -12,7 +12,6 @@ export default function SettingsPage() {
           customers and cash accounts, with a heuristic Profit &amp; Loss calculated live from invoices and expenses.
         </p>
         <div className="mt-3.5 flex flex-col gap-1.5">
-          <Badge text="Full chart-of-accounts / double-entry journal engine (Trial Balance, Balance Sheet) — Coming Soon" tone="slate" />
           <Badge text="Bottle deposit liability — tracked, but not yet auto-posted as a journal entry" tone="slate" />
           <Badge text="Granular per-action permissions (view/create/edit/approve/export) — Coming Soon, role-level only for now" tone="slate" />
           <Badge text="Route performance & driver on-time % — Coming Soon" tone="slate" />
