@@ -407,3 +407,107 @@ export async function refreshAlerts() {
   revalidatePath("/notifications");
   return { ok: !error, error: error?.message };
 }
+
+const METHOD_MAP = { Cash: "cash", "Bank Transfer": "bank", JazzCash: "jazzcash", Easypaisa: "easypaisa" };
+
+async function findCustomerId(supabase, r) {
+  const phone = String(r.Phone || r.phone || r.CustomerPhone || "").trim();
+  const name = String(r.Name || r.name || r.Customer || r.CustomerName || "").trim();
+  if (phone) {
+    const { data } = await supabase.from("customers").select("id").eq("mobile", phone).maybeSingle();
+    if (data) return data.id;
+  }
+  if (name) {
+    const { data } = await supabase.from("customers").select("id").ilike("name", name).limit(1).maybeSingle();
+    if (data) return data.id;
+  }
+  return null;
+}
+
+export async function bulkImportPayments(rows) {
+  const { supabase, user } = await requireUser();
+  let imported = 0, failed = 0;
+  for (const r of rows) {
+    const customerId = await findCustomerId(supabase, r);
+    const amount = Number(r.Amount || r.amount);
+    if (!customerId || !amount) { failed++; continue; }
+    const { data: receiptNo } = await supabase.rpc("fn_next_receipt_no");
+    const { error } = await supabase.from("payments").insert({
+      receipt_no: receiptNo,
+      customer_id: customerId,
+      amount,
+      payment_date: r.Date || r.date || undefined,
+      method: METHOD_MAP[r.Method || r.method] || "cash",
+      received_by: user.id,
+    });
+    if (error) failed++; else imported++;
+  }
+  revalidatePath("/payments");
+  revalidatePath("/dashboard");
+  revalidatePath("/ledger");
+  return { ok: true, imported, failed };
+}
+
+export async function bulkImportExpenses(rows) {
+  const { supabase, user } = await requireUser();
+  let imported = 0, failed = 0;
+  for (const r of rows) {
+    const amount = Number(r.Amount || r.amount);
+    const categoryName = String(r.Category || r.category || "Other").trim();
+    if (!amount) { failed++; continue; }
+    let { data: category } = await supabase.from("expense_categories").select("id").ilike("name", categoryName).maybeSingle();
+    if (!category) ({ data: category } = await supabase.from("expense_categories").select("id").eq("name", "Other").maybeSingle());
+    if (!category) { failed++; continue; }
+    const { error } = await supabase.from("expenses").insert({
+      expense_no: genCode("EXP"),
+      category_id: category.id,
+      description: r.Description || r.description || "",
+      amount,
+      expense_date: r.Date || r.date || undefined,
+      payment_method: METHOD_MAP[r.Method || r.method] || "cash",
+      status: "approved",
+      submitted_by: user.id,
+      created_by: user.id,
+    });
+    if (error) failed++; else imported++;
+  }
+  revalidatePath("/expenses");
+  revalidatePath("/dashboard");
+  return { ok: true, imported, failed };
+}
+
+export async function bulkImportSales(rows) {
+  const { supabase, user } = await requireUser();
+  const productId = await getDefaultProduct(supabase);
+  let imported = 0, failed = 0;
+  for (const r of rows) {
+    const customerId = await findCustomerId(supabase, r);
+    const qty = Number(r.Qty || r.qty);
+    const paid = Number(r.Paid || r.paid) || 0;
+    if (!customerId || !qty || !productId) { failed++; continue; }
+    const rate = await getEffectiveRate(supabase, customerId, productId);
+    const total = qty * rate;
+    const { data: invNo } = await supabase.rpc("fn_next_invoice_no");
+    const status = paid >= total && total > 0 ? "paid" : paid > 0 ? "partially_paid" : "sent";
+    const { data: invoice, error } = await supabase.from("invoices").insert({
+      invoice_no: invNo, customer_id: customerId, invoice_date: r.Date || r.date || undefined,
+      subtotal: total, discount: 0, tax: 0, net_amount: total, status, created_by: user.id,
+    }).select("id").single();
+    if (error) { failed++; continue; }
+    await supabase.from("invoice_items").insert({
+      invoice_id: invoice.id, product_id: productId, description: "19L Bottle", quantity: qty, rate, discount: 0,
+    });
+    if (paid > 0) {
+      const { data: receiptNo } = await supabase.rpc("fn_next_receipt_no");
+      await supabase.from("payments").insert({
+        receipt_no: receiptNo, customer_id: customerId, amount: paid,
+        method: METHOD_MAP[r.Method || r.method] || "cash", received_by: user.id, reference: invNo,
+      });
+    }
+    imported++;
+  }
+  revalidatePath("/sales");
+  revalidatePath("/dashboard");
+  revalidatePath("/customers");
+  return { ok: true, imported, failed };
+}

@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { ExportExcelButton, PrintButton, Th, Td, pkr, fmtDate } from "@/components/ui";
 import AddExpenseForm from "@/components/AddExpenseForm";
+import BulkImportButton from "@/components/BulkImportButton";
+import { bulkImportExpenses } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +16,12 @@ export default async function ExpensesPage() {
       <h2 className="font-display text-2xl font-semibold mb-4">Expenses</h2>
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
+        <BulkImportButton
+          label="Bulk Import"
+          columnsHint="Category, Description, Amount, Date, Method"
+          action={bulkImportExpenses}
+          previewLine={(r) => `${r.Category || r.category} — ${r.Amount || r.amount}`}
+        />
         <ExportExcelButton rows={exportRows} filename="evergreen-expenses.xlsx" sheetName="Expenses" />
         <PrintButton />
         <AddExpenseForm />

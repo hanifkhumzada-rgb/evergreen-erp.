@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { ExportExcelButton, PrintButton, Th, Td, pkr, fmtDate } from "@/components/ui";
 import AddPaymentForm from "@/components/AddPaymentForm";
+import BulkImportButton from "@/components/BulkImportButton";
+import { bulkImportPayments } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +19,12 @@ export default async function PaymentsPage() {
       <h2 className="font-display text-2xl font-semibold mb-4">Payments</h2>
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
+        <BulkImportButton
+          label="Bulk Import"
+          columnsHint="Phone (or Name), Amount, Date, Method"
+          action={bulkImportPayments}
+          previewLine={(r) => `${r.Name || r.name || r.Phone || r.phone} — ${r.Amount || r.amount}`}
+        />
         <ExportExcelButton rows={exportRows} filename="evergreen-payments.xlsx" sheetName="Payments" />
         <PrintButton />
         <AddPaymentForm customers={(balances || []).map((b) => ({ id: b.customer_id, name: b.name, balance: b.balance }))} />
