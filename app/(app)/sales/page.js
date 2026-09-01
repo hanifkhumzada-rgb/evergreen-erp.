@@ -30,6 +30,7 @@ export default async function SalesPage() {
           label="Bulk Import"
           columnsHint="Phone (or Name), Qty, Paid, Date, Method"
           action={bulkImportSales}
+          sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Qty: 5, Paid: 500, Date: "2026-08-31", Method: "Cash" }}
           previewLine={(r) => `${r.Name || r.name || r.Phone || r.phone} — Qty ${r.Qty || r.qty}${r.Paid ? `, Paid ${r.Paid}` : ""}`}
         />
         <ExportExcelButton rows={exportRows} filename="evergreen-sales.xlsx" sheetName="Sales" />

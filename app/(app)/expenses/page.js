@@ -20,6 +20,7 @@ export default async function ExpensesPage() {
           label="Bulk Import"
           columnsHint="Category, Description, Amount, Date, Method"
           action={bulkImportExpenses}
+          sampleRow={{ Category: "Fuel", Description: "Bike fuel", Amount: 500, Date: "2026-08-31", Method: "Cash" }}
           previewLine={(r) => `${r.Category || r.category} — ${r.Amount || r.amount}`}
         />
         <ExportExcelButton rows={exportRows} filename="evergreen-expenses.xlsx" sheetName="Expenses" />

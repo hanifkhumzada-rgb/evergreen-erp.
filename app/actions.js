@@ -511,3 +511,96 @@ export async function bulkImportSales(rows) {
   revalidatePath("/customers");
   return { ok: true, imported, failed };
 }
+
+// Bulk delivery upload logs PAST/completed deliveries (historical entry) —
+// each row becomes a delivered record with bottle transactions and cash
+// collected, exactly as if a rider had completed it via the app.
+export async function bulkImportDeliveries(rows) {
+  const { supabase, user } = await requireUser();
+  const productId = await getDefaultProduct(supabase);
+  const { data: cashAccount } = await supabase.from("cash_accounts").select("id").eq("is_active", true).limit(1).maybeSingle();
+  let imported = 0, failed = 0;
+  for (const r of rows) {
+    const customerId = await findCustomerId(supabase, r);
+    const qty = Number(r.Qty || r.qty);
+    if (!customerId || !qty || !productId) { failed++; continue; }
+    const rate = await getEffectiveRate(supabase, customerId, productId);
+    const cashCollected = r.CashCollected != null && r.CashCollected !== "" ? Number(r.CashCollected) : qty * rate;
+
+    const { data: delivery, error } = await supabase.from("deliveries").insert({
+      delivery_no: genCode("DEL"),
+      customer_id: customerId,
+      delivery_date: r.Date || r.date || undefined,
+      status: "delivered",
+      amount: qty * rate,
+      amount_collected: cashCollected,
+      payment_method: "cash",
+      delivered_at: new Date().toISOString(),
+      created_by: user.id,
+    }).select("id").single();
+    if (error) { failed++; continue; }
+
+    await supabase.from("delivery_items").insert({
+      delivery_id: delivery.id, product_id: productId, expected_qty: qty, delivered_qty: qty, returned_qty: qty, unit_price: rate,
+    });
+    await supabase.from("bottle_transactions").insert({
+      txn_date: r.Date || r.date || undefined, product_id: productId, quantity: qty,
+      from_state: "with_rider", to_state: "with_customer", customer_id: customerId,
+      reference_type: "delivery", reference_id: delivery.id, created_by: user.id,
+    });
+    if (cashCollected > 0 && cashAccount) {
+      await supabase.from("cash_transactions").insert({
+        account_id: cashAccount.id, txn_date: r.Date || r.date || undefined, type: "receipt",
+        amount: cashCollected, reference_type: "delivery", reference_id: delivery.id,
+        description: "Bulk-imported delivery collection", created_by: user.id,
+      });
+    }
+    imported++;
+  }
+  revalidatePath("/deliveries");
+  revalidatePath("/bottles");
+  revalidatePath("/bottle-ledger");
+  revalidatePath("/dashboard");
+  return { ok: true, imported, failed };
+}
+
+export async function bulkImportPurchases(rows) {
+  const { supabase, user } = await requireUser();
+  let imported = 0, failed = 0;
+  for (const r of rows) {
+    const supplierName = String(r.Supplier || r.supplier || "").trim();
+    const itemName = String(r.Item || r.item || "").trim();
+    const qty = Number(r.Qty || r.qty);
+    const rate = Number(r.Rate || r.rate);
+    if (!supplierName || !itemName || !qty || !rate) { failed++; continue; }
+
+    let { data: supplier } = await supabase.from("suppliers").select("id").ilike("name", supplierName).maybeSingle();
+    if (!supplier) {
+      const { data: newSupplier } = await supabase.from("suppliers").insert({ name: supplierName }).select("id").single();
+      supplier = newSupplier;
+    }
+    if (!supplier) { failed++; continue; }
+
+    let { data: invItem } = await supabase.from("inventory_items").select("id").ilike("name", itemName).maybeSingle();
+    if (!invItem) {
+      const { data: newItem } = await supabase.from("inventory_items").insert({ name: itemName, unit: "unit" }).select("id").single();
+      invItem = newItem;
+    }
+    if (!invItem) { failed++; continue; }
+
+    const { data: purchase, error } = await supabase.from("purchases").insert({
+      purchase_no: genCode("PUR"), supplier_id: supplier.id, purchase_date: r.Date || r.date || undefined,
+      status: "received", created_by: user.id,
+    }).select("id").single();
+    if (error) { failed++; continue; }
+
+    await supabase.from("purchase_items").insert({ purchase_id: purchase.id, inventory_item_id: invItem.id, quantity: qty, rate, discount: 0 });
+    await supabase.from("inventory_movements").insert({
+      item_id: invItem.id, movement_type: "purchase", quantity: qty, unit_cost: rate,
+      reference_type: "purchase", reference_id: purchase.id, created_by: user.id,
+    });
+    imported++;
+  }
+  revalidatePath("/inventory");
+  return { ok: true, imported, failed };
+}

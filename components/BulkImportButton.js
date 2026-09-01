@@ -1,13 +1,20 @@
 "use client";
 import { useRef, useState } from "react";
 import * as XLSX from "xlsx";
-import { Upload, X } from "lucide-react";
+import { Upload, Download, X } from "lucide-react";
 
-export default function BulkImportButton({ label = "Import Excel", columnsHint, action, previewLine }) {
+export default function BulkImportButton({ label = "Import Excel", columnsHint, sampleRow, action, previewLine }) {
   const fileRef = useRef();
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
+
+  const downloadTemplate = () => {
+    const ws = XLSX.utils.json_to_sheet([sampleRow || {}]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
+    XLSX.writeFile(wb, `${label.replace(/\s+/g, "-").toLowerCase()}-template.xlsx`);
+  };
 
   const handleFile = (file) => {
     const reader = new FileReader();
@@ -35,6 +42,9 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
     <>
       <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
         onChange={(e) => { if (e.target.files[0]) handleFile(e.target.files[0]); e.target.value = ""; }} />
+      <button onClick={downloadTemplate} className="no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-white text-xs font-semibold" title="Download a starter Excel template">
+        <Download size={14} />
+      </button>
       <button onClick={() => fileRef.current.click()} className="no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-white text-xs font-semibold">
         <Upload size={14} /> {label}
       </button>
@@ -47,7 +57,12 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
               <button onClick={() => setPreview(null)}><X size={18} /></button>
             </div>
             <p className="text-sm mb-2">{preview.rows.length} rows found.</p>
-            <p className="text-xs text-slate mb-3">Expected columns: {columnsHint}</p>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs text-slate">Expected columns: {columnsHint}</p>
+              <button type="button" onClick={downloadTemplate} className="flex items-center gap-1 text-xs text-aqua font-semibold flex-shrink-0 ml-2">
+                <Download size={12} /> Template
+              </button>
+            </div>
             <div className="max-h-48 overflow-y-auto border border-line rounded-lg mb-4 text-xs">
               {preview.rows.slice(0, 20).map((r, i) => (
                 <div key={i} className="px-3 py-1.5 border-b border-line">{previewLine ? previewLine(r) : JSON.stringify(r)}</div>

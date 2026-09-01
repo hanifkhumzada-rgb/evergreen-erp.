@@ -23,6 +23,7 @@ export default async function PaymentsPage() {
           label="Bulk Import"
           columnsHint="Phone (or Name), Amount, Date, Method"
           action={bulkImportPayments}
+          sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Amount: 1000, Date: "2026-08-31", Method: "Cash" }}
           previewLine={(r) => `${r.Name || r.name || r.Phone || r.phone} — ${r.Amount || r.amount}`}
         />
         <ExportExcelButton rows={exportRows} filename="evergreen-payments.xlsx" sheetName="Payments" />

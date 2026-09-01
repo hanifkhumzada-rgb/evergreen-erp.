@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { Badge, ExportExcelButton, PrintButton, Th, Td, pkr, fmtDate } from "@/components/ui";
 import MarkDeliveredButton from "@/components/MarkDeliveredButton";
+import BulkImportButton from "@/components/BulkImportButton";
+import { bulkImportDeliveries } from "@/app/actions";
 import { Phone, MessageCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +55,13 @@ export default async function DeliveriesPage() {
       <h2 className="font-display text-2xl font-semibold mb-4">Deliveries</h2>
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
+        <BulkImportButton
+          label="Bulk Import"
+          columnsHint="Phone (or Name), Qty, CashCollected, Date"
+          action={bulkImportDeliveries}
+          sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Qty: 5, CashCollected: 600, Date: "2026-08-31" }}
+          previewLine={(r) => `${r.Name || r.name || r.Phone || r.phone} — Qty ${r.Qty || r.qty}`}
+        />
         <ExportExcelButton rows={exportRows} filename="evergreen-deliveries.xlsx" sheetName="Deliveries" />
         <PrintButton />
       </div>
