@@ -39,7 +39,7 @@ export function ExportExcelButton({ rows, filename, sheetName = "Sheet1" }) {
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
         XLSX.writeFile(wb, filename.endsWith(".xlsx") ? filename : filename + ".xlsx");
       }}
-      className="no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-white text-xs font-semibold"
+      className="no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold"
     >
       <FileSpreadsheet size={14} /> Export Excel
     </button>
@@ -48,7 +48,7 @@ export function ExportExcelButton({ rows, filename, sheetName = "Sheet1" }) {
 
 export function PrintButton() {
   return (
-    <button onClick={() => window.print()} className="no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-white text-xs font-semibold">
+    <button onClick={() => window.print()} className="no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold">
       <Printer size={14} /> Export PDF
     </button>
   );

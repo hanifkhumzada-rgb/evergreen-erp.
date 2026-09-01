@@ -55,7 +55,7 @@ export default async function InvoicePage({ params }) {
           <PrintButton />
           {c?.whatsapp_number && (
             <a href={`https://wa.me/${c.whatsapp_number.replace(/^0/, "92")}?text=${encodeURIComponent(`Invoice ${s.invoice_no} — Total ${pkr(s.net_amount)}, Balance ${pkr(balance)}. Evergreen Plus Water.`)}`} target="_blank"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-white text-xs font-semibold">Share on WhatsApp</a>
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold">Share on WhatsApp</a>
           )}
         </div>
       </div>

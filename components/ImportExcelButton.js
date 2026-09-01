@@ -38,13 +38,13 @@ export default function ImportExcelButton() {
     <>
       <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
         onChange={(e) => { if (e.target.files[0]) handleFile(e.target.files[0]); e.target.value = ""; }} />
-      <button onClick={() => fileRef.current.click()} className="no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-white text-xs font-semibold">
+      <button onClick={() => fileRef.current.click()} className="no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold">
         <Upload size={14} /> Import Excel
       </button>
 
       {preview && (
         <div className="fixed inset-0 bg-navy/40 z-50 flex items-center justify-center p-4" onClick={() => setPreview(null)}>
-          <div onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl p-6 max-w-lg w-full max-h-[85vh] overflow-y-auto">
+          <div onClick={(e) => e.stopPropagation()} className="bg-card rounded-2xl p-6 max-w-lg w-full max-h-[85vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-3">
               <h3 className="font-display text-lg font-semibold">Preview import</h3>
               <button onClick={() => setPreview(null)}><X size={18} /></button>
@@ -67,7 +67,7 @@ export default function ImportExcelButton() {
       )}
 
       {result && (
-        <div className="fixed bottom-6 right-6 bg-white border border-line rounded-xl p-4 shadow-lg z-50 text-sm">
+        <div className="fixed bottom-6 right-6 bg-card border border-line rounded-xl p-4 shadow-lg z-50 text-sm">
           <p><strong className="text-green">{result.imported}</strong> imported, <strong className="text-coral">{result.failed}</strong> failed.</p>
           <button className="text-xs text-aqua font-semibold mt-1" onClick={() => setResult(null)}>Dismiss</button>
         </div>

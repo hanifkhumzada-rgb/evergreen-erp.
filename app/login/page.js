@@ -25,7 +25,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-navy to-[#072430] p-5">
-      <div className="flex bg-white rounded-3xl overflow-hidden max-w-3xl w-full shadow-2xl">
+      <div className="flex bg-card rounded-3xl overflow-hidden max-w-3xl w-full shadow-2xl">
         <div className="flex-1 bg-gradient-to-br from-navy to-navyLight text-white p-10 hidden sm:flex flex-col justify-between min-w-[240px]">
           <div>
             <div className="flex items-center gap-2">

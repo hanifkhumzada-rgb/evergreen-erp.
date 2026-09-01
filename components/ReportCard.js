@@ -18,9 +18,9 @@ export default function ReportCard({ name, rows }) {
             XLSX.utils.book_append_sheet(wb, ws, name.slice(0, 30));
             XLSX.writeFile(wb, name.replace(/\s+/g, "-").toLowerCase() + ".xlsx");
           }}
-          className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-white text-xs font-semibold"
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold"
         ><Download size={14} /> Excel</button>
-        <button onClick={() => window.print()} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-white text-xs font-semibold"><Printer size={14} /> PDF</button>
+        <button onClick={() => window.print()} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold"><Printer size={14} /> PDF</button>
       </div>
     </div>
   );

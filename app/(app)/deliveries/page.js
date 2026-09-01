@@ -32,8 +32,8 @@ export default async function DeliveriesPage() {
                 <p className="text-xs text-slate my-1">{d.customers?.address}</p>
                 <p className="text-sm">Qty: <strong>{qty}</strong> · Empty expected: <strong>{qty}</strong></p>
                 <div className="flex gap-2 mt-2.5 flex-wrap">
-                  <a href={`tel:${d.customers?.mobile}`} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-white text-xs font-semibold"><Phone size={14} /> Call</a>
-                  {d.customers?.whatsapp_number && <a href={`https://wa.me/${d.customers.whatsapp_number.replace(/^0/, "92")}`} target="_blank" className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-white text-xs font-semibold"><MessageCircle size={14} /> WhatsApp</a>}
+                  <a href={`tel:${d.customers?.mobile}`} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold"><Phone size={14} /> Call</a>
+                  {d.customers?.whatsapp_number && <a href={`https://wa.me/${d.customers.whatsapp_number.replace(/^0/, "92")}`} target="_blank" className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold"><MessageCircle size={14} /> WhatsApp</a>}
                   {d.status !== "delivered" && <MarkDeliveredButton deliveryId={d.id} emptyExpected={qty} />}
                 </div>
               </div>

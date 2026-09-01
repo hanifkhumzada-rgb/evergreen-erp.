@@ -81,7 +81,7 @@ export default function Sidebar({ role }) {
                   const active = pathname.startsWith(n.href);
                   return (
                     <Link key={n.href} href={n.href}
-                      className={`flex items-center gap-2.5 px-2.5 py-1.75 rounded-lg text-[12.5px] font-semibold ${active ? "bg-aqua text-white" : "text-[#C7DEDC] hover:bg-white/5"}`}>
+                      className={`flex items-center gap-2.5 px-2.5 py-1.75 rounded-lg text-[12.5px] font-semibold ${active ? "bg-aqua text-white" : "text-[#C7DEDC] hover:bg-card/5"}`}>
                       <Icon size={15} /> {n.label}
                     </Link>
                   );

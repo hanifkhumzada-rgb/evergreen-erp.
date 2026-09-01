@@ -44,7 +44,7 @@ export default function AiPage() {
           {busy && <div className="self-start bg-foam px-3 py-2 rounded-xl text-sm text-slate">Thinking…</div>}
         </div>
         <div className="flex flex-wrap gap-1.5 mb-2.5">
-          {SUGGESTIONS.map((s) => <button key={s} onClick={() => ask(s)} className="text-[11.5px] px-2.5 py-1.5 rounded-full border border-line bg-white">{s}</button>)}
+          {SUGGESTIONS.map((s) => <button key={s} onClick={() => ask(s)} className="text-[11.5px] px-2.5 py-1.5 rounded-full border border-line bg-card">{s}</button>)}
         </div>
         <div className="flex gap-2">
           <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && q && ask(q)}

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
+import ThemeToggle from "@/components/ThemeToggle";
 import { Bell } from "lucide-react";
 
 export default async function AppLayout({ children }) {
@@ -30,9 +31,10 @@ export default async function AppLayout({ children }) {
     <div className="min-h-screen bg-foam flex">
       <Sidebar role={profile.roles?.key} />
       <div className="flex-1 min-w-0 flex flex-col">
-        <div className="no-print flex items-center justify-between px-6 py-3.5 border-b border-line bg-white">
+        <div className="no-print flex items-center justify-between px-6 py-3.5 border-b border-line bg-card">
           <div className="text-sm text-slate">Live data — Evergreen Plus Water</div>
           <div className="flex items-center gap-4">
+            <ThemeToggle />
             <Bell size={17} className="text-slate" />
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-aqua text-white flex items-center justify-center text-xs font-bold">

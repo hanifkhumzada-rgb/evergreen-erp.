@@ -23,7 +23,7 @@ export default function AddZoneForm() {
       </button>
       {open && (
         <div className="fixed inset-0 bg-navy/40 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
-          <form ref={formRef} action={handleSubmit} onClick={(e) => e.stopPropagation()} className="bg-white rounded-2xl p-6 max-w-md w-full">
+          <form ref={formRef} action={handleSubmit} onClick={(e) => e.stopPropagation()} className="bg-card rounded-2xl p-6 max-w-md w-full">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-display text-lg font-semibold">New Zone</h3>
               <button type="button" onClick={() => setOpen(false)}><X size={18} /></button>
@@ -35,7 +35,7 @@ export default function AddZoneForm() {
           </form>
         </div>
       )}
-      <style jsx global>{`.in { width:100%; padding:9px 11px; border-radius:9px; border:1px solid #E2EAEA; font-size:13.5px; outline:none; }`}</style>
+      <style jsx global>{`.in { width:100%; padding:9px 11px; border-radius:9px; border:1px solid var(--line); background: var(--card); color: var(--ink); font-size:13.5px; outline:none; }`}</style>
     </>
   );
 }

@@ -3,9 +3,60 @@
 @tailwind components;
 @tailwind utilities;
 
-body { font-family: 'Inter', sans-serif; color: #0F2027; background: #F6FAFA; }
+:root {
+  --foam: #F6FAFA;
+  --card: #FFFFFF;
+  --ink: #0F2027;
+  --slate: #5B7280;
+  --line: #E2EAEA;
+  --aquaSoft: #E3F5F3;
+  --amberSoft: #FCF1DE;
+  --coralSoft: #FBE9E5;
+  --greenSoft: #E3F5EC;
+}
+
+.dark {
+  --foam: #0B1620;
+  --card: #10202C;
+  --ink: #EAF3F2;
+  --slate: #8FA6A3;
+  --line: #1E3542;
+  --aquaSoft: #133733;
+  --amberSoft: #3A2E14;
+  --coralSoft: #3A1E17;
+  --greenSoft: #123527;
+}
+
+html { color-scheme: light; }
+html.dark { color-scheme: dark; }
+
+body {
+  font-family: 'Inter', sans-serif;
+  color: var(--ink);
+  background: var(--foam);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
 .font-display { font-family: 'Fraunces', serif; }
 .font-mono-num { font-family: 'IBM Plex Mono', monospace; }
+
+* { border-color: var(--line); }
+
+/* Modern card polish — applies to the border+rounded-2xl card pattern used everywhere */
+.rounded-2xl.border {
+  box-shadow: 0 1px 2px rgba(15, 32, 39, 0.04), 0 6px 20px rgba(15, 32, 39, 0.05);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.dark .rounded-2xl.border {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+table tr.hover\:bg-foam:hover {
+  transform: none;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--slate); }
 
 @media print {
   .no-print { display: none !important; }
