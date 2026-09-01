@@ -1,5 +1,5 @@
 "use server";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
@@ -603,4 +603,50 @@ export async function bulkImportPurchases(rows) {
   }
   revalidatePath("/inventory");
   return { ok: true, imported, failed };
+}
+
+// ============================================================
+// OWNER CONTROL: user management
+// ============================================================
+export async function updateUserRole(userId, roleKey) {
+  const { supabase } = await requireUser();
+  const { data: role } = await supabase.from("roles").select("id").eq("key", roleKey).single();
+  if (!role) return { error: "Unknown role" };
+  const { error } = await supabase.from("profiles").update({ role_id: role.id }).eq("id", userId);
+  revalidatePath("/user-management");
+  revalidatePath("/employees");
+  return { ok: !error, error: error?.message };
+}
+
+export async function toggleUserActive(userId, isActive) {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.from("profiles").update({ is_active: isActive }).eq("id", userId);
+  revalidatePath("/user-management");
+  revalidatePath("/employees");
+  return { ok: !error, error: error?.message };
+}
+
+export async function inviteUser(formData) {
+  const admin = createAdminClient();
+  const email = formData.get("email");
+  const fullName = formData.get("full_name");
+  const roleKey = formData.get("role");
+  const phone = formData.get("phone") || null;
+  const tempPassword = "Evergreen@" + Math.floor(1000 + Math.random() * 9000);
+
+  const { data: authData, error: authError } = await admin.auth.admin.createUser({
+    email, password: tempPassword, email_confirm: true,
+  });
+  if (authError) return { error: authError.message };
+
+  const { data: role } = await admin.from("roles").select("id").eq("key", roleKey).single();
+  if (!role) return { error: "Unknown role" };
+
+  const { error: profileError } = await admin.from("profiles").insert({
+    id: authData.user.id, full_name: fullName, phone, role_id: role.id, is_active: true,
+  });
+  if (profileError) return { error: profileError.message };
+
+  revalidatePath("/user-management");
+  return { ok: true, email, tempPassword };
 }
