@@ -5,20 +5,20 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        navy: "#0B3142",
-        navyLight: "#123B4E",
-        aqua: "#0E9E97",
+        navy: "#073B3A",
+        navyLight: "#0E4F4D",
+        aqua: "#059669",
         aquaSoft: "var(--aquaSoft)",
         foam: "var(--foam)",
         card: "var(--card)",
         ink: "var(--ink)",
         slate: "var(--slate)",
         line: "var(--line)",
-        amber: "#DE9B33",
+        amber: "#D97706",
         amberSoft: "var(--amberSoft)",
-        coral: "#D95A44",
+        coral: "#DC2626",
         coralSoft: "var(--coralSoft)",
-        green: "#2E9E6B",
+        green: "#16A34A",
         greenSoft: "var(--greenSoft)",
       },
       fontFamily: {

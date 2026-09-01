@@ -13,7 +13,7 @@ export default function MarkDeliveredButton({ deliveryId, emptyExpected }) {
         await markDelivered(deliveryId, emptyExpected);
         setBusy(false);
       }}
-      className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-aqua text-white text-xs font-semibold disabled:opacity-60"
+      className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-aqua text-white text-xs font-semibold disabled:opacity-60"
     >
       <Check size={14} /> {busy ? "Saving…" : "Delivered"}
     </button>

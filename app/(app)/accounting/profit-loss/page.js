@@ -33,7 +33,7 @@ export default async function ProfitLossPage({ searchParams }) {
       <form className="no-print flex flex-wrap gap-2.5 mb-5 items-end">
         <label className="text-xs font-semibold text-slate">From<br /><input type="date" name="from" defaultValue={from} className="mt-1 px-2.5 py-2 rounded-lg border border-line bg-card text-ink text-sm" /></label>
         <label className="text-xs font-semibold text-slate">To<br /><input type="date" name="to" defaultValue={to} className="mt-1 px-2.5 py-2 rounded-lg border border-line bg-card text-ink text-sm" /></label>
-        <button className="px-3.5 py-2 rounded-lg bg-navy text-white text-xs font-semibold">Apply</button>
+        <button className="px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold">Apply</button>
         <div className="flex-1" /><PrintButton />
       </form>
 

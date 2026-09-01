@@ -77,7 +77,7 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
                 <div key={i} className="px-3 py-1.5 border-b border-line">{previewLine ? previewLine(r) : JSON.stringify(r)}</div>
               ))}
             </div>
-            <button disabled={busy} onClick={confirmImport} className="w-full py-2.5 rounded-lg bg-aqua text-white font-bold text-sm disabled:opacity-60">
+            <button disabled={busy} onClick={confirmImport} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">
               {busy ? "Importing…" : `Confirm import of ${preview.rows.length} rows`}
             </button>
           </div>

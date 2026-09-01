@@ -4,27 +4,27 @@
 @tailwind utilities;
 
 :root {
-  --foam: #F6FAFA;
+  --foam: #F4FAF8;
   --card: #FFFFFF;
-  --ink: #0F2027;
-  --slate: #5B7280;
-  --line: #E2EAEA;
-  --aquaSoft: #E3F5F3;
-  --amberSoft: #FCF1DE;
-  --coralSoft: #FBE9E5;
-  --greenSoft: #E3F5EC;
+  --ink: #0B1F1D;
+  --slate: #5C7D78;
+  --line: #DCEAE6;
+  --aquaSoft: #E1F5EE;
+  --amberSoft: #FDF0DD;
+  --coralSoft: #FCE4E2;
+  --greenSoft: #E1F6E8;
 }
 
 .dark {
-  --foam: #0B1620;
-  --card: #10202C;
-  --ink: #EAF3F2;
-  --slate: #8FA6A3;
-  --line: #1E3542;
-  --aquaSoft: #133733;
-  --amberSoft: #3A2E14;
-  --coralSoft: #3A1E17;
-  --greenSoft: #123527;
+  --foam: #071A18;
+  --card: #0E2624;
+  --ink: #EAF6F3;
+  --slate: #86A39D;
+  --line: #1C3835;
+  --aquaSoft: #103A34;
+  --amberSoft: #3A2C14;
+  --coralSoft: #3A1D1B;
+  --greenSoft: #123020;
 }
 
 html { color-scheme: light; }
@@ -43,14 +43,26 @@ body {
 
 /* Modern card polish — applies to the border+rounded-2xl card pattern used everywhere */
 .rounded-2xl.border {
-  box-shadow: 0 1px 2px rgba(15, 32, 39, 0.04), 0 6px 20px rgba(15, 32, 39, 0.05);
+  box-shadow: 0 1px 3px rgba(7, 26, 24, 0.06), 0 8px 24px rgba(7, 26, 24, 0.07);
   transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 .dark .rounded-2xl.border {
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), 0 10px 28px rgba(0, 0, 0, 0.3);
 }
 table tr.hover\:bg-foam:hover {
   transform: none;
+}
+
+/* Hover lift for clickable cards (KPI cards, report cards) — not applied to list/table rows */
+.card-lift {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.card-lift:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 8px rgba(7, 26, 24, 0.08), 0 14px 32px rgba(7, 26, 24, 0.12);
+}
+.dark .card-lift:hover {
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3), 0 14px 32px rgba(0, 0, 0, 0.38);
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }

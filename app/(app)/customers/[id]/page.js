@@ -44,7 +44,7 @@ export default async function CustomerProfilePage({ params }) {
         <PrintButton />
       </div>
 
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex flex-wrap gap-3.5 mb-6">
         <KPI label="TOTAL SALES" value={pkr(totalSales)} tone="navy" />
         <KPI label="TOTAL PAID" value={pkr(totalPaid)} tone="green" />
         <KPI label="OUTSTANDING" value={pkr(balance)} tone="coral" />

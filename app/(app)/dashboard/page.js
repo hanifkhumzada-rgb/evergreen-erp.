@@ -75,7 +75,7 @@ export default async function DashboardPage() {
       <h2 className="font-display text-2xl font-semibold mb-0.5">How is the business doing today?</h2>
       <p className="text-slate text-sm mb-5">{new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })} · live from Postgres</p>
 
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex flex-wrap gap-3.5 mb-6">
         <KPI label="TODAY'S SALES" value={pkr(salesAmt)} tone="navy" sub={`${(todayInvoices || []).length} invoices`} />
         <KPI label="BOTTLES DELIVERED" value={bottlesDelivered} tone="aqua" />
         <KPI label="OUTSTANDING" value={pkr(outstanding)} tone="coral" />
@@ -85,7 +85,7 @@ export default async function DashboardPage() {
       </div>
 
       <h4 className="text-xs font-bold tracking-wide text-slate mb-2">ACCOUNTING SNAPSHOT</h4>
-      <div className="flex flex-wrap gap-3 mb-6">
+      <div className="flex flex-wrap gap-3.5 mb-6">
         <KPI label="CASH" value={pkr(cashBalance)} tone="green" />
         <KPI label="BANK" value={pkr(bankBalance)} tone="green" />
         <KPI label="RECEIVABLES" value={pkr(receivables)} tone="coral" />

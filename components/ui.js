@@ -11,9 +11,15 @@ export function Badge({ text, tone = "slate" }) {
 }
 
 export function KPI({ label, value, sub, tone = "navy" }) {
-  const bg = { navy: "bg-navyLight text-white", aqua: "bg-aquaSoft", amber: "bg-amberSoft", coral: "bg-coralSoft", green: "bg-greenSoft" }[tone];
+  const style = {
+    navy: "bg-navyLight text-white",
+    aqua: "bg-card border border-line border-t-2 border-t-aqua",
+    amber: "bg-card border border-line border-t-2 border-t-amber",
+    coral: "bg-card border border-line border-t-2 border-t-coral",
+    green: "bg-card border border-line border-t-2 border-t-green",
+  }[tone];
   return (
-    <div className={`rounded-2xl p-5 flex-1 min-w-[180px] ${bg}`}>
+    <div className={`card-lift rounded-2xl p-5 flex-1 min-w-[180px] ${style}`}>
       <div className={`text-xs font-semibold tracking-wide ${tone === "navy" ? "text-[#BFE3E0]" : "text-slate"}`}>{label}</div>
       <div className="font-mono-num text-2xl font-semibold mt-2">{value}</div>
       {sub && <div className={`text-xs mt-1 ${tone === "navy" ? "text-[#9CC9C5]" : "text-slate"}`}>{sub}</div>}

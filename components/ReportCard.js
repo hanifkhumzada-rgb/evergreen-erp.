@@ -4,7 +4,7 @@ import { FileSpreadsheet, Download, Printer } from "lucide-react";
 
 export default function ReportCard({ name, rows }) {
   return (
-    <div className="border border-line rounded-2xl p-4">
+    <div className="card-lift border border-line rounded-2xl p-4">
       <div className="flex items-center gap-2 mb-2.5">
         <div className="w-7.5 h-7.5 rounded-lg bg-aquaSoft flex items-center justify-center p-1.5"><FileSpreadsheet size={15} className="text-aqua" /></div>
         <strong className="text-[13.5px]">{name}</strong>

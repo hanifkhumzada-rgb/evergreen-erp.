@@ -59,7 +59,7 @@ export default function ImportExcelButton() {
                 </div>
               ))}
             </div>
-            <button disabled={busy} onClick={confirmImport} className="w-full py-2.5 rounded-lg bg-aqua text-white font-bold text-sm disabled:opacity-60">
+            <button disabled={busy} onClick={confirmImport} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">
               {busy ? "Importing…" : `Confirm import of ${preview.rows.length - preview.invalid.length} customers`}
             </button>
           </div>

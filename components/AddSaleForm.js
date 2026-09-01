@@ -18,7 +18,7 @@ export default function AddSaleForm({ customers }) {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-navy text-white text-xs font-semibold">
+      <button onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold">
         <Plus size={15} /> New Sale
       </button>
       {open && (
@@ -49,7 +49,7 @@ export default function AddSaleForm({ customers }) {
                 <option>Cash</option><option>Bank Transfer</option><option>JazzCash</option><option>Easypaisa</option>
               </select>
             </label>
-            <button type="submit" className="w-full py-2.5 rounded-lg bg-aqua text-white font-bold text-sm">Save Sale &amp; Generate Invoice</button>
+            <button type="submit" className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm">Save Sale &amp; Generate Invoice</button>
           </form>
         </div>
       )}

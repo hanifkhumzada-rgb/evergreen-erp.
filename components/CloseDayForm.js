@@ -31,7 +31,7 @@ export default function CloseDayForm({ today, defaultOpeningCash }) {
         <input type="number" name="actual_cash" required className="w-full px-3 py-2 rounded-lg border border-line bg-card text-ink text-sm" />
       </label>
       {error && <p className="text-coral text-xs mb-3">{error}</p>}
-      <button disabled={busy} className="w-full py-2.5 rounded-lg bg-aqua text-white font-bold text-sm disabled:opacity-60">{busy ? "Closing…" : "Close the day"}</button>
+      <button disabled={busy} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">{busy ? "Closing…" : "Close the day"}</button>
 
       {result && (
         <div className="mt-4 p-3 rounded-xl bg-foam text-sm">

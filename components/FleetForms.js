@@ -9,7 +9,7 @@ export function AddVehicleForm({ employees }) {
   const submit = async (fd) => { await addVehicle(fd); setOpen(false); formRef.current?.reset(); };
   return (
     <>
-      <button onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-navy text-white text-xs font-semibold"><Plus size={15} /> Add Vehicle</button>
+      <button onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold"><Plus size={15} /> Add Vehicle</button>
       {open && (
         <div className="fixed inset-0 bg-navy/40 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
           <form ref={formRef} action={submit} onClick={(e) => e.stopPropagation()} className="bg-card rounded-2xl p-6 max-w-md w-full">
@@ -19,7 +19,7 @@ export function AddVehicleForm({ employees }) {
             <label className="block mb-4"><span className="text-xs font-semibold text-slate block mb-1">Driver</span>
               <select name="driver_employee_id" className="in"><option value="">— Unassigned —</option>{employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select>
             </label>
-            <button type="submit" className="w-full py-2.5 rounded-lg bg-aqua text-white font-bold text-sm">Save Vehicle</button>
+            <button type="submit" className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm">Save Vehicle</button>
           </form>
         </div>
       )}
@@ -47,7 +47,7 @@ export function AddVehicleExpenseForm({ vehicles }) {
             </label>
             <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Amount (PKR)</span><input name="amount" type="number" required className="in" /></label>
             <label className="block mb-4"><span className="text-xs font-semibold text-slate block mb-1">Notes</span><input name="notes" className="in" /></label>
-            <button type="submit" className="w-full py-2.5 rounded-lg bg-aqua text-white font-bold text-sm">Save</button>
+            <button type="submit" className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm">Save</button>
           </form>
         </div>
       )}

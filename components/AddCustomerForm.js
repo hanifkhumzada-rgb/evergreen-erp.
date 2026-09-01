@@ -18,7 +18,7 @@ export default function AddCustomerForm({ zones }) {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-navy text-white text-xs font-semibold">
+      <button onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold">
         <Plus size={15} /> New Customer
       </button>
       {open && (
@@ -43,7 +43,7 @@ export default function AddCustomerForm({ zones }) {
             </Field>
             <Field label="Rate per bottle (PKR)"><input name="rate" type="number" defaultValue={120} className="in" /></Field>
             <Field label="Address"><input name="address" className="in" /></Field>
-            <button type="submit" className="w-full py-2.5 rounded-lg bg-aqua text-white font-bold text-sm mt-2">Save Customer</button>
+            <button type="submit" className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm mt-2">Save Customer</button>
           </form>
         </div>
       )}

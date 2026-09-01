@@ -18,7 +18,7 @@ export default function AddZoneForm() {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-navy text-white text-xs font-semibold">
+      <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold">
         <Plus size={15} /> New Zone
       </button>
       {open && (
@@ -31,7 +31,7 @@ export default function AddZoneForm() {
             {error && <p className="text-coral text-xs mb-3">{error}</p>}
             <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Zone name</span><input name="name" required className="in" /></label>
             <label className="block mb-4"><span className="text-xs font-semibold text-slate block mb-1">Description</span><input name="description" className="in" /></label>
-            <button type="submit" className="w-full py-2.5 rounded-lg bg-aqua text-white font-bold text-sm">Save Zone</button>
+            <button type="submit" className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm">Save Zone</button>
           </form>
         </div>
       )}

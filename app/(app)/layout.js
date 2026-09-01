@@ -45,7 +45,7 @@ export default async function AppLayout({ children }) {
             </div>
           </div>
         </div>
-        <div className="p-7 overflow-y-auto">{children}</div>
+        <div className="p-8 overflow-y-auto">{children}</div>
       </div>
     </div>
   );

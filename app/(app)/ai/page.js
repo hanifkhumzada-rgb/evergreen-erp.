@@ -49,7 +49,7 @@ export default function AiPage() {
         <div className="flex gap-2">
           <input value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && q && ask(q)}
             placeholder="Ask about profit, receivables, bottles, zones..." className="flex-1 px-3 py-2.5 rounded-lg border border-line text-sm outline-none" />
-          <button onClick={() => q && ask(q)} className="flex items-center gap-1.5 px-4 py-2.5 rounded-lg bg-aqua text-white text-sm font-bold"><Bot size={15} /> Ask</button>
+          <button onClick={() => q && ask(q)} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-aqua text-white text-sm font-bold"><Bot size={15} /> Ask</button>
         </div>
       </div>
     </div>
