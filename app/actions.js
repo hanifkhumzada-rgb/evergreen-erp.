@@ -606,10 +606,23 @@ export async function bulkImportPurchases(rows) {
 }
 
 // ============================================================
+// ZONES / ROUTES
+// ============================================================
+export async function createZone(formData) {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.from("zones").insert({
+    name: formData.get("name"),
+    description: formData.get("description") || null,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/zones");
+  return { ok: true };
+}
+
+// ============================================================
 // OWNER CONTROL: user management
 // ============================================================
-export async function updateUserRole(userId, roleKey) {
-  const { supabase } = await requireUser();
+export async function updateUserRole(userId, roleKey) {  const { supabase } = await requireUser();
   const { data: role } = await supabase.from("roles").select("id").eq("key", roleKey).single();
   if (!role) return { error: "Unknown role" };
   const { error } = await supabase.from("profiles").update({ role_id: role.id }).eq("id", userId);

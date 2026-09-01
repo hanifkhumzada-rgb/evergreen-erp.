@@ -5,7 +5,7 @@ import { signOut } from "@/app/actions";
 import {
   Home, Users, ShoppingCart, Truck, Droplet, Package, Wallet, Receipt,
   BookOpen, UserCog, BarChart3, Settings, LogOut, Landmark, FileText,
-  Scale, TrendingUp, ClipboardCheck, Car, Bot, Bell,
+  Scale, TrendingUp, ClipboardCheck, Car, Bot, Bell, MapPin,
 } from "lucide-react";
 
 const GROUPS = [
@@ -16,6 +16,7 @@ const GROUPS = [
       { href: "/customers", label: "Customers", icon: Users, roles: ["owner", "manager"] },
       { href: "/sales", label: "Sales", icon: ShoppingCart, roles: ["owner", "manager", "accountant"] },
       { href: "/deliveries", label: "Deliveries", icon: Truck, roles: ["owner", "manager", "rider"] },
+      { href: "/zones", label: "Zones & Routes", icon: MapPin, roles: ["owner", "manager"] },
       { href: "/inventory", label: "Inventory", icon: Package, roles: ["owner", "manager"] },
       { href: "/bottle-ledger", label: "Bottle Ledger", icon: Droplet, roles: ["owner", "manager"] },
       { href: "/fleet", label: "Fleet", icon: Car, roles: ["owner", "manager"] },
