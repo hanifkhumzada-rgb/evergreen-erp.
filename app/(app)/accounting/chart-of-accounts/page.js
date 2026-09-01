@@ -5,8 +5,10 @@ export const dynamic = "force-dynamic";
 
 export default async function ChartOfAccountsPage() {
   const supabase = await createClient();
-  const { data: accounts } = await supabase.from("chart_of_accounts").select("*").eq("is_active", true).order("code");
-  const { data: balances } = await supabase.from("v_trial_balance").select("account_id, balance");
+  const [{ data: accounts }, { data: balances }] = await Promise.all([
+    supabase.from("chart_of_accounts").select("*").eq("is_active", true).order("code"),
+    supabase.from("v_trial_balance").select("account_id, balance"),
+  ]);
 
   const balanceMap = {};
   (balances || []).forEach((b) => { balanceMap[b.account_id] = Number(b.balance); });

@@ -5,10 +5,11 @@ export const dynamic = "force-dynamic";
 
 export default async function BalanceSheetPage() {
   const supabase = await createClient();
-  const { data: rows } = await supabase.from("v_trial_balance").select("*").order("code");
-
-  const { data: invoices } = await supabase.from("invoices").select("net_amount").neq("status", "void");
-  const { data: expenses } = await supabase.from("expenses").select("amount").neq("status", "rejected");
+  const [{ data: rows }, { data: invoices }, { data: expenses }] = await Promise.all([
+    supabase.from("v_trial_balance").select("*").order("code"),
+    supabase.from("invoices").select("net_amount").neq("status", "void"),
+    supabase.from("expenses").select("amount").neq("status", "rejected"),
+  ]);
   const income = (invoices || []).reduce((a, i) => a + Number(i.net_amount), 0);
   const opex = (expenses || []).reduce((a, e) => a + Number(e.amount), 0);
   const netProfit = income - opex;
