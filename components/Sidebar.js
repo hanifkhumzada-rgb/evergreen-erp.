@@ -7,7 +7,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import {
   Home, Users, ShoppingCart, Truck, Droplet, Package, Wallet, Receipt,
   BookOpen, UserCog, BarChart3, Settings, LogOut, Landmark, FileText,
-  Scale, TrendingUp, ClipboardCheck, Car, Bot, Bell, MapPin, Menu, X,
+  Scale, TrendingUp, ClipboardCheck, Car, Bot, Bell, MapPin, Menu, X, FileDown,
 } from "lucide-react";
 
 const SidebarContext = createContext(null);
@@ -73,6 +73,7 @@ const GROUPS = [
       { href: "/notifications", label: "Notifications", icon: Bell, roles: ["owner", "manager", "accountant"] },
       { href: "/user-management", label: "User Management", icon: UserCog, roles: ["owner"] },
       { href: "/audit-logs", label: "Audit Logs", icon: FileText, roles: ["owner"] },
+      { href: "/settings/export", label: "Export Data", icon: FileDown, roles: ["owner"] },
       { href: "/settings", label: "Settings", icon: Settings, roles: ["owner"] },
     ],
   },
