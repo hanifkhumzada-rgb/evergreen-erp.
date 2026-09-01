@@ -2,10 +2,12 @@
 import { useState, useRef } from "react";
 import { Plus, X } from "lucide-react";
 import { createZone } from "@/app/actions";
+import Toast from "@/components/Toast";
 
 export default function AddZoneForm() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
+  const [toast, setToast] = useState(null);
   const formRef = useRef();
 
   const handleSubmit = async (formData) => {
@@ -14,6 +16,7 @@ export default function AddZoneForm() {
     if (res?.error) { setError(res.error); return; }
     setOpen(false);
     formRef.current?.reset();
+    setToast({ type: "success", message: "Zone created." });
   };
 
   return (
@@ -36,6 +39,7 @@ export default function AddZoneForm() {
         </div>
       )}
       <style jsx global>{`.in { width:100%; padding:9px 11px; border-radius:9px; border:1px solid var(--line); background: var(--card); color: var(--ink); font-size:13.5px; outline:none; }`}</style>
+      {toast && <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
     </>
   );
 }

@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Sidebar, { SidebarProvider, SidebarToggleButton } from "@/components/Sidebar";
+import GlobalSearch from "@/components/GlobalSearch";
 import { Bell } from "lucide-react";
 
 export default async function AppLayout({ children }) {
@@ -8,7 +9,11 @@ export default async function AppLayout({ children }) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const { data: profile } = await supabase.from("profiles").select("*, roles(key, name)").eq("id", user.id).single();
+  const [{ data: profile }, unreadNotificationsRes] = await Promise.all([
+    supabase.from("profiles").select("*, roles(key, name)").eq("id", user.id).single(),
+    supabase.from("notifications").select("id", { count: "exact", head: true }).eq("is_read", false),
+  ]);
+  const unreadNotifications = unreadNotificationsRes.count || 0;
 
   if (!profile) {
     return (
@@ -29,14 +34,15 @@ export default async function AppLayout({ children }) {
   return (
     <SidebarProvider>
     <div className="min-h-screen bg-foam flex">
-      <Sidebar role={profile.roles?.key} />
+      <Sidebar role={profile.roles?.key} unreadNotifications={unreadNotifications} />
       <div className="flex-1 min-w-0 flex flex-col">
         <div className="no-print flex items-center justify-between px-6 py-3.5 border-b border-line bg-card">
           <div className="flex items-center gap-3">
             <SidebarToggleButton />
-            <div className="text-sm text-slate">Live data — Evergreen Plus Water</div>
+            <div className="text-sm text-slate hidden sm:block">Live data — Evergreen Plus Water</div>
           </div>
           <div className="flex items-center gap-4">
+            <GlobalSearch />
             <Bell size={17} className="text-slate" />
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-aqua text-white flex items-center justify-center text-xs font-bold">

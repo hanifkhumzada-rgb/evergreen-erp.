@@ -2,14 +2,18 @@
 import { useState, useRef } from "react";
 import { Plus, X } from "lucide-react";
 import { createPayment } from "@/app/actions";
+import Toast from "@/components/Toast";
 
 export default function AddPaymentForm({ customers }) {
   const [open, setOpen] = useState(false);
+  const [toast, setToast] = useState(null);
   const formRef = useRef();
   const handleSubmit = async (formData) => {
-    await createPayment(formData);
+    const res = await createPayment(formData);
+    if (res?.error) { setToast({ type: "error", message: res.error }); return; }
     setOpen(false);
     formRef.current?.reset();
+    setToast({ type: "success", message: "Payment recorded." });
   };
   return (
     <>
@@ -30,6 +34,7 @@ export default function AddPaymentForm({ customers }) {
         </div>
       )}
       <style jsx global>{`.in { width:100%; padding:9px 11px; border-radius:9px; border:1px solid var(--line); background: var(--card); color: var(--ink); font-size:13.5px; outline:none; }`}</style>
+      {toast && <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
     </>
   );
 }

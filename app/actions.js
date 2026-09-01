@@ -18,6 +18,18 @@ async function getDefaultProduct(supabase) {
   return data?.id || null;
 }
 
+export async function globalSearch(query) {
+  const q = (query || "").trim();
+  if (q.length < 2) return { customers: [], invoices: [] };
+  const { supabase } = await requireUser();
+  const pattern = `%${q}%`;
+  const [{ data: customers }, { data: invoices }] = await Promise.all([
+    supabase.from("customers").select("id, name, mobile").or(`name.ilike.${pattern},mobile.ilike.${pattern}`).limit(5),
+    supabase.from("invoices").select("id, invoice_no, customers(name)").ilike("invoice_no", pattern).limit(5),
+  ]);
+  return { customers: customers || [], invoices: invoices || [] };
+}
+
 async function getEffectiveRate(supabase, customerId, productId) {
   const today = new Date().toISOString().slice(0, 10);
   const { data: custPrice } = await supabase.from("customer_prices").select("price")

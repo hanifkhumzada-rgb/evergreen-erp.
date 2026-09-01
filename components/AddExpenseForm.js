@@ -2,16 +2,20 @@
 import { useState, useRef } from "react";
 import { Plus, X } from "lucide-react";
 import { createExpense } from "@/app/actions";
+import Toast from "@/components/Toast";
 
 const CATS = ["Bottle Purchase","Caps","Delivery Expenses","Electricity","Fuel","Labour","Marketing","Office","Packaging","Rent","Repairs","Salaries","Vehicle Maintenance","Other"];
 
 export default function AddExpenseForm() {
   const [open, setOpen] = useState(false);
+  const [toast, setToast] = useState(null);
   const formRef = useRef();
   const handleSubmit = async (formData) => {
-    await createExpense(formData);
+    const res = await createExpense(formData);
+    if (res?.error) { setToast({ type: "error", message: res.error }); return; }
     setOpen(false);
     formRef.current?.reset();
+    setToast({ type: "success", message: "Expense added." });
   };
   return (
     <>
@@ -33,6 +37,7 @@ export default function AddExpenseForm() {
         </div>
       )}
       <style jsx global>{`.in { width:100%; padding:9px 11px; border-radius:9px; border:1px solid var(--line); background: var(--card); color: var(--ink); font-size:13.5px; outline:none; }`}</style>
+      {toast && <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
     </>
   );
 }

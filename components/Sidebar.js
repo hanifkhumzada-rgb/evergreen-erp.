@@ -78,7 +78,7 @@ const GROUPS = [
   },
 ];
 
-export default function Sidebar({ role }) {
+export default function Sidebar({ role, unreadNotifications = 0 }) {
   const pathname = usePathname();
   const { open, setOpen } = useContext(SidebarContext);
   return (
@@ -103,9 +103,14 @@ export default function Sidebar({ role }) {
                     const active = pathname.startsWith(n.href);
                     return (
                       <Link key={n.href} href={n.href} onClick={() => setOpen(false)}
-                        className={`relative flex items-center gap-2.5 px-2.5 py-1.75 rounded-lg text-[12.5px] font-semibold ${active ? "bg-aqua text-white" : "text-[#C7DEDC] hover:bg-white/5"}`}>
+                        className={`relative flex items-center gap-2.5 px-2.5 py-1.75 rounded-lg text-[12.5px] font-semibold transition-colors duration-150 ${active ? "bg-aqua text-white" : "text-[#C7DEDC] hover:bg-white/5"}`}>
                         {active && <span className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-[#047857]" />}
-                        <Icon size={15} /> {n.label}
+                        <Icon size={15} /> <span className="flex-1">{n.label}</span>
+                        {n.href === "/notifications" && unreadNotifications > 0 && (
+                          <span className="flex items-center justify-center min-w-[17px] h-[17px] px-1 rounded-full bg-coral text-white text-[10px] font-bold">
+                            {unreadNotifications > 99 ? "99+" : unreadNotifications}
+                          </span>
+                        )}
                       </Link>
                     );
                   })}

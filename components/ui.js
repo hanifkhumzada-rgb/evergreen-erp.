@@ -1,6 +1,7 @@
 "use client";
+import Link from "next/link";
 import * as XLSX from "xlsx";
-import { FileSpreadsheet, Printer } from "lucide-react";
+import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus } from "lucide-react";
 
 export function Badge({ text, tone = "slate" }) {
   const map = {
@@ -10,7 +11,7 @@ export function Badge({ text, tone = "slate" }) {
   return <span className={`${map[tone] || map.slate} text-[11.5px] font-semibold px-2.5 py-1 rounded-full`}>{text}</span>;
 }
 
-export function KPI({ label, value, sub, tone = "navy" }) {
+export function KPI({ label, value, sub, tone = "navy", trend, href }) {
   const style = {
     navy: "bg-navyLight text-white",
     aqua: "bg-card border border-line border-t-2 border-t-aqua",
@@ -18,13 +19,21 @@ export function KPI({ label, value, sub, tone = "navy" }) {
     coral: "bg-card border border-line border-t-2 border-t-coral",
     green: "bg-card border border-line border-t-2 border-t-green",
   }[tone];
-  return (
-    <div className={`card-lift rounded-2xl p-5 flex-1 min-w-[180px] ${style}`}>
+  const TrendIcon = trend?.direction === "up" ? ArrowUp : trend?.direction === "down" ? ArrowDown : Minus;
+  const trendColor = trend?.favorable === null || trend?.favorable === undefined ? "text-slate" : trend.favorable ? "text-green" : "text-coral";
+  const card = (
+    <div className={`card-lift rounded-2xl p-5 flex-1 min-w-[180px] ${style} ${href ? "cursor-pointer" : ""}`}>
       <div className={`text-xs font-semibold tracking-wide ${tone === "navy" ? "text-[#BFE3E0]" : "text-slate"}`}>{label}</div>
       <div className="font-mono-num text-2xl font-semibold mt-2">{value}</div>
       {sub && <div className={`text-xs mt-1 ${tone === "navy" ? "text-[#9CC9C5]" : "text-slate"}`}>{sub}</div>}
+      {trend && (
+        <div className={`flex items-center gap-1 text-[11px] font-semibold mt-1.5 ${trendColor}`}>
+          <TrendIcon size={11} /> {trend.pct}% vs yesterday
+        </div>
+      )}
     </div>
   );
+  return href ? <Link href={href}>{card}</Link> : card;
 }
 
 export function ExportExcelButton({ rows, filename, sheetName = "Sheet1" }) {
