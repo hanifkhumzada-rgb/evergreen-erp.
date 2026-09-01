@@ -86,7 +86,7 @@ export default function Sidebar({ role, unreadNotifications = 0 }) {
       {open && <div className="no-print fixed inset-0 bg-navy/40 z-40 md:hidden" onClick={() => setOpen(false)} />}
       <div className={`no-print w-[230px] flex-shrink-0 bg-navy text-white flex flex-col p-3 fixed md:static inset-y-0 left-0 z-50 transform transition-transform duration-200 ease-in-out md:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center gap-2 px-1.5 pb-4">
-          <div className="w-8 h-8 rounded-lg bg-aqua flex items-center justify-center flex-shrink-0"><Droplet size={16} /></div>
+          <img src="/icon-192.png" alt="Evergreen Plus Water" className="w-8 h-8 rounded-lg flex-shrink-0" />
           <span className="font-display font-semibold text-sm leading-tight flex-1">Evergreen<br />Plus Water</span>
           <ThemeToggle className="text-[#C7DEDC] hover:bg-white/10" />
         </div>
