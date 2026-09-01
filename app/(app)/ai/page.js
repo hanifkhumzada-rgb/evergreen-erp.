@@ -15,6 +15,13 @@ const SUGGESTIONS = [
   "Which zone generates the most revenue?",
   "Which vehicle costs the most?",
   "Which driver performs best?",
+  "Customers overdue by more than 30 days?",
+  "Which zone is most profitable?",
+  "Which customers reduced their orders?",
+  "Which expenses increased this month?",
+  "Who should I follow up with?",
+  "Predict next month's sales",
+  "Which products need reordering?",
 ];
 
 export default function AiPage() {

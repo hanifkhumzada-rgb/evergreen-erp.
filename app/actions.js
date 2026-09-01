@@ -338,6 +338,64 @@ export async function addVehicleExpense(formData) {
 
 function monthStartISO() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10); }
 function todayISO2() { return new Date().toISOString().slice(0, 10); }
+function daysAgoISO(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
+// monthsAgo=1 -> last full calendar month, monthsAgo=3 -> three months back, etc.
+function monthRange(monthsAgo) {
+  const d = new Date();
+  const start = new Date(d.getFullYear(), d.getMonth() - monthsAgo, 1);
+  const end = new Date(d.getFullYear(), d.getMonth() - monthsAgo + 1, 0);
+  return { from: start.toISOString().slice(0, 10), to: end.toISOString().slice(0, 10), label: start.toLocaleDateString("en-US", { month: "long", year: "numeric" }) };
+}
+
+// Shared data-gathering for the "overdue"/"inactive"/"reduced orders" AI handlers,
+// factored out so the individual questions and the combined "who should I follow
+// up with" question use exactly the same logic instead of duplicating it.
+async function getOverdueCustomers(supabase, days = 30) {
+  const cutoff = daysAgoISO(days);
+  const { data } = await supabase.from("invoices").select("net_amount, due_date, customers(name)")
+    .neq("status", "paid").neq("status", "void").not("due_date", "is", null).lt("due_date", cutoff);
+  const byCustomer = {};
+  (data || []).forEach((i) => {
+    const name = i.customers?.name;
+    if (!name) return;
+    byCustomer[name] = (byCustomer[name] || 0) + Number(i.net_amount);
+  });
+  return Object.entries(byCustomer).map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount);
+}
+
+async function getInactiveCustomerNames(supabase) {
+  const { data } = await supabase.from("customers").select("name").eq("is_active", false);
+  return (data || []).map((c) => c.name);
+}
+
+async function getReducedOrderCustomers(supabase, dropPct = 0.3) {
+  const last = monthRange(1);
+  const [{ data: thisMonthInv }, { data: lastMonthInv }] = await Promise.all([
+    supabase.from("invoices").select("customer_id, customers(name), invoice_items(quantity)").neq("status", "void").gte("invoice_date", monthStartISO()),
+    supabase.from("invoices").select("customer_id, customers(name), invoice_items(quantity)").neq("status", "void").gte("invoice_date", last.from).lte("invoice_date", last.to),
+  ]);
+  const qtyByCustomer = (rows) => {
+    const m = {};
+    (rows || []).forEach((inv) => {
+      const name = inv.customers?.name || "Unknown";
+      const qty = (inv.invoice_items || []).reduce((a, it) => a + Number(it.quantity), 0);
+      m[inv.customer_id] = m[inv.customer_id] || { name, qty: 0 };
+      m[inv.customer_id].qty += qty;
+    });
+    return m;
+  };
+  const thisM = qtyByCustomer(thisMonthInv);
+  const lastM = qtyByCustomer(lastMonthInv);
+  const drops = [];
+  Object.keys(lastM).forEach((cid) => {
+    const prevQty = lastM[cid].qty;
+    const curQty = thisM[cid]?.qty || 0;
+    if (prevQty > 0 && (curQty - prevQty) / prevQty <= -dropPct) {
+      drops.push({ name: lastM[cid].name, prevQty, curQty, pct: Math.round(((curQty - prevQty) / prevQty) * 100) });
+    }
+  });
+  return drops.sort((a, b) => a.pct - b.pct);
+}
 
 export async function askAI(question) {
   const { supabase, user } = await requireUser();
@@ -348,7 +406,8 @@ export async function askAI(question) {
 
   const restricted = () => ({ text: "You don't have permission to access this information. Ask an Owner or Accountant." });
 
-  if ((ql.includes("net profit") || ql.includes("profit") || ql.includes("revenue") || ql.includes("receivable") || ql.includes("payable")) && !financeAllowed) {
+  if ((ql.includes("net profit") || ql.includes("profit") || ql.includes("revenue") || ql.includes("receivable") || ql.includes("payable")
+    || ql.includes("overdue") || ql.includes("expense") || ql.includes("predict") || ql.includes("forecast")) && !financeAllowed) {
     return restricted();
   }
 
@@ -440,7 +499,84 @@ export async function askAI(question) {
     const total = (items || []).reduce((a, i) => a + Number(i.quantity), 0);
     return { text: `${total} bottles sold across all recorded invoices.` };
   }
-  return { text: "Insufficient data to answer accurately. Try asking about receivables, inventory value, today's collections, or bottle liability." };
+  // NOTE: "which products need reordering" already routes into the stock/reorder
+  // handler above — "reordering" contains "reorder" as a substring, so no extra
+  // phrasing hook is needed there.
+
+  if (ql.includes("overdue")) {
+    if (!financeAllowed) return restricted();
+    const overdue = await getOverdueCustomers(supabase, 30);
+    if (!overdue.length) return { text: "No customers are overdue by more than 30 days." };
+    const shown = overdue.slice(0, 10);
+    return { text: `Overdue by more than 30 days (${overdue.length} customer${overdue.length === 1 ? "" : "s"}): ${shown.map((c) => `${c.name} (${pkrFmt(c.amount)})`).join(", ")}${overdue.length > shown.length ? `, and ${overdue.length - shown.length} more` : ""}.` };
+  }
+  if ((ql.includes("zone") || ql.includes("route")) && ql.includes("profit")) {
+    const { data: invoices } = await supabase.from("invoices").select("net_amount, customers(zone_id, zones(name))").neq("status", "void");
+    const m = {};
+    (invoices || []).forEach((s) => { const z = s.customers?.zones?.name || "Unassigned"; m[z] = (m[z] || 0) + Number(s.net_amount); });
+    const sorted = Object.entries(m).sort((a, b) => b[1] - a[1]);
+    if (!sorted.length) return { text: "Insufficient data to answer accurately." };
+    return { text: `${sorted[0][0]} generates the most revenue (${pkrFmt(sorted[0][1])}). Delivery and fuel costs aren't tagged by zone in the current data, so this is revenue-only — not true net profitability per zone.` };
+  }
+  if (ql.includes("reduced") || (ql.includes("order") && (ql.includes("fewer") || ql.includes("declin") || ql.includes("drop")))) {
+    const drops = await getReducedOrderCustomers(supabase, 0.3);
+    if (!drops.length) return { text: "No customers have reduced their orders by more than 30% this month compared to last." };
+    const shown = drops.slice(0, 5);
+    return { text: `Customers with a meaningful order drop (>30% fewer bottles) this month vs last: ${shown.map((d) => `${d.name} (${d.prevQty} → ${d.curQty} bottles, ${d.pct}%)`).join(", ")}.` };
+  }
+  if (ql.includes("expense") && (ql.includes("increas") || ql.includes("more") || ql.includes("higher") || ql.includes("up"))) {
+    if (!financeAllowed) return restricted();
+    const last = monthRange(1);
+    const [{ data: thisMonthExp }, { data: lastMonthExp }] = await Promise.all([
+      supabase.from("expenses").select("amount, expense_categories(name)").neq("status", "rejected").gte("expense_date", monthStartISO()),
+      supabase.from("expenses").select("amount, expense_categories(name)").neq("status", "rejected").gte("expense_date", last.from).lte("expense_date", last.to),
+    ]);
+    const sumByCat = (rows) => {
+      const m = {};
+      (rows || []).forEach((e) => { const c = e.expense_categories?.name || "Other"; m[c] = (m[c] || 0) + Number(e.amount); });
+      return m;
+    };
+    const thisM = sumByCat(thisMonthExp);
+    const lastM = sumByCat(lastMonthExp);
+    const increases = Object.keys(thisM)
+      .filter((c) => thisM[c] > (lastM[c] || 0))
+      .map((c) => ({ cat: c, from: lastM[c] || 0, to: thisM[c], diff: thisM[c] - (lastM[c] || 0) }))
+      .sort((a, b) => b.diff - a.diff);
+    if (!increases.length) return { text: "No expense category has increased this month compared to last." };
+    return { text: `Expense categories up this month vs last: ${increases.slice(0, 5).map((i) => `${i.cat} (${pkrFmt(i.from)} → ${pkrFmt(i.to)}, +${pkrFmt(i.diff)})`).join(", ")}.` };
+  }
+  if (ql.includes("follow up") || ql.includes("followup") || ql.includes("follow-up")) {
+    if (!financeAllowed) return restricted();
+    const [overdue, inactiveNames, drops] = await Promise.all([
+      getOverdueCustomers(supabase, 30),
+      getInactiveCustomerNames(supabase),
+      getReducedOrderCustomers(supabase, 0.3),
+    ]);
+    const priority = [];
+    const seen = new Set();
+    overdue.forEach((c) => { if (!seen.has(c.name)) { seen.add(c.name); priority.push(`${c.name} — overdue ${pkrFmt(c.amount)}`); } });
+    inactiveNames.forEach((name) => { if (!seen.has(name)) { seen.add(name); priority.push(`${name} — inactive`); } });
+    drops.forEach((d) => { if (!seen.has(d.name)) { seen.add(d.name); priority.push(`${d.name} — orders down ${Math.abs(d.pct)}%`); } });
+    if (!priority.length) return { text: "No one needs follow-up right now — no overdue, inactive, or order-drop customers found." };
+    return { text: `Top follow-ups: ${priority.slice(0, 5).join("; ")}.` };
+  }
+  if (ql.includes("predict") || ql.includes("forecast") || ql.includes("next month")) {
+    if (!financeAllowed) return restricted();
+    const [m3, m2, m1] = [monthRange(3), monthRange(2), monthRange(1)];
+    const sums = await Promise.all([m3, m2, m1].map(async (m) => {
+      const { data } = await supabase.from("invoices").select("net_amount").neq("status", "void").gte("invoice_date", m.from).lte("invoice_date", m.to);
+      return (data || []).reduce((a, i) => a + Number(i.net_amount), 0);
+    }));
+    const [s3, s2, s1] = sums;
+    if (s3 === 0 && s2 === 0 && s1 === 0) return { text: "Insufficient data to answer accurately — no sales recorded in the last 3 months." };
+    const g1 = s3 > 0 ? (s2 - s3) / s3 : 0;
+    const g2 = s2 > 0 ? (s1 - s2) / s2 : 0;
+    const avgGrowth = (g1 + g2) / 2;
+    const trailingAvg = (s3 + s2 + s1) / 3;
+    const projection = Math.max(0, trailingAvg * (1 + avgGrowth));
+    return { text: `Estimate based on the last 3 months' trend — actual results may vary: projected sales next month ≈ ${pkrFmt(projection)} (trailing 3-month average ${pkrFmt(trailingAvg)}, avg. month-over-month growth ${(avgGrowth * 100).toFixed(1)}%).` };
+  }
+  return { text: "Insufficient data to answer accurately. Try asking about receivables, inventory value, today's collections, bottle liability, overdue customers, or a sales forecast." };
 }
 function pkrFmt(n) { return "PKR " + Math.round(Number(n) || 0).toLocaleString("en-PK"); }
 

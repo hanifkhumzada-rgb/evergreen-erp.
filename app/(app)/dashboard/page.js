@@ -4,11 +4,18 @@ import { pkr } from "@/lib/format";
 import { KPI } from "@/components/ui";
 import { SalesTrendChart, ExpensePie } from "@/components/DashboardCharts";
 import {
-  AlertTriangle, UserPlus, Truck, ShoppingCart, Receipt, Wallet, Upload, BarChart3,
+  AlertTriangle, UserPlus, Truck, ShoppingCart, Receipt, Wallet, Upload, BarChart3, Bot,
 } from "lucide-react";
 
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
+function monthStartISO() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10); }
+function lastMonthRange() {
+  const d = new Date();
+  const start = new Date(d.getFullYear(), d.getMonth() - 1, 1);
+  const end = new Date(d.getFullYear(), d.getMonth(), 0);
+  return { from: start.toISOString().slice(0, 10), to: end.toISOString().slice(0, 10) };
+}
 const BOTTLE_COST = 800;
 
 export const dynamic = "force-dynamic"; // always fetch fresh — this is a live multi-user dashboard
@@ -49,13 +56,17 @@ export default async function DashboardPage() {
     { data: yesterdayInvoices }, { data: yesterdayExpenses }, { data: yesterdayDeliveries },
     { data: todayPayments }, { data: todayPurchases }, { data: todayCashTxns },
     yesterdayActiveCustomersRes,
+    overdueRuleRes, { data: unpaidInvoices }, { data: monthToDateExpenses }, { data: lastMonthExpenses },
   ] = await Promise.all([
     supabase.from("invoices").select("net_amount, invoice_items(quantity)").eq("invoice_date", today).neq("status", "void"),
     supabase.from("deliveries").select("*, delivery_items(delivered_qty, returned_qty)").eq("delivery_date", today),
     supabase.from("expenses").select("*").eq("expense_date", today),
     supabase.from("v_customer_balance").select("balance"),
     supabase.from("products").select("id, name, low_stock_threshold"),
-    supabase.from("invoices").select("net_amount, invoice_date").gte("invoice_date", daysAgo(6)).neq("status", "void"),
+    // widened to 13 days back so the same fetch covers both the 7-day trend chart
+    // and a prior-week comparison for the AI insights card; also carries zone info
+    // for the "top zone this week" insight.
+    supabase.from("invoices").select("net_amount, invoice_date, customers(zone_id, zones(name))").gte("invoice_date", daysAgo(13)).neq("status", "void"),
     supabase.from("expenses").select("expense_categories(name), amount"),
     supabase.from("v_cash_account_balance").select("name, type, current_balance"),
     supabase.from("v_bottle_reconciliation").select("product_id, warehouse"),
@@ -75,6 +86,11 @@ export default async function DashboardPage() {
     supabase.from("purchases").select("purchase_date, purchase_items(quantity, rate, discount)").eq("purchase_date", today),
     supabase.from("cash_transactions").select("amount, cash_accounts(type)").eq("txn_date", today),
     supabase.from("customers").select("id", { count: "exact", head: true }).eq("is_active", true).lt("created_at", `${today}T00:00:00`),
+    // AI Business Insights card inputs (Phase 3)
+    supabase.from("automation_rules").select("enabled, threshold_value").eq("key", "payment_overdue").maybeSingle(),
+    supabase.from("invoices").select("customer_id, due_date").neq("status", "paid").neq("status", "void").not("due_date", "is", null),
+    supabase.from("expenses").select("amount, expense_categories(name)").neq("status", "rejected").gte("expense_date", monthStartISO()),
+    supabase.from("expenses").select("amount, expense_categories(name)").neq("status", "rejected").gte("expense_date", lastMonthRange().from).lte("expense_date", lastMonthRange().to),
   ]);
 
   const cashBalance = (cashBalances || []).filter((a) => a.type === "cash").reduce((a, c) => a + Number(c.current_balance), 0);
@@ -133,6 +149,63 @@ export default async function DashboardPage() {
 
   const lowStock = (products || []).filter((p) => (stockMap[p.id] || 0) < p.low_stock_threshold);
 
+  // AI Business Insights (Phase 3) — plain JS over the data already fetched
+  // above, no external AI call. Every bullet below is traced to one of these
+  // computed facts, never generic filler text.
+  const thisWeekDays = Array.from({ length: 7 }).map((_, i) => daysAgo(6 - i));
+  const priorWeekDays = Array.from({ length: 7 }).map((_, i) => daysAgo(13 - i));
+  const thisWeekSum = trend.reduce((a, t) => a + t.sales, 0);
+  const priorWeekSum = (recentInvoices || []).filter((s) => priorWeekDays.includes(s.invoice_date)).reduce((a, s) => a + Number(s.net_amount), 0);
+  const weekTrend = calcTrend(thisWeekSum, priorWeekSum);
+
+  const zoneRevThisWeek = {};
+  (recentInvoices || []).filter((s) => thisWeekDays.includes(s.invoice_date)).forEach((s) => {
+    const z = s.customers?.zones?.name || "Unassigned";
+    zoneRevThisWeek[z] = (zoneRevThisWeek[z] || 0) + Number(s.net_amount);
+  });
+  const topZone = Object.entries(zoneRevThisWeek).sort((a, b) => b[1] - a[1])[0];
+
+  const overdueDays = overdueRuleRes.data?.enabled === false ? null : (Number(overdueRuleRes.data?.threshold_value) || 30);
+  const overdueCutoff = overdueDays != null ? daysAgo(overdueDays) : null;
+  const overdueCustomerCount = overdueCutoff
+    ? new Set((unpaidInvoices || []).filter((i) => i.due_date && i.due_date < overdueCutoff).map((i) => i.customer_id)).size
+    : null;
+
+  const sumByCat = (rows) => {
+    const m = {};
+    (rows || []).forEach((e) => { const c = e.expense_categories?.name || "Other"; m[c] = (m[c] || 0) + Number(e.amount); });
+    return m;
+  };
+  const thisMonthCat = sumByCat(monthToDateExpenses);
+  const lastMonthCat = sumByCat(lastMonthExpenses);
+  const catJumps = Object.keys(thisMonthCat)
+    .map((c) => ({ cat: c, from: lastMonthCat[c] || 0, to: thisMonthCat[c], diff: thisMonthCat[c] - (lastMonthCat[c] || 0) }))
+    .filter((c) => c.diff > 0 && c.from > 0)
+    .sort((a, b) => (b.diff / b.from) - (a.diff / a.from));
+  const biggestJump = catJumps[0];
+
+  const insights = [];
+  insights.push(
+    weekTrend.direction === "flat"
+      ? `Sales this week (${pkr(thisWeekSum)}) are flat vs last week (${pkr(priorWeekSum)}).`
+      : `Sales this week (${pkr(thisWeekSum)}) are ${weekTrend.direction === "up" ? "up" : "down"} ${weekTrend.pct}% vs last week (${pkr(priorWeekSum)}).`
+  );
+  if (topZone) insights.push(`${topZone[0]} generated the most revenue this week (${pkr(topZone[1])}).`);
+  if (overdueCustomerCount != null) {
+    insights.push(overdueCustomerCount > 0
+      ? `${overdueCustomerCount} customer${overdueCustomerCount === 1 ? " is" : "s are"} overdue by more than ${overdueDays} days.`
+      : `No customers are currently overdue by more than ${overdueDays} days.`);
+  }
+  if (biggestJump) {
+    const pct = Math.round((biggestJump.diff / biggestJump.from) * 100);
+    insights.push(`${biggestJump.cat} expenses jumped from ${pkr(biggestJump.from)} to ${pkr(biggestJump.to)} this month (+${pct}%).`);
+  }
+
+  const actions = [];
+  if (overdueCustomerCount > 0) actions.push({ text: `Follow up with ${overdueCustomerCount} overdue customer${overdueCustomerCount === 1 ? "" : "s"}.`, href: "/ledger" });
+  if (biggestJump) actions.push({ text: `Review the rise in ${biggestJump.cat} expenses.`, href: "/expenses" });
+  if (weekTrend.direction === "down" && weekTrend.favorable === false) actions.push({ text: "Sales are down this week — check in with the sales team.", href: "/sales" });
+
   return (
     <div>
       <h2 className="font-display text-2xl font-semibold mb-0.5">How is the business doing today?</h2>
@@ -167,6 +240,25 @@ export default async function DashboardPage() {
         <KPI label="PAYABLES" value={pkr(payables)} tone="amber" trend={calcTrend(payables, yPayables, true)} href="/accounting/chart-of-accounts" />
         <KPI label="INVENTORY VALUE" value={pkr(inventoryValue)} tone="aqua" sub="at current selling price" href="/inventory" />
         <KPI label="BOTTLE LIABILITY" value={pkr(bottleLiability)} tone="navy" sub={`${withCustomersBottles} bottles with customers`} trend={calcTrend(bottleLiability, yBottleLiability, true)} href="/bottle-ledger" />
+      </div>
+
+      <div className="border border-line rounded-2xl p-4 mb-4">
+        <h4 className="text-sm font-bold mb-2.5 flex items-center gap-1.5"><Bot size={15} className="text-aqua" /> AI Business Insights</h4>
+        <ul className="flex flex-col gap-1.5 mb-3">
+          {insights.map((text, i) => (
+            <li key={i} className="text-xs flex gap-2"><span className="text-aqua flex-shrink-0">•</span><span>{text}</span></li>
+          ))}
+        </ul>
+        {actions.length > 0 && (
+          <>
+            <div className="text-[10px] font-bold tracking-wide text-slate mb-1.5">RECOMMENDED ACTIONS</div>
+            <div className="flex flex-col gap-1">
+              {actions.map((a, i) => (
+                <Link key={i} href={a.href} className="text-xs text-aqua font-semibold hover:underline">→ {a.text}</Link>
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-4 mb-4">
