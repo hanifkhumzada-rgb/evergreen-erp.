@@ -60,7 +60,7 @@ export default async function DeliveriesPage() {
           columnsHint="Phone (or Name), Qty, CashCollected, Date"
           action={bulkImportDeliveries}
           sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Qty: 5, CashCollected: 600, Date: "2026-08-31" }}
-          previewLine={(r) => `${r.Name || r.name || r.Phone || r.phone} — Qty ${r.Qty || r.qty}`}
+          previewType="deliveries"
         />
         <ExportExcelButton rows={exportRows} filename="evergreen-deliveries.xlsx" sheetName="Deliveries" />
         <PrintButton />

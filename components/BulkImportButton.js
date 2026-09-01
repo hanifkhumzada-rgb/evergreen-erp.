@@ -3,7 +3,16 @@ import { useRef, useState } from "react";
 import * as XLSX from "xlsx";
 import { Upload, Download, X } from "lucide-react";
 
-export default function BulkImportButton({ label = "Import Excel", columnsHint, sampleRow, action, previewLine }) {
+const PREVIEW_LINES = {
+  sales: (r) => `${r.Name || r.name || r.Phone || r.phone} — Qty ${r.Qty || r.qty}${r.Paid ? `, Paid ${r.Paid}` : ""}`,
+  expenses: (r) => `${r.Category || r.category} — ${r.Amount || r.amount}`,
+  inventory: (r) => `${r.Supplier || r.supplier} — ${r.Item || r.item} × ${r.Qty || r.qty}`,
+  payments: (r) => `${r.Name || r.name || r.Phone || r.phone} — ${r.Amount || r.amount}`,
+  deliveries: (r) => `${r.Name || r.name || r.Phone || r.phone} — Qty ${r.Qty || r.qty}`,
+};
+
+export default function BulkImportButton({ label = "Import Excel", columnsHint, sampleRow, action, previewType }) {
+  const previewLine = PREVIEW_LINES[previewType];
   const fileRef = useRef();
   const [preview, setPreview] = useState(null);
   const [result, setResult] = useState(null);

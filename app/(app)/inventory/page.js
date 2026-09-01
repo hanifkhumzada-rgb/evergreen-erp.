@@ -51,7 +51,7 @@ export default async function InventoryPage() {
           columnsHint="Supplier, Item, Qty, Rate, Date"
           action={bulkImportPurchases}
           sampleRow={{ Supplier: "AquaCaps Ltd", Item: "Bottle Caps", Qty: 1000, Rate: 2, Date: "2026-08-31" }}
-          previewLine={(r) => `${r.Supplier || r.supplier} — ${r.Item || r.item} × ${r.Qty || r.qty}`}
+          previewType="inventory"
         />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
