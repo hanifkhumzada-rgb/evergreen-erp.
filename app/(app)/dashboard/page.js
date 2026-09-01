@@ -60,14 +60,14 @@ export default async function DashboardPage() {
   ] = await Promise.all([
     supabase.from("invoices").select("net_amount, invoice_items(quantity)").eq("invoice_date", today).neq("status", "void"),
     supabase.from("deliveries").select("*, delivery_items(delivered_qty, returned_qty)").eq("delivery_date", today),
-    supabase.from("expenses").select("*").eq("expense_date", today),
+    supabase.from("expenses").select("*").eq("expense_date", today).in("status", ["approved", "paid"]),
     supabase.from("v_customer_balance").select("balance"),
     supabase.from("products").select("id, name, low_stock_threshold"),
     // widened to 13 days back so the same fetch covers both the 7-day trend chart
     // and a prior-week comparison for the AI insights card; also carries zone info
     // for the "top zone this week" insight.
     supabase.from("invoices").select("net_amount, invoice_date, customers(zone_id, zones(name))").gte("invoice_date", daysAgo(13)).neq("status", "void"),
-    supabase.from("expenses").select("expense_categories(name), amount"),
+    supabase.from("expenses").select("expense_categories(name), amount").in("status", ["approved", "paid"]),
     supabase.from("v_cash_account_balance").select("name, type, current_balance"),
     supabase.from("v_bottle_reconciliation").select("product_id, warehouse"),
     supabase.from("v_customer_bottle_balance").select("bottles_with_customer"),
@@ -80,7 +80,7 @@ export default async function DashboardPage() {
     // there's no historical snapshot table, so this is the standard way to derive
     // "yesterday's balance" without one).
     supabase.from("invoices").select("net_amount, invoice_items(quantity)").eq("invoice_date", yesterday).neq("status", "void"),
-    supabase.from("expenses").select("amount").eq("expense_date", yesterday),
+    supabase.from("expenses").select("amount").eq("expense_date", yesterday).in("status", ["approved", "paid"]),
     supabase.from("deliveries").select("*, delivery_items(delivered_qty)").eq("delivery_date", yesterday),
     supabase.from("payments").select("amount").eq("payment_date", today),
     supabase.from("purchases").select("purchase_date, purchase_items(quantity, rate, discount)").eq("purchase_date", today),
@@ -89,8 +89,8 @@ export default async function DashboardPage() {
     // AI Business Insights card inputs (Phase 3)
     supabase.from("automation_rules").select("enabled, threshold_value").eq("key", "payment_overdue").maybeSingle(),
     supabase.from("invoices").select("customer_id, due_date").neq("status", "paid").neq("status", "void").not("due_date", "is", null),
-    supabase.from("expenses").select("amount, expense_categories(name)").neq("status", "rejected").gte("expense_date", monthStartISO()),
-    supabase.from("expenses").select("amount, expense_categories(name)").neq("status", "rejected").gte("expense_date", lastMonthRange().from).lte("expense_date", lastMonthRange().to),
+    supabase.from("expenses").select("amount, expense_categories(name)").in("status", ["approved", "paid"]).gte("expense_date", monthStartISO()),
+    supabase.from("expenses").select("amount, expense_categories(name)").in("status", ["approved", "paid"]).gte("expense_date", lastMonthRange().from).lte("expense_date", lastMonthRange().to),
   ]);
 
   const cashBalance = (cashBalances || []).filter((a) => a.type === "cash").reduce((a, c) => a + Number(c.current_balance), 0);

@@ -1,20 +1,36 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
+import { ExportExcelButton, PrintButton, Th, Td, Badge } from "@/components/ui";
 import AddExpenseForm from "@/components/AddExpenseForm";
 import BulkImportButton from "@/components/BulkImportButton";
+import PendingApprovals from "@/components/PendingApprovals";
 import { bulkImportExpenses } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
+const STATUS_BADGE = {
+  submitted: { text: "Pending approval", tone: "amber" },
+  approved: { text: "Approved", tone: "green" },
+  paid: { text: "Paid", tone: "green" },
+  rejected: { text: "Rejected", tone: "coral" },
+  draft: { text: "Draft", tone: "slate" },
+};
+
 export default async function ExpensesPage() {
   const supabase = await createClient();
-  const { data: expenses } = await supabase.from("expenses").select("*, expense_categories(name)").order("created_at", { ascending: false }).limit(200);
-  const exportRows = (expenses || []).map((e) => ({ Date: e.expense_date, Category: e.expense_categories?.name, Description: e.description, Amount: e.amount, Method: e.payment_method }));
+  const { data: { user } } = await supabase.auth.getUser();
+  const [{ data: expenses }, { data: profile }] = await Promise.all([
+    supabase.from("expenses").select("*, expense_categories(name)").order("created_at", { ascending: false }).limit(200),
+    supabase.from("profiles").select("roles(key)").eq("id", user.id).single(),
+  ]);
+  const isOwner = profile?.roles?.key === "owner";
+  const pendingExpenses = (expenses || []).filter((e) => e.status === "submitted");
+  const exportRows = (expenses || []).map((e) => ({ Date: e.expense_date, Category: e.expense_categories?.name, Description: e.description, Amount: e.amount, Method: e.payment_method, Status: e.status }));
 
   return (
     <div>
       <h2 className="font-display text-2xl font-semibold mb-4">Expenses</h2>
+      {isOwner && <PendingApprovals expenses={pendingExpenses} />}
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <BulkImportButton
@@ -30,12 +46,15 @@ export default async function ExpensesPage() {
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Category</Th><Th>Description</Th><Th>Amount</Th><Th>Method</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Category</Th><Th>Description</Th><Th>Amount</Th><Th>Method</Th><Th>Status</Th></tr></thead>
           <tbody>
-            {(expenses || []).length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate">No expenses yet.</td></tr>}
-            {(expenses || []).map((e) => (
-              <tr key={e.id} className="hover:bg-foam"><Td>{fmtDate(e.expense_date)}</Td><Td>{e.expense_categories?.name}</Td><Td>{e.description}</Td><Td>{pkr(e.amount)}</Td><Td>{e.payment_method}</Td></tr>
-            ))}
+            {(expenses || []).length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate">No expenses yet.</td></tr>}
+            {(expenses || []).map((e) => {
+              const badge = STATUS_BADGE[e.status] || STATUS_BADGE.approved;
+              return (
+                <tr key={e.id} className="hover:bg-foam"><Td>{fmtDate(e.expense_date)}</Td><Td>{e.expense_categories?.name}</Td><Td>{e.description}</Td><Td>{pkr(e.amount)}</Td><Td>{e.payment_method}</Td><Td><Badge text={badge.text} tone={badge.tone} /></Td></tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

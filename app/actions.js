@@ -182,6 +182,16 @@ export async function createPayment(formData) {
   return { ok: true };
 }
 
+// Expenses above the "expense_approval_threshold" automation rule post as
+// "submitted" (pending Owner approval) instead of posting immediately;
+// fn_journal_from_expense() only fires the journal entry once the row
+// transitions to approved/paid, so a pending expense has no cash impact yet.
+async function resolveExpenseStatus(supabase, amount) {
+  const { data: rule } = await supabase.from("automation_rules").select("enabled, threshold_value").eq("key", "expense_approval_threshold").maybeSingle();
+  if (rule?.enabled && amount > Number(rule.threshold_value)) return "submitted";
+  return "approved";
+}
+
 export async function createExpense(formData) {
   const { supabase, user } = await requireUser();
   const categoryName = formData.get("category");
@@ -191,16 +201,48 @@ export async function createExpense(formData) {
   }
   if (!category) return { error: "No expense category configured" };
   const methodMap = { Cash: "cash", "Bank Transfer": "bank" };
+  const amount = Number(formData.get("amount"));
+  const status = await resolveExpenseStatus(supabase, amount);
   const { error } = await supabase.from("expenses").insert({
     expense_no: genCode("EXP"),
     category_id: category.id,
     description: formData.get("description"),
-    amount: Number(formData.get("amount")),
+    amount,
     payment_method: methodMap[formData.get("method")] || "cash",
-    status: "approved",
+    status,
     submitted_by: user.id,
     created_by: user.id,
+    approved_by: status === "approved" ? user.id : null,
+    approved_at: status === "approved" ? new Date().toISOString() : null,
   });
+  if (error) return { error: error.message };
+  revalidatePath("/expenses");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+// Owner-only in the UI (Pending Approvals section on the Expenses page); RLS
+// still requires expenses.edit to update the row either way.
+export async function approveExpense(expenseId) {
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("expenses").update({
+    status: "approved",
+    approved_by: user.id,
+    approved_at: new Date().toISOString(),
+  }).eq("id", expenseId).eq("status", "submitted");
+  if (error) return { error: error.message };
+  revalidatePath("/expenses");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+export async function rejectExpense(expenseId) {
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("expenses").update({
+    status: "rejected",
+    approved_by: user.id,
+    approved_at: new Date().toISOString(),
+  }).eq("id", expenseId).eq("status", "submitted");
   if (error) return { error: error.message };
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
@@ -279,7 +321,7 @@ export async function closeDay(formData) {
 
   const { data: invoices } = await supabase.from("invoices").select("net_amount").eq("invoice_date", closeDate);
   const { data: payments } = await supabase.from("payments").select("amount").eq("payment_date", closeDate);
-  const { data: expenses } = await supabase.from("expenses").select("amount").eq("expense_date", closeDate);
+  const { data: expenses } = await supabase.from("expenses").select("amount").eq("expense_date", closeDate).in("status", ["approved", "paid"]);
 
   const salesTotal = (invoices || []).reduce((a, s) => a + Number(s.net_amount), 0);
   const collectionsTotal = (payments || []).reduce((a, p) => a + Number(p.amount), 0);
@@ -414,7 +456,7 @@ export async function askAI(question) {
   if (ql.includes("net profit") || (ql.includes("profit") && ql.includes("why"))) {
     const from = monthStartISO(); const to = todayISO2();
     const { data: invoices } = await supabase.from("invoices").select("net_amount").neq("status", "void").gte("invoice_date", from).lte("invoice_date", to);
-    const { data: expenses } = await supabase.from("expenses").select("amount").neq("status", "rejected").gte("expense_date", from).lte("expense_date", to);
+    const { data: expenses } = await supabase.from("expenses").select("amount").in("status", ["approved", "paid"]).gte("expense_date", from).lte("expense_date", to);
     const income = (invoices || []).reduce((a, i) => a + Number(i.net_amount), 0);
     const exp = (expenses || []).reduce((a, e) => a + Number(e.amount), 0);
     const net = income - exp;
@@ -528,8 +570,8 @@ export async function askAI(question) {
     if (!financeAllowed) return restricted();
     const last = monthRange(1);
     const [{ data: thisMonthExp }, { data: lastMonthExp }] = await Promise.all([
-      supabase.from("expenses").select("amount, expense_categories(name)").neq("status", "rejected").gte("expense_date", monthStartISO()),
-      supabase.from("expenses").select("amount, expense_categories(name)").neq("status", "rejected").gte("expense_date", last.from).lte("expense_date", last.to),
+      supabase.from("expenses").select("amount, expense_categories(name)").in("status", ["approved", "paid"]).gte("expense_date", monthStartISO()),
+      supabase.from("expenses").select("amount, expense_categories(name)").in("status", ["approved", "paid"]).gte("expense_date", last.from).lte("expense_date", last.to),
     ]);
     const sumByCat = (rows) => {
       const m = {};
@@ -655,6 +697,7 @@ export async function bulkImportExpenses(rows) {
     let { data: category } = await supabase.from("expense_categories").select("id").ilike("name", categoryName).maybeSingle();
     if (!category) ({ data: category } = await supabase.from("expense_categories").select("id").eq("name", "Other").maybeSingle());
     if (!category) { failed++; continue; }
+    const status = await resolveExpenseStatus(supabase, amount);
     const { error } = await supabase.from("expenses").insert({
       expense_no: genCode("EXP"),
       category_id: category.id,
@@ -662,9 +705,11 @@ export async function bulkImportExpenses(rows) {
       amount,
       expense_date: r.Date || r.date || undefined,
       payment_method: METHOD_MAP[r.Method || r.method] || "cash",
-      status: "approved",
+      status,
       submitted_by: user.id,
       created_by: user.id,
+      approved_by: status === "approved" ? user.id : null,
+      approved_at: status === "approved" ? new Date().toISOString() : null,
     });
     if (error) failed++; else imported++;
   }

@@ -12,7 +12,7 @@ export default async function ProfitLossPage({ searchParams }) {
 
   const [{ data: invoices }, { data: expenses }] = await Promise.all([
     supabase.from("invoices").select("net_amount").neq("status", "void").gte("invoice_date", from).lte("invoice_date", to),
-    supabase.from("expenses").select("amount, expense_categories(name)").neq("status", "rejected").gte("expense_date", from).lte("expense_date", to),
+    supabase.from("expenses").select("amount, expense_categories(name)").in("status", ["approved", "paid"]).gte("expense_date", from).lte("expense_date", to),
   ]);
 
   const income = (invoices || []).reduce((a, i) => a + Number(i.net_amount), 0);

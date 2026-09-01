@@ -9,7 +9,7 @@ export default async function BalanceSheetPage() {
   const [{ data: rows }, { data: invoices }, { data: expenses }] = await Promise.all([
     supabase.from("v_trial_balance").select("*").order("code"),
     supabase.from("invoices").select("net_amount").neq("status", "void"),
-    supabase.from("expenses").select("amount").neq("status", "rejected"),
+    supabase.from("expenses").select("amount").in("status", ["approved", "paid"]),
   ]);
   const income = (invoices || []).reduce((a, i) => a + Number(i.net_amount), 0);
   const opex = (expenses || []).reduce((a, e) => a + Number(e.amount), 0);
