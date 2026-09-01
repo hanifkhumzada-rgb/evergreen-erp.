@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import Sidebar from "@/components/Sidebar";
+import Sidebar, { SidebarProvider, SidebarToggleButton } from "@/components/Sidebar";
 import { Bell } from "lucide-react";
 
 export default async function AppLayout({ children }) {
@@ -27,11 +27,15 @@ export default async function AppLayout({ children }) {
   const roleLabel = profile.roles?.name || "—";
 
   return (
+    <SidebarProvider>
     <div className="min-h-screen bg-foam flex">
       <Sidebar role={profile.roles?.key} />
       <div className="flex-1 min-w-0 flex flex-col">
         <div className="no-print flex items-center justify-between px-6 py-3.5 border-b border-line bg-card">
-          <div className="text-sm text-slate">Live data — Evergreen Plus Water</div>
+          <div className="flex items-center gap-3">
+            <SidebarToggleButton />
+            <div className="text-sm text-slate">Live data — Evergreen Plus Water</div>
+          </div>
           <div className="flex items-center gap-4">
             <Bell size={17} className="text-slate" />
             <div className="flex items-center gap-2">
@@ -48,5 +52,6 @@ export default async function AppLayout({ children }) {
         <div className="p-8 overflow-y-auto">{children}</div>
       </div>
     </div>
+    </SidebarProvider>
   );
 }

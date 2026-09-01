@@ -11,7 +11,10 @@ export async function middleware(request) {
       cookies: {
         get(name) { return request.cookies.get(name)?.value; },
         set(name, value, options) {
-          response.cookies.set({ name, value, ...options });
+          // Drop maxAge/expires so the session cookie is browser-session-only
+          // (cleared when the browser fully closes) instead of persisting login.
+          const { maxAge, expires, ...rest } = options || {};
+          response.cookies.set({ name, value, ...rest });
         },
         remove(name, options) {
           response.cookies.set({ name, value: "", ...options });

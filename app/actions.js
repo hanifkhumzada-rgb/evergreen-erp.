@@ -177,7 +177,7 @@ export async function createExpense(formData) {
   return { ok: true };
 }
 
-export async function markDelivered(deliveryId, emptyReceived) {
+export async function markDelivered(deliveryId, deliveredQty, emptyReceived) {
   const { supabase, user } = await requireUser();
   const { data: d } = await supabase.from("deliveries").select("delivery_date, customer_id, delivery_items(product_id, expected_qty, unit_price)").eq("id", deliveryId).single();
   if (!d) return { error: "Delivery not found" };
@@ -185,7 +185,7 @@ export async function markDelivered(deliveryId, emptyReceived) {
   const items = [];
   for (const it of d.delivery_items || []) {
     const unitPrice = Number(it.unit_price) > 0 ? Number(it.unit_price) : await getEffectiveRate(supabase, d.customer_id, it.product_id);
-    items.push({ product_id: it.product_id, delivered_qty: it.expected_qty, returned_qty: emptyReceived, unit_price: unitPrice });
+    items.push({ product_id: it.product_id, delivered_qty: deliveredQty, returned_qty: emptyReceived, unit_price: unitPrice });
   }
   const total = items.reduce((a, it) => a + it.delivered_qty * it.unit_price, 0);
   const { data: cashAccount } = await supabase.from("cash_accounts").select("id").eq("is_active", true).limit(1).maybeSingle();
