@@ -1,8 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-import ThemeToggle from "@/components/ThemeToggle";
+import dynamic from "next/dynamic";
 import { Bell } from "lucide-react";
+
+const ThemeToggle = dynamic(() => import("@/components/ThemeToggle"), { ssr: false });
 
 export default async function AppLayout({ children }) {
   const supabase = await createClient();
