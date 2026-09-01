@@ -2,7 +2,7 @@
 import { useEffect, useState } from "react";
 import { Sun, Moon } from "lucide-react";
 
-export default function ThemeToggle() {
+export default function ThemeToggle({ className = "text-slate hover:bg-foam" }) {
   const [dark, setDark] = useState(false);
   const [mounted, setMounted] = useState(false);
 
@@ -27,7 +27,7 @@ export default function ThemeToggle() {
     <button
       onClick={toggle}
       aria-label="Toggle dark mode"
-      className="no-print w-8 h-8 rounded-full flex items-center justify-center text-slate hover:bg-foam transition-colors"
+      className={`no-print w-8 h-8 rounded-full flex items-center justify-center transition-colors ${className}`}
     >
       {dark ? <Sun size={17} /> : <Moon size={17} />}
     </button>

@@ -1,10 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
-import dynamic from "next/dynamic";
 import { Bell } from "lucide-react";
-
-const ThemeToggle = dynamic(() => import("@/components/ThemeToggle"), { ssr: false });
 
 export default async function AppLayout({ children }) {
   const supabase = await createClient();
@@ -36,7 +33,6 @@ export default async function AppLayout({ children }) {
         <div className="no-print flex items-center justify-between px-6 py-3.5 border-b border-line bg-card">
           <div className="text-sm text-slate">Live data — Evergreen Plus Water</div>
           <div className="flex items-center gap-4">
-            <ThemeToggle />
             <Bell size={17} className="text-slate" />
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-aqua text-white flex items-center justify-center text-xs font-bold">

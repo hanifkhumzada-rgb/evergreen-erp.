@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "@/app/actions";
+import ThemeToggle from "@/components/ThemeToggle";
 import {
   Home, Users, ShoppingCart, Truck, Droplet, Package, Wallet, Receipt,
   BookOpen, UserCog, BarChart3, Settings, LogOut, Landmark, FileText,
@@ -66,7 +67,8 @@ export default function Sidebar({ role }) {
     <div className="no-print w-[230px] flex-shrink-0 bg-navy text-white flex flex-col p-3">
       <div className="flex items-center gap-2 px-1.5 pb-4">
         <div className="w-8 h-8 rounded-lg bg-aqua flex items-center justify-center flex-shrink-0"><Droplet size={16} /></div>
-        <span className="font-display font-semibold text-sm leading-tight">Evergreen<br />Plus Water</span>
+        <span className="font-display font-semibold text-sm leading-tight flex-1">Evergreen<br />Plus Water</span>
+        <ThemeToggle className="text-[#C7DEDC] hover:bg-white/10" />
       </div>
       <div className="flex flex-col gap-3 flex-1 overflow-y-auto pr-1">
         {GROUPS.map((g) => {
@@ -81,7 +83,7 @@ export default function Sidebar({ role }) {
                   const active = pathname.startsWith(n.href);
                   return (
                     <Link key={n.href} href={n.href}
-                      className={`flex items-center gap-2.5 px-2.5 py-1.75 rounded-lg text-[12.5px] font-semibold ${active ? "bg-aqua text-white" : "text-[#C7DEDC] hover:bg-card/5"}`}>
+                      className={`flex items-center gap-2.5 px-2.5 py-1.75 rounded-lg text-[12.5px] font-semibold ${active ? "bg-aqua text-white" : "text-[#C7DEDC] hover:bg-white/5"}`}>
                       <Icon size={15} /> {n.label}
                     </Link>
                   );
