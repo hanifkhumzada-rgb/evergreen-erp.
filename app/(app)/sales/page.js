@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
+import { Badge, ExportExcelButton, PrintButton, DownloadPdfButton, Th, Td } from "@/components/ui";
 import AddSaleForm from "@/components/AddSaleForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import { bulkImportSales } from "@/app/actions";
@@ -35,6 +35,7 @@ export default async function SalesPage() {
           previewType="sales"
         />
         <ExportExcelButton rows={exportRows} filename="evergreen-sales.xlsx" sheetName="Sales" />
+        <DownloadPdfButton href={`/api/pdf/daily-sales?date=${new Date().toISOString().slice(0, 10)}`} label="Download Today's PDF" />
         <PrintButton />
         <AddSaleForm customers={customers || []} />
       </div>

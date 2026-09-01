@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { pkr } from "@/lib/format";
-import { ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
+import { ExportExcelButton, PrintButton, DownloadPdfButton, Th, Td } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +22,7 @@ export default async function LedgerPage() {
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <ExportExcelButton rows={exportRows} filename="evergreen-ledger.xlsx" sheetName="Ledger" />
+        <DownloadPdfButton href="/api/pdf/outstanding" label="Download Outstanding PDF" />
         <PrintButton />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">

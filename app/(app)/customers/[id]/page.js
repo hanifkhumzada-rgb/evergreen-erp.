@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { pkr, fmtDate } from "@/lib/format";
-import { KPI, Badge, Th, Td, PrintButton } from "@/components/ui";
+import { KPI, Badge, Th, Td, PrintButton, DownloadPdfButton } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +41,10 @@ export default async function CustomerProfilePage({ params }) {
           <h2 className="font-display text-2xl font-semibold">{c.name}</h2>
           <p className="text-slate text-sm mt-1">{c.customer_type} · {c.zones?.name || "No zone"} · Customer since {fmtDate(c.created_at)}</p>
         </div>
-        <PrintButton />
+        <div className="no-print flex gap-2">
+          <DownloadPdfButton href={`/api/pdf/customer-statement/${c.id}`} label="Download Statement" />
+          <PrintButton />
+        </div>
       </div>
 
       <div className="flex flex-wrap gap-3.5 mb-6">

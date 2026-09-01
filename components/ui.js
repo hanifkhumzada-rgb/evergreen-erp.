@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import * as XLSX from "xlsx";
-import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus } from "lucide-react";
+import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, FileDown } from "lucide-react";
 
 export function Badge({ text, tone = "slate" }) {
   const map = {
@@ -50,6 +50,18 @@ export function ExportExcelButton({ rows, filename, sheetName = "Sheet1" }) {
     >
       <FileSpreadsheet size={14} /> Export Excel
     </button>
+  );
+}
+
+// Server-generated branded PDF download (Customer Statement, Daily Sales,
+// Outstanding/Receivables only) — a plain link to a route handler that
+// streams back a real PDF, not window.print(). Every other page keeps its
+// existing PrintButton untouched.
+export function DownloadPdfButton({ href, label = "Download PDF" }) {
+  return (
+    <a href={href} className="no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold">
+      <FileDown size={14} /> {label}
+    </a>
   );
 }
 
