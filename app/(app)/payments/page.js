@@ -9,11 +9,12 @@ export const dynamic = "force-dynamic";
 
 export default async function PaymentsPage() {
   const supabase = await createClient();
-  const [{ data: payments }, { data: balances }] = await Promise.all([
-    supabase.from("payments").select("*, customers(name)").order("created_at", { ascending: false }).limit(200),
+  const [{ data: payments }, { data: balances }, { data: collectors }] = await Promise.all([
+    supabase.from("payments").select("*, customers(name), profiles!payments_received_by_fkey(full_name)").order("created_at", { ascending: false }).limit(200),
     supabase.from("v_customer_balance").select("customer_id, name, balance"),
+    supabase.from("profiles").select("id, full_name, roles!inner(key)").neq("roles.key", "customer").eq("is_active", true).order("full_name"),
   ]);
-  const exportRows = (payments || []).map((p) => ({ Date: p.payment_date, Customer: p.customers?.name, Amount: p.amount, Method: p.method }));
+  const exportRows = (payments || []).map((p) => ({ Date: p.payment_date, Customer: p.customers?.name, Amount: p.amount, Method: p.method, Collector: p.profiles?.full_name }));
 
   return (
     <div>
@@ -29,15 +30,18 @@ export default async function PaymentsPage() {
         />
         <ExportExcelButton rows={exportRows} filename="evergreen-payments.xlsx" sheetName="Payments" />
         <PrintButton />
-        <AddPaymentForm customers={(balances || []).map((b) => ({ id: b.customer_id, name: b.name, balance: b.balance }))} />
+        <AddPaymentForm
+          customers={(balances || []).map((b) => ({ id: b.customer_id, name: b.name, balance: b.balance }))}
+          collectors={collectors || []}
+        />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Amount</Th><Th>Method</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Amount</Th><Th>Method</Th><Th>Collector</Th></tr></thead>
           <tbody>
-            {(payments || []).length === 0 && <tr><td colSpan={4} className="text-center py-8 text-slate">No payments yet.</td></tr>}
+            {(payments || []).length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate">No payments yet.</td></tr>}
             {(payments || []).map((p) => (
-              <tr key={p.id} className="hover:bg-foam"><Td>{fmtDate(p.payment_date)}</Td><Td>{p.customers?.name}</Td><Td>{pkr(p.amount)}</Td><Td>{p.method}</Td></tr>
+              <tr key={p.id} className="hover:bg-foam"><Td>{fmtDate(p.payment_date)}</Td><Td>{p.customers?.name}</Td><Td>{pkr(p.amount)}</Td><Td>{p.method}</Td><Td>{p.profiles?.full_name || "—"}</Td></tr>
             ))}
           </tbody>
         </table>

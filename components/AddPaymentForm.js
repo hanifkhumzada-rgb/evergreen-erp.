@@ -4,7 +4,7 @@ import { Plus, X } from "lucide-react";
 import { createPayment } from "@/app/actions";
 import Toast from "@/components/Toast";
 
-export default function AddPaymentForm({ customers }) {
+export default function AddPaymentForm({ customers, collectors = [] }) {
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState(null);
   const formRef = useRef();
@@ -26,8 +26,14 @@ export default function AddPaymentForm({ customers }) {
               <select name="customer_id" required className="in">{customers.map((c) => <option key={c.id} value={c.id}>{c.name} — outstanding {Math.round(c.balance || 0)}</option>)}</select>
             </label>
             <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Amount (PKR)</span><input name="amount" type="number" required className="in" /></label>
-            <label className="block mb-4"><span className="text-xs font-semibold text-slate block mb-1">Method</span>
+            <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Method</span>
               <select name="method" className="in"><option>Cash</option><option>Bank Transfer</option><option>JazzCash</option><option>Easypaisa</option></select>
+            </label>
+            <label className="block mb-4"><span className="text-xs font-semibold text-slate block mb-1">Collector (who collected the cash)</span>
+              <select name="collector_id" className="in">
+                <option value="">Me</option>
+                {collectors.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}
+              </select>
             </label>
             <button type="submit" className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm">Save Payment</button>
           </form>

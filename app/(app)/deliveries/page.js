@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
 import { Badge, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import MarkDeliveredButton from "@/components/MarkDeliveredButton";
+import DeliveryStatusButton from "@/components/DeliveryStatusButton";
 import BulkImportButton from "@/components/BulkImportButton";
 import { bulkImportDeliveries } from "@/app/actions";
 import { Phone, MessageCircle } from "lucide-react";
@@ -35,8 +36,16 @@ export default async function DeliveriesPage() {
                 <div className="flex gap-2 mt-2.5 flex-wrap">
                   <a href={`tel:${d.customers?.mobile}`} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold"><Phone size={14} /> Call</a>
                   {d.customers?.whatsapp_number && <a href={`https://wa.me/${d.customers.whatsapp_number.replace(/^0/, "92")}`} target="_blank" className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold"><MessageCircle size={14} /> WhatsApp</a>}
-                  {d.status !== "delivered" && <MarkDeliveredButton deliveryId={d.id} emptyExpected={qty} />}
+                  {d.status !== "delivered" && (
+                    <>
+                      <MarkDeliveredButton deliveryId={d.id} emptyExpected={qty} />
+                      <DeliveryStatusButton deliveryId={d.id} status="missed" label="Failed" tone="coral" />
+                      <DeliveryStatusButton deliveryId={d.id} status="rescheduled" label="Reschedule" tone="amber" />
+                      <DeliveryStatusButton deliveryId={d.id} status="cancelled" label="Cancel" tone="coral" />
+                    </>
+                  )}
                 </div>
+                {d.rider_remarks && <p className="text-xs text-slate mt-2 italic">Note: {d.rider_remarks}</p>}
               </div>
             );
           })}
@@ -68,12 +77,12 @@ export default async function DeliveriesPage() {
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Delivery Boy</Th><Th>Status</Th><Th>Cash Collected</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Delivery Boy</Th><Th>Status</Th><Th>Cash Collected</Th><Th>Notes</Th></tr></thead>
           <tbody>
-            {(deliveries || []).length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate">No deliveries yet.</td></tr>}
+            {(deliveries || []).length === 0 && <tr><td colSpan={7} className="text-center py-8 text-slate">No deliveries yet.</td></tr>}
             {(deliveries || []).map((d) => (
               <tr key={d.id} className="hover:bg-foam"><Td>{fmtDate(d.delivery_date)}</Td><Td>{d.customers?.name}</Td><Td>{qtyOf(d)}</Td><Td>{d.profiles?.full_name || "—"}</Td>
-                <Td><Badge text={d.status} tone={STATUS_TONE(d.status)} /></Td><Td>{pkr(d.amount_collected)}</Td></tr>
+                <Td><Badge text={d.status} tone={STATUS_TONE(d.status)} /></Td><Td>{pkr(d.amount_collected)}</Td><Td className="max-w-[220px] truncate">{d.rider_remarks || "—"}</Td></tr>
             ))}
           </tbody>
         </table>

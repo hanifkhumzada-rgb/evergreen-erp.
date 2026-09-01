@@ -48,6 +48,20 @@ function genCode(prefix) {
   return `${prefix}-${Date.now().toString(36).toUpperCase()}${Math.floor(Math.random() * 36).toString(36).toUpperCase()}`;
 }
 
+// A payment only actually moves Cash/Bank balances (v_cash_account_balance)
+// when cash_account_id is set — fn_post_payment_to_ledger() silently skips
+// the cash_transactions insert otherwise. Pick the active account matching
+// the payment method's type (bank -> bank, everything else -> cash, mirroring
+// fn_journal_from_payment's own account-code choice), falling back to any
+// active account if none of that type exists yet.
+async function getCashAccountId(supabase, method) {
+  const accountType = method === "bank" ? "bank" : "cash";
+  const { data: typed } = await supabase.from("cash_accounts").select("id").eq("is_active", true).eq("type", accountType).limit(1).maybeSingle();
+  if (typed) return typed.id;
+  const { data: any } = await supabase.from("cash_accounts").select("id").eq("is_active", true).limit(1).maybeSingle();
+  return any?.id || null;
+}
+
 export async function signOut() {
   const supabase = await createClient();
   await supabase.auth.signOut();
@@ -129,11 +143,13 @@ export async function createSale(formData) {
   if (paid > 0) {
     const { data: receiptNo } = await supabase.rpc("fn_next_receipt_no");
     const methodMap = { Cash: "cash", "Bank Transfer": "bank", JazzCash: "jazzcash", Easypaisa: "easypaisa" };
+    const method = methodMap[formData.get("payment_method")] || "cash";
     await supabase.from("payments").insert({
       receipt_no: receiptNo,
       customer_id: customerId,
       amount: paid,
-      method: methodMap[formData.get("payment_method")] || "cash",
+      method,
+      cash_account_id: await getCashAccountId(supabase, method),
       received_by: user.id,
       reference: invNo,
     });
@@ -149,12 +165,14 @@ export async function createPayment(formData) {
   const { supabase, user } = await requireUser();
   const { data: receiptNo } = await supabase.rpc("fn_next_receipt_no");
   const methodMap = { Cash: "cash", "Bank Transfer": "bank", JazzCash: "jazzcash", Easypaisa: "easypaisa" };
+  const method = methodMap[formData.get("method")] || "cash";
   const { error } = await supabase.from("payments").insert({
     receipt_no: receiptNo,
     customer_id: formData.get("customer_id"),
     amount: Number(formData.get("amount")),
-    method: methodMap[formData.get("method")] || "cash",
-    received_by: user.id,
+    method,
+    cash_account_id: await getCashAccountId(supabase, method),
+    received_by: formData.get("collector_id") || user.id,
   });
   if (error) return { error: error.message };
   revalidatePath("/payments");
@@ -200,7 +218,6 @@ export async function markDelivered(deliveryId, deliveredQty, emptyReceived) {
     items.push({ product_id: it.product_id, delivered_qty: deliveredQty, returned_qty: emptyReceived, unit_price: unitPrice });
   }
   const total = items.reduce((a, it) => a + it.delivered_qty * it.unit_price, 0);
-  const { data: cashAccount } = await supabase.from("cash_accounts").select("id").eq("is_active", true).limit(1).maybeSingle();
 
   const { error } = await supabase.rpc("record_delivery_completion", {
     p_delivery_id: deliveryId,
@@ -208,12 +225,42 @@ export async function markDelivered(deliveryId, deliveredQty, emptyReceived) {
     p_status: "delivered",
     p_amount_collected: total,
     p_payment_method: "cash",
-    p_cash_account_id: cashAccount?.id || null,
+    p_cash_account_id: await getCashAccountId(supabase, "cash"),
   });
   if (error) return { error: error.message };
   revalidatePath("/deliveries");
   revalidatePath("/bottles");
   revalidatePath("/bottle-ledger");
+  return { ok: true };
+}
+
+// For non-delivered outcomes (missed/cancelled/rescheduled/etc) — no bottle or
+// cash reconciliation needed, just the status and an optional driver note.
+export async function updateDeliveryStatus(deliveryId, status, note) {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.from("deliveries").update({
+    status,
+    rider_remarks: note || null,
+  }).eq("id", deliveryId);
+  if (error) return { error: error.message };
+  revalidatePath("/deliveries");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+// RLS on automation_rules restricts updates to fn_has_permission('settings.manage')
+// (owner), so a non-owner reaching this returns the RLS error rather than silently
+// succeeding.
+export async function updateAutomationRule(ruleId, formData) {
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("automation_rules").update({
+    enabled: formData.get("enabled") === "on",
+    threshold_value: Number(formData.get("threshold_value")) || 0,
+    updated_by: user.id,
+    updated_at: new Date().toISOString(),
+  }).eq("id", ruleId);
+  if (error) return { error: error.message };
+  revalidatePath("/settings");
   return { ok: true };
 }
 
@@ -444,12 +491,14 @@ export async function bulkImportPayments(rows) {
     const amount = Number(r.Amount || r.amount);
     if (!customerId || !amount) { failed++; continue; }
     const { data: receiptNo } = await supabase.rpc("fn_next_receipt_no");
+    const method = METHOD_MAP[r.Method || r.method] || "cash";
     const { error } = await supabase.from("payments").insert({
       receipt_no: receiptNo,
       customer_id: customerId,
       amount,
       payment_date: r.Date || r.date || undefined,
-      method: METHOD_MAP[r.Method || r.method] || "cash",
+      method,
+      cash_account_id: await getCashAccountId(supabase, method),
       received_by: user.id,
     });
     if (error) failed++; else imported++;
@@ -511,9 +560,10 @@ export async function bulkImportSales(rows) {
     });
     if (paid > 0) {
       const { data: receiptNo } = await supabase.rpc("fn_next_receipt_no");
+      const method = METHOD_MAP[r.Method || r.method] || "cash";
       await supabase.from("payments").insert({
         receipt_no: receiptNo, customer_id: customerId, amount: paid,
-        method: METHOD_MAP[r.Method || r.method] || "cash", received_by: user.id, reference: invNo,
+        method, cash_account_id: await getCashAccountId(supabase, method), received_by: user.id, reference: invNo,
       });
     }
     imported++;

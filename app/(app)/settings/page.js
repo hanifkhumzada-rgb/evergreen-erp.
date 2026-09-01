@@ -1,24 +1,34 @@
+import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui";
+import AutomationRulesForm from "@/components/AutomationRulesForm";
 
-export default function SettingsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function SettingsPage() {
+  const supabase = await createClient();
+  const { data: rules } = await supabase.from("automation_rules").select("*").order("created_at");
+
   return (
     <div>
       <h2 className="font-display text-2xl font-semibold mb-4">Settings</h2>
-      <div className="border border-line rounded-2xl p-5 max-w-xl">
-        <h4 className="text-sm font-bold mb-2">About this build</h4>
-        <p className="text-[13px] text-slate leading-relaxed">
-          Real, multi-user, database-driven ERP: Next.js + Supabase Postgres, Supabase Auth, and Row Level Security
-          enforcing roles at the database level. Sales, Payments and Expenses are recorded directly against
-          customers and cash accounts, with a heuristic Profit &amp; Loss calculated live from invoices and expenses.
-        </p>
-        <div className="mt-3.5 flex flex-col gap-1.5">
-          <Badge text="Bottle deposit liability — tracked, but not yet auto-posted as a journal entry" tone="slate" />
-          <Badge text="Granular per-action permissions (view/create/edit/approve/export) — Coming Soon, role-level only for now" tone="slate" />
-          <Badge text="Route performance & driver on-time % — Coming Soon" tone="slate" />
-          <Badge text="Automated notification triggers (low stock, overdue) — table ready, triggers not yet wired" tone="slate" />
-          <Badge text="WhatsApp Business API (official) — Coming Soon" tone="slate" />
-          <Badge text="AI sales forecasting & anomaly detection — Coming Soon" tone="slate" />
-          <Badge text="Server-rendered PDF (currently uses browser print) — Coming Soon" tone="slate" />
+      <div className="flex flex-col gap-5">
+        <AutomationRulesForm rules={rules || []} />
+        <div className="border border-line rounded-2xl p-5 max-w-xl">
+          <h4 className="text-sm font-bold mb-2">About this build</h4>
+          <p className="text-[13px] text-slate leading-relaxed">
+            Real, multi-user, database-driven ERP: Next.js + Supabase Postgres, Supabase Auth, and Row Level Security
+            enforcing roles at the database level. Sales, Payments and Expenses are recorded directly against
+            customers and cash accounts, with a heuristic Profit &amp; Loss calculated live from invoices and expenses.
+          </p>
+          <div className="mt-3.5 flex flex-col gap-1.5">
+            <Badge text="Bottle deposit liability — tracked, but not yet auto-posted as a journal entry" tone="slate" />
+            <Badge text="Granular per-action permissions (view/create/edit/approve/export) — Coming Soon, role-level only for now" tone="slate" />
+            <Badge text="Route performance & driver on-time % — Coming Soon" tone="slate" />
+            <Badge text="Automated notification triggers (low stock, overdue, bottle limit, inactive, payment overdue) — configurable above" tone="slate" />
+            <Badge text="WhatsApp Business API (official) — Coming Soon" tone="slate" />
+            <Badge text="AI sales forecasting & anomaly detection — Coming Soon" tone="slate" />
+            <Badge text="Server-rendered PDF (currently uses browser print) — Coming Soon" tone="slate" />
+          </div>
         </div>
       </div>
     </div>
