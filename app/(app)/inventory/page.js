@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { Badge, ExportExcelButton, PrintButton, Th, Td, pkr, fmtDate } from "@/components/ui";
+import { pkr, fmtDate } from "@/lib/format";
+import { Badge, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import BulkImportButton from "@/components/BulkImportButton";
 import { bulkImportPurchases } from "@/app/actions";
 

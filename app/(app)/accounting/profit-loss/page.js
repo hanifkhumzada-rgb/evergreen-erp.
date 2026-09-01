@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { PrintButton, pkr } from "@/components/ui";
+import { pkr } from "@/lib/format";
+import { PrintButton } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 function monthStart() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10); }

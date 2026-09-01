@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { Badge, ExportExcelButton, PrintButton, Th, Td, pkr } from "@/components/ui";
+import { pkr } from "@/lib/format";
+import { Badge, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import AddCustomerForm from "@/components/AddCustomerForm";
 import ImportExcelButton from "@/components/ImportExcelButton";
 

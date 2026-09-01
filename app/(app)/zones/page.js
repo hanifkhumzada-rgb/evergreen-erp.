@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { Th, Td, pkr } from "@/components/ui";
+import { pkr } from "@/lib/format";
+import { Th, Td } from "@/components/ui";
 import AddZoneForm from "@/components/AddZoneForm";
 
 export const dynamic = "force-dynamic";

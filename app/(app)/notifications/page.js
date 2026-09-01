@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { Badge, Th, Td, fmtDate } from "@/components/ui";
+import { fmtDate } from "@/lib/format";
+import { Badge, Th, Td } from "@/components/ui";
 import RefreshAlertsButton from "@/components/RefreshAlertsButton";
 
 export const dynamic = "force-dynamic";

@@ -1,6 +1,6 @@
 "use client";
 import { AreaChart, Area, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { pkr } from "./ui";
+import { pkr } from "@/lib/format";
 
 const COLORS = ["#0E9E97", "#DE9B33", "#D95A44", "#0B3142", "#2E9E6B", "#8CB8B4", "#C98C4B", "#B0473A"];
 

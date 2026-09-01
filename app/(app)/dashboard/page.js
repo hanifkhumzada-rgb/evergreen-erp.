@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { KPI, pkr } from "@/components/ui";
+import { pkr } from "@/lib/format";
+import { KPI } from "@/components/ui";
 import { SalesTrendChart, ExpensePie } from "@/components/DashboardCharts";
 import { AlertTriangle } from "lucide-react";
 

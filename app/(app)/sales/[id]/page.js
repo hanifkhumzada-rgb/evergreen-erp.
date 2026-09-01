@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { ArrowLeft, Droplet } from "lucide-react";
-import { Badge, pkr, fmtDate, PrintButton } from "@/components/ui";
+import { pkr, fmtDate } from "@/lib/format";
+import { Badge, PrintButton } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 const STATUS_LABEL = { paid: "Paid", partially_paid: "Partially Paid", sent: "Pending", draft: "Draft", overdue: "Overdue", void: "Void" };

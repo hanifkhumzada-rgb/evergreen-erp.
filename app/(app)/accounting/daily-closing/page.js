@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import CloseDayForm from "@/components/CloseDayForm";
-import { Badge, Th, Td, pkr, fmtDate } from "@/components/ui";
+import { pkr, fmtDate } from "@/lib/format";
+import { Badge, Th, Td } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 function todayISO() { return new Date().toISOString().slice(0, 10); }

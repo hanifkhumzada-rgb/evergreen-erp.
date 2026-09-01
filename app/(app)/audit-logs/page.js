@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { Th, Td, fmtDate } from "@/components/ui";
+import { fmtDate } from "@/lib/format";
+import { Th, Td } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 

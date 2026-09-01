@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
-import { Badge, ExportExcelButton, PrintButton, Th, Td, pkr } from "@/components/ui";
+import { pkr } from "@/lib/format";
+import { Badge, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import { AddVehicleForm, AddVehicleExpenseForm } from "@/components/FleetForms";
 
 export const dynamic = "force-dynamic";

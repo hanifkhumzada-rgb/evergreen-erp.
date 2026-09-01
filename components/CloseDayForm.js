@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { closeDay } from "@/app/actions";
-import { pkr } from "@/components/ui";
+import { pkr } from "@/lib/format";
 
 export default function CloseDayForm({ today, defaultOpeningCash }) {
   const [result, setResult] = useState(null);

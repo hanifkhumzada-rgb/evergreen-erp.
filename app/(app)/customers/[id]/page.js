@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { KPI, Badge, Th, Td, pkr, fmtDate, PrintButton } from "@/components/ui";
+import { pkr, fmtDate } from "@/lib/format";
+import { KPI, Badge, Th, Td, PrintButton } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
