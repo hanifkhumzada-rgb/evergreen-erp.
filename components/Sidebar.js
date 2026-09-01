@@ -52,6 +52,7 @@ const GROUPS = [
     label: "SETTINGS",
     items: [
       { href: "/notifications", label: "Notifications", icon: Bell, roles: ["owner", "manager", "accountant"] },
+      { href: "/audit-logs", label: "Audit Logs", icon: FileText, roles: ["owner"] },
       { href: "/settings", label: "Settings", icon: Settings, roles: ["owner"] },
     ],
   },

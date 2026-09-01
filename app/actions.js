@@ -400,3 +400,10 @@ export async function bulkImportCustomers(rows) {
   revalidatePath("/customers");
   return { ok: !error, imported: data?.length || 0, failed: payload.length - (data?.length || 0), error: error?.message };
 }
+
+export async function refreshAlerts() {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.rpc("refresh_alerts");
+  revalidatePath("/notifications");
+  return { ok: !error, error: error?.message };
+}
