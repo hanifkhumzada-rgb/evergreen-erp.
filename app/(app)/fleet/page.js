@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { pkr } from "@/lib/format";
 import { Badge, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import { AddVehicleForm, AddVehicleExpenseForm } from "@/components/FleetForms";
+import BulkImportButton from "@/components/BulkImportButton";
+import { bulkImportVehicles } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +46,13 @@ export default async function FleetPage() {
       <h2 className="font-display text-2xl font-semibold mb-4">Fleet Management</h2>
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
+        <BulkImportButton
+          label="Bulk Import"
+          columnsHint="Registration No*, Vehicle Type, Driver (matches an existing rider's name)"
+          action={bulkImportVehicles}
+          sampleRow={{ "Registration No": "LEA-1234", "Vehicle Type": "Suzuki Bolan", Driver: "" }}
+          previewType="vehicles"
+        />
         <ExportExcelButton rows={exportRows} filename="fleet-report.xlsx" sheetName="Fleet" />
         <PrintButton />
         {vehicles?.length > 0 && <AddVehicleExpenseForm vehicles={vehicles.map((v) => ({ id: v.id, vehicle_no: v.registration_no }))} />}

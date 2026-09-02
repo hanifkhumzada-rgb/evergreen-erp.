@@ -54,14 +54,18 @@ async function resolveProductId(supabase, requested, fallbackProductId) {
 
 export async function globalSearch(query) {
   const q = (query || "").trim();
-  if (q.length < 2) return { customers: [], invoices: [] };
+  if (q.length < 2) return { customers: [], invoices: [], deliveries: [], payments: [], employees: [], vehicles: [] };
   const { supabase } = await requireUser();
   const pattern = `%${q}%`;
-  const [{ data: customers }, { data: invoices }] = await Promise.all([
-    supabase.from("customers").select("id, name, mobile").or(`name.ilike.${pattern},mobile.ilike.${pattern}`).limit(5),
+  const [{ data: customers }, { data: invoices }, { data: deliveries }, { data: payments }, { data: employees }, { data: vehicles }] = await Promise.all([
+    supabase.from("customers").select("id, name, mobile, code").or(`name.ilike.${pattern},mobile.ilike.${pattern},code.ilike.${pattern}`).limit(5),
     supabase.from("invoices").select("id, invoice_no, customers(name)").ilike("invoice_no", pattern).limit(5),
+    supabase.from("deliveries").select("id, delivery_no, delivery_date, customers(name)").ilike("delivery_no", pattern).limit(5),
+    supabase.from("payments").select("id, receipt_no, customer_id, customers(name)").ilike("receipt_no", pattern).limit(5),
+    supabase.from("profiles").select("id, full_name, roles!inner(key)").neq("roles.key", "customer").ilike("full_name", pattern).limit(5),
+    supabase.from("vehicles").select("id, registration_no").ilike("registration_no", pattern).limit(5),
   ]);
-  return { customers: customers || [], invoices: invoices || [] };
+  return { customers: customers || [], invoices: invoices || [], deliveries: deliveries || [], payments: payments || [], employees: employees || [], vehicles: vehicles || [] };
 }
 
 async function getEffectiveRate(supabase, customerId, productId) {
@@ -607,6 +611,32 @@ export async function addVehicle(formData) {
   if (error) return { error: error.message };
   revalidatePath("/fleet");
   return { ok: true };
+}
+
+// Phase 9 — Fleet had no bulk import, unlike every other list module.
+// Employees deliberately don't get one: creating a login-capable profile
+// needs a real auth invite flow, not a plain table insert, and doing that
+// wrong risks orphaned/broken accounts.
+export async function bulkImportVehicles(rows) {
+  const { supabase, user } = await requireUser();
+  const { data: riders } = await supabase.from("profiles").select("id, full_name, roles!inner(key)").eq("roles.key", "rider");
+  let imported = 0, failed = 0;
+  for (const r of rows) {
+    const regNo = String(r["Registration No"] || r.RegistrationNo || r.Vehicle || "").trim();
+    if (!regNo) { failed++; continue; }
+    const driverName = String(r.Driver || r.driver || "").trim();
+    const rider = driverName ? (riders || []).find((p) => p.full_name?.toLowerCase() === driverName.toLowerCase()) : null;
+    const { error } = await supabase.from("vehicles").insert({
+      registration_no: regNo,
+      vehicle_type: r["Vehicle Type"] || r.Type || null,
+      assigned_rider_id: rider?.id || null,
+      is_active: true,
+    });
+    if (error) { failed++; continue; }
+    imported++;
+  }
+  revalidatePath("/fleet");
+  return { ok: true, imported, failed };
 }
 
 export async function addVehicleExpense(formData) {
