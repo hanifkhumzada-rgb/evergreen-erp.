@@ -8,11 +8,14 @@ export default function AddZoneForm() {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
+  const [busy, setBusy] = useState(false);
   const formRef = useRef();
 
   const handleSubmit = async (formData) => {
     setError("");
+    setBusy(true);
     const res = await createZone(formData);
+    setBusy(false);
     if (res?.error) { setError(res.error); return; }
     setOpen(false);
     formRef.current?.reset();
@@ -34,7 +37,7 @@ export default function AddZoneForm() {
             {error && <p className="text-coral text-xs mb-3">{error}</p>}
             <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Zone name</span><input name="name" required className="in" /></label>
             <label className="block mb-4"><span className="text-xs font-semibold text-slate block mb-1">Description</span><input name="description" className="in" /></label>
-            <button type="submit" className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm">Save Zone</button>
+            <button type="submit" disabled={busy} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">{busy ? "Saving…" : "Save Zone"}</button>
           </form>
         </div>
       )}

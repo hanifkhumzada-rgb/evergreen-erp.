@@ -102,6 +102,8 @@ async function getCashAccountId(supabase, method) {
 
 export async function signOut() {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) await supabase.from("audit_logs").insert({ user_id: user.id, action: "LOGOUT", module: "auth" });
   await supabase.auth.signOut();
   redirect("/login");
 }
@@ -547,13 +549,16 @@ export async function updateDeliveryStatus(deliveryId, status, note) {
 // succeeding.
 export async function updateAutomationRule(ruleId, formData) {
   const { supabase, user } = await requireUser();
+  const enabled = formData.get("enabled") === "on";
+  const thresholdValue = Number(formData.get("threshold_value")) || 0;
   const { error } = await supabase.from("automation_rules").update({
-    enabled: formData.get("enabled") === "on",
-    threshold_value: Number(formData.get("threshold_value")) || 0,
+    enabled,
+    threshold_value: thresholdValue,
     updated_by: user.id,
     updated_at: new Date().toISOString(),
   }).eq("id", ruleId);
   if (error) return { error: error.message };
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "SETTINGS_CHANGE", module: "automation_rules", record_id: ruleId, new_value: { enabled, threshold_value: thresholdValue } });
   revalidatePath("/settings");
   return { ok: true };
 }
@@ -1141,6 +1146,10 @@ export async function recordBottleReconciliation(formData) {
   });
   if (error) return { error: error.message };
 
+  await supabase.from("audit_logs").insert({
+    user_id: user.id, action: "BOTTLE_ADJUSTMENT", module: "bottle_reconciliations",
+    new_value: { product_id: productId, expected_qty: expectedQty, physical_qty: physicalQty, difference, reason },
+  });
   revalidatePath("/bottle-ledger");
   revalidatePath("/bottles");
   revalidatePath("/notifications");
@@ -1446,24 +1455,34 @@ export async function updateEmployeeProfile(employeeId, formData) {
 // ============================================================
 // OWNER CONTROL: user management
 // ============================================================
-export async function updateUserRole(userId, roleKey) {  const { supabase } = await requireUser();
+export async function updateUserRole(userId, roleKey) {  const { supabase, user } = await requireUser();
   const { data: role } = await supabase.from("roles").select("id").eq("key", roleKey).single();
   if (!role) return { error: "Unknown role" };
   const { error } = await supabase.from("profiles").update({ role_id: role.id }).eq("id", userId);
+  if (!error) await supabase.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "profiles", record_id: userId, new_value: { role: roleKey } });
   revalidatePath("/user-management");
   revalidatePath("/employees");
   return { ok: !error, error: error?.message };
 }
 
 export async function toggleUserActive(userId, isActive) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const { error } = await supabase.from("profiles").update({ is_active: isActive }).eq("id", userId);
+  if (!error) await supabase.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "profiles", record_id: userId, new_value: { is_active: isActive } });
   revalidatePath("/user-management");
   revalidatePath("/employees");
   return { ok: !error, error: error?.message };
 }
 
+// SECURITY: this had no auth check at all before — any caller, authenticated
+// or not, could invite an arbitrary user at an arbitrary role (including
+// owner) since it goes straight to the admin client. Gated the same way
+// deleteUser already gates account deletion.
 export async function inviteUser(formData) {
+  const { supabase, user } = await requireUser();
+  const { data: allowed } = await supabase.rpc("fn_has_permission", { perm_key: "users.manage" });
+  if (!allowed) return { error: "You don't have permission to invite users." };
+
   const admin = createAdminClient();
   const email = formData.get("email");
   const fullName = formData.get("full_name");
@@ -1484,6 +1503,7 @@ export async function inviteUser(formData) {
   });
   if (profileError) return { error: profileError.message };
 
+  await admin.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "profiles", record_id: authData.user.id, new_value: { action: "invited", role: roleKey } });
   revalidatePath("/user-management");
   return { ok: true, email, tempPassword };
 }
@@ -1517,6 +1537,7 @@ export async function deleteUser(userId) {
   const { error: profileError } = await admin.from("profiles").delete().eq("id", userId);
   if (profileError) return { error: profileError.message };
 
+  await admin.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "profiles", new_value: { action: "deleted", target_user_id: userId } });
   revalidatePath("/user-management");
   revalidatePath("/employees");
   return { ok: true };

@@ -64,6 +64,12 @@ export default function LoginPage() {
       return;
     }
     setFailedAttempts(0);
+    // Best-effort audit trail — never blocks the login itself. If RLS on
+    // audit_logs doesn't permit a regular user to insert their own login
+    // event (unverifiable from this sandbox), this just silently no-ops.
+    supabase.auth.getUser().then(({ data }) => {
+      if (data?.user) supabase.from("audit_logs").insert({ user_id: data.user.id, action: "LOGIN", module: "auth" }).then(() => {}, () => {});
+    });
     router.replace("/dashboard");
     router.refresh();
   };
