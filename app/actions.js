@@ -20,12 +20,36 @@ async function getUserRole(supabase, user) {
 }
 const FINANCIAL_ROLES = ["owner", "admin"];
 
-// The live schema has one primary retail product (19L bottle, sku "19L"). The
-// UI only ever asks for a quantity (no product picker), so every sale /
-// delivery is recorded against this product.
+// Fallback product (19L) used when nothing more specific is available —
+// Sales/Deliveries now support any active product (bottle size), resolved
+// via resolveProductId below; this is only the last resort.
 async function getDefaultProduct(supabase) {
   const { data } = await supabase.from("products").select("id").eq("sku", "19L").single();
   return data?.id || null;
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+// Resolves a product/bottle-size from a form (a real product id) or a bulk
+// import row (a free-text size/sku like "6L"), falling back to the
+// customer's own default size, then to the 19L fallback — so every existing
+// caller/template that doesn't mention a size at all keeps working exactly
+// as before.
+async function resolveProductId(supabase, requested, fallbackProductId) {
+  const val = (requested || "").toString().trim();
+  if (val) {
+    if (UUID_RE.test(val)) {
+      const { data } = await supabase.from("products").select("id").eq("id", val).maybeSingle();
+      if (data) return data.id;
+    } else {
+      const { data } = await supabase.from("products").select("id")
+        .or(`sku.ilike.${val},size_label.ilike.${val},name.ilike.%${val}%`)
+        .limit(1).maybeSingle();
+      if (data) return data.id;
+    }
+  }
+  if (fallbackProductId) return fallbackProductId;
+  return getDefaultProduct(supabase);
 }
 
 export async function globalSearch(query) {
@@ -195,8 +219,10 @@ export async function createSale(formData) {
   const qty = Number(formData.get("qty"));
   const paid = Number(formData.get("paid")) || 0;
 
-  const productId = await getDefaultProduct(supabase);
-  if (!productId) return { error: "No default product configured" };
+  const { data: customer } = await supabase.from("customers").select("default_product_id").eq("id", customerId).maybeSingle();
+  const productId = await resolveProductId(supabase, formData.get("product_id"), customer?.default_product_id);
+  if (!productId) return { error: "No product configured" };
+  const { data: product } = await supabase.from("products").select("name").eq("id", productId).maybeSingle();
   const rate = await getEffectiveRate(supabase, customerId, productId);
   const total = qty * rate;
 
@@ -218,7 +244,7 @@ export async function createSale(formData) {
   const { error: itemErr } = await supabase.from("invoice_items").insert({
     invoice_id: invoice.id,
     product_id: productId,
-    description: "19L Bottle",
+    description: product?.name || "Bottle",
     quantity: qty,
     rate,
     discount: 0,
@@ -805,13 +831,14 @@ export async function bulkImportExpenses(rows) {
 
 export async function bulkImportSales(rows) {
   const { supabase, user } = await requireUser();
-  const productId = await getDefaultProduct(supabase);
   let imported = 0, failed = 0;
   for (const r of rows) {
     const customerId = await findCustomerId(supabase, r);
     const qty = Number(r.Qty || r.qty);
     const paid = Number(r.Paid || r.paid) || 0;
+    const productId = await resolveProductId(supabase, r.Product || r.product || r.Size || r.size, null);
     if (!customerId || !qty || !productId) { failed++; continue; }
+    const { data: product } = await supabase.from("products").select("name").eq("id", productId).maybeSingle();
     const rate = await getEffectiveRate(supabase, customerId, productId);
     const total = qty * rate;
     const { data: invNo } = await supabase.rpc("fn_next_invoice_no");
@@ -822,7 +849,7 @@ export async function bulkImportSales(rows) {
     }).select("id").single();
     if (error) { failed++; continue; }
     await supabase.from("invoice_items").insert({
-      invoice_id: invoice.id, product_id: productId, description: "19L Bottle", quantity: qty, rate, discount: 0,
+      invoice_id: invoice.id, product_id: productId, description: product?.name || "Bottle", quantity: qty, rate, discount: 0,
     });
     if (paid > 0) {
       const { data: receiptNo } = await supabase.rpc("fn_next_receipt_no");
@@ -845,13 +872,16 @@ export async function bulkImportSales(rows) {
 // collected, exactly as if a rider had completed it via the app.
 export async function bulkImportDeliveries(rows) {
   const { supabase, user } = await requireUser();
-  const productId = await getDefaultProduct(supabase);
   const { data: cashAccount } = await supabase.from("cash_accounts").select("id").eq("is_active", true).limit(1).maybeSingle();
   let imported = 0, failed = 0;
   for (const r of rows) {
     const customerId = await findCustomerId(supabase, r);
     const qty = Number(r.Qty || r.qty);
+    const productId = await resolveProductId(supabase, r.Product || r.product || r.Size || r.size, null);
     if (!customerId || !qty || !productId) { failed++; continue; }
+    // Historical bulk entry assumes a straight bottle swap (empties returned
+    // = full bottles delivered) unless the template gives a Returned column.
+    const returnedQty = r.Returned != null && r.Returned !== "" ? Number(r.Returned) : qty;
     const rate = await getEffectiveRate(supabase, customerId, productId);
     const cashCollected = r.CashCollected != null && r.CashCollected !== "" ? Number(r.CashCollected) : qty * rate;
 
@@ -869,13 +899,20 @@ export async function bulkImportDeliveries(rows) {
     if (error) { failed++; continue; }
 
     await supabase.from("delivery_items").insert({
-      delivery_id: delivery.id, product_id: productId, expected_qty: qty, delivered_qty: qty, returned_qty: qty, unit_price: rate,
+      delivery_id: delivery.id, product_id: productId, expected_qty: qty, delivered_qty: qty, returned_qty: returnedQty, unit_price: rate,
     });
     await supabase.from("bottle_transactions").insert({
       txn_date: r.Date || r.date || undefined, product_id: productId, quantity: qty,
       from_state: "with_rider", to_state: "with_customer", customer_id: customerId,
       reference_type: "delivery", reference_id: delivery.id, created_by: user.id,
     });
+    if (returnedQty > 0) {
+      await supabase.from("bottle_transactions").insert({
+        txn_date: r.Date || r.date || undefined, product_id: productId, quantity: returnedQty,
+        from_state: "with_customer", to_state: "with_rider", customer_id: customerId,
+        reference_type: "delivery_return", reference_id: delivery.id, created_by: user.id,
+      });
+    }
     if (cashCollected > 0 && cashAccount) {
       await supabase.from("cash_transactions").insert({
         account_id: cashAccount.id, txn_date: r.Date || r.date || undefined, type: "receipt",

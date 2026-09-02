@@ -5,21 +5,23 @@ import { ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import { AlertTriangle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
-const TOTAL_OWNED = 500;
-const BOTTLE_COST = 800; // replacement cost per 19L bottle, used for valuation
+const BOTTLE_COST = 800; // avg. replacement cost per bottle across sizes — a labeled approximation, not a per-size cost (products has no per-size cost field yet)
 
 export default async function BottleLedgerPage() {
   const supabase = await createClient();
-  const [{ data: balances }, { data: movements }, { data: customers }] = await Promise.all([
+  const [{ data: balances }, { data: movements }, { data: customers }, { data: reconciliation }] = await Promise.all([
     supabase.from("v_customer_bottle_balance").select("customer_id, name, bottles_with_customer"),
-    supabase.from("bottle_transactions").select("*, customers(name)").order("created_at", { ascending: false }).limit(150),
+    supabase.from("bottle_transactions").select("*, customers(name), products(name)").order("created_at", { ascending: false }).limit(150),
     supabase.from("customers").select("id, bottle_limit"),
+    supabase.from("v_bottle_reconciliation").select("*").order("product_name"),
   ]);
 
+  const bySize = reconciliation || [];
+  const totalOwned = bySize.reduce((a, s) => a + Number(s.total_assets), 0);
   const withCustomers = (balances || []).reduce((a, b) => a + Number(b.bottles_with_customer), 0);
-  const full = TOTAL_OWNED - withCustomers;
+  const full = totalOwned - withCustomers;
   const liabilityValue = withCustomers * BOTTLE_COST;
-  const exportRows = (movements || []).map((m) => ({ Date: m.txn_date, Customer: m.customers?.name, From: m.from_state, To: m.to_state, Qty: m.quantity }));
+  const exportRows = (movements || []).map((m) => ({ Date: m.txn_date, Customer: m.customers?.name, Size: m.products?.name, From: m.from_state, To: m.to_state, Qty: m.quantity }));
 
   const limitMap = {};
   (customers || []).forEach((c) => { limitMap[c.id] = c.bottle_limit ?? 20; });
@@ -53,10 +55,29 @@ export default async function BottleLedgerPage() {
       )}
 
       <div className="flex gap-3 flex-wrap mb-6">
-        <Stat label="Total owned" value={TOTAL_OWNED} />
+        <Stat label="Total owned (all sizes)" value={totalOwned} />
         <Stat label="Full (available)" value={full} />
         <Stat label="With customers" value={withCustomers} />
-        <Stat label="Bottle liability value" value={pkr(liabilityValue)} sub={`@ ${pkr(BOTTLE_COST)}/bottle replacement cost`} />
+        <Stat label="Bottle liability value" value={pkr(liabilityValue)} sub={`@ ${pkr(BOTTLE_COST)}/bottle avg. replacement cost`} />
+      </div>
+
+      <h4 className="text-sm font-bold mb-2.5">By bottle size</h4>
+      <div className="overflow-x-auto border border-line rounded-2xl mb-6">
+        <table className="w-full text-[13.5px] border-collapse">
+          <thead><tr className="bg-foam"><Th>Size</Th><Th>Warehouse</Th><Th>With Rider</Th><Th>With Customers</Th><Th>Damaged</Th><Th>Lost</Th><Th>Total</Th></tr></thead>
+          <tbody>
+            {bySize.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-slate">No bottle movements yet.</td></tr>}
+            {bySize.map((s) => (
+              <tr key={s.product_id} className="hover:bg-foam">
+                <Td className="font-semibold">{s.product_name}</Td>
+                <Td>{s.warehouse}</Td><Td>{s.with_rider}</Td><Td>{s.with_customer}</Td>
+                <Td className={Number(s.damaged) > 0 ? "text-coral" : ""}>{s.damaged}</Td>
+                <Td className={Number(s.lost) > 0 ? "text-coral" : ""}>{s.lost}</Td>
+                <Td className="font-semibold">{s.total_assets}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       <div className="no-print flex gap-2.5 mb-3">
@@ -65,10 +86,10 @@ export default async function BottleLedgerPage() {
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>From</Th><Th>To</Th><Th>Qty</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Size</Th><Th>From</Th><Th>To</Th><Th>Qty</Th></tr></thead>
           <tbody>
-            {(movements || []).length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate">No movements recorded yet.</td></tr>}
-            {(movements || []).map((m) => <tr key={m.id} className="hover:bg-foam"><Td>{fmtDate(m.txn_date)}</Td><Td>{m.customers?.name || "—"}</Td><Td>{m.from_state}</Td><Td>{m.to_state}</Td><Td>{m.quantity}</Td></tr>)}
+            {(movements || []).length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate">No movements recorded yet.</td></tr>}
+            {(movements || []).map((m) => <tr key={m.id} className="hover:bg-foam"><Td>{fmtDate(m.txn_date)}</Td><Td>{m.customers?.name || "—"}</Td><Td>{m.products?.name || "—"}</Td><Td>{m.from_state}</Td><Td>{m.to_state}</Td><Td>{m.quantity}</Td></tr>)}
           </tbody>
         </table>
       </div>

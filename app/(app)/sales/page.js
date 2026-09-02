@@ -12,9 +12,10 @@ const STATUS_TONE = { paid: "green", partially_paid: "amber", sent: "coral", dra
 
 export default async function SalesPage() {
   const supabase = await createClient();
-  const [{ data: invoices }, { data: customers }] = await Promise.all([
+  const [{ data: invoices }, { data: customers }, { data: products }] = await Promise.all([
     supabase.from("invoices").select("*, customers(name), invoice_items(quantity)").order("created_at", { ascending: false }).limit(200),
-    supabase.from("customers").select("id, name"),
+    supabase.from("customers").select("id, name, default_product_id"),
+    supabase.from("products").select("id, name").eq("is_active", true).order("name"),
   ]);
 
   const qtyOf = (s) => (s.invoice_items || []).reduce((a, i) => a + Number(i.quantity), 0);
@@ -29,15 +30,15 @@ export default async function SalesPage() {
         <div className="flex-1" />
         <BulkImportButton
           label="Bulk Import"
-          columnsHint="Phone (or Name), Qty, Paid, Date, Method"
+          columnsHint="Phone (or Name), Qty, Paid, Date, Method, Product (optional — size/sku, defaults to 19L)"
           action={bulkImportSales}
-          sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Qty: 5, Paid: 500, Date: "2026-08-31", Method: "Cash" }}
+          sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Qty: 5, Paid: 500, Date: "2026-08-31", Method: "Cash", Product: "19L" }}
           previewType="sales"
         />
         <ExportExcelButton rows={exportRows} filename="evergreen-sales.xlsx" sheetName="Sales" />
         <DownloadPdfButton href={`/api/pdf/daily-sales?date=${new Date().toISOString().slice(0, 10)}`} label="Download Today's PDF" />
         <PrintButton />
-        <AddSaleForm customers={customers || []} />
+        <AddSaleForm customers={customers || []} products={products || []} />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">

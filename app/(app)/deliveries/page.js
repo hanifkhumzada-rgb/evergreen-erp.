@@ -67,9 +67,9 @@ export default async function DeliveriesPage() {
         <div className="flex-1" />
         <BulkImportButton
           label="Bulk Import"
-          columnsHint="Phone (or Name), Qty, CashCollected, Date"
+          columnsHint="Phone (or Name), Qty, CashCollected, Date, Product (optional — size/sku, defaults to 19L), Returned (optional — empties collected, defaults to Qty)"
           action={bulkImportDeliveries}
-          sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Qty: 5, CashCollected: 600, Date: "2026-08-31" }}
+          sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Qty: 5, CashCollected: 600, Date: "2026-08-31", Product: "19L", Returned: 5 }}
           previewType="deliveries"
         />
         <ExportExcelButton rows={exportRows} filename="evergreen-deliveries.xlsx" sheetName="Deliveries" />

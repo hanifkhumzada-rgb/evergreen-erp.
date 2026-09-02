@@ -2,45 +2,70 @@ import { createClient } from "@/lib/supabase/server";
 import { ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
-const TOTAL_OWNED = 500;
 
 export default async function BottlesPage() {
   const supabase = await createClient();
-  const { data: rows } = await supabase.from("v_customer_bottle_balance").select("customer_id, name, bottles_with_customer");
+  const [{ data: rows }, { data: products }, { data: reconciliation }] = await Promise.all([
+    supabase.from("v_customer_bottle_balance").select("customer_id, name, product_id, bottles_with_customer"),
+    supabase.from("products").select("id, name").eq("is_active", true).order("name"),
+    supabase.from("v_bottle_reconciliation").select("product_id, total_assets"),
+  ]);
+
+  // Each bottle size gets its own column and its own ledger — never mixed
+  // into one combined number, per customer.
+  const totalOwnedMap = {};
+  (reconciliation || []).forEach((r) => { totalOwnedMap[r.product_id] = Number(r.total_assets); });
 
   const byCustomer = {};
   (rows || []).forEach((r) => {
-    byCustomer[r.customer_id] = byCustomer[r.customer_id] || { name: r.name, balance: 0 };
-    byCustomer[r.customer_id].balance += Number(r.bottles_with_customer);
+    const entry = byCustomer[r.customer_id] || { name: r.name, byProduct: {}, total: 0 };
+    entry.byProduct[r.product_id] = Number(r.bottles_with_customer);
+    entry.total += Number(r.bottles_with_customer);
+    byCustomer[r.customer_id] = entry;
   });
   const customers = Object.values(byCustomer);
-  const withCustomers = customers.reduce((a, c) => a + c.balance, 0);
-  const full = TOTAL_OWNED - withCustomers;
-  const exportRows = customers.map((c) => ({ Customer: c.name, Balance: c.balance }));
+  const withCustomers = customers.reduce((a, c) => a + c.total, 0);
+  const totalOwned = Object.values(totalOwnedMap).reduce((a, v) => a + v, 0);
+  const full = totalOwned - withCustomers;
+  const exportRows = customers.map((c) => {
+    const row = { Customer: c.name };
+    (products || []).forEach((p) => { row[p.name] = c.byProduct[p.id] || 0; });
+    row.Total = c.total;
+    return row;
+  });
 
   return (
     <div>
       <h2 className="font-display text-2xl font-semibold mb-1">Bottle Tracking</h2>
-      <p className="text-slate text-sm mb-5">Total owned: {TOTAL_OWNED} bottles (19L) · sourced live from bottle_transactions</p>
+      <p className="text-slate text-sm mb-5">Total owned: {totalOwned} bottles across {(products || []).length} sizes · sourced live from bottle_transactions</p>
 
       <div className="flex gap-5 flex-wrap mb-7">
         <Stat label="Full (available)" value={full} />
         <Stat label="With customers" value={withCustomers} />
       </div>
 
-      <h4 className="text-sm font-bold mb-2.5">Customer bottle balances</h4>
+      <h4 className="text-sm font-bold mb-2.5">Customer bottle balances, by size</h4>
       <div className="no-print flex gap-2.5 mb-3">
         <ExportExcelButton rows={exportRows} filename="bottle-balances.xlsx" sheetName="Bottles" />
         <PrintButton />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Customer</Th><Th>Balance</Th></tr></thead>
+          <thead>
+            <tr className="bg-foam">
+              <Th>Customer</Th>
+              {(products || []).map((p) => <Th key={p.id}>{p.name}</Th>)}
+              <Th>Total</Th>
+            </tr>
+          </thead>
           <tbody>
-            {customers.length === 0 && <tr><td colSpan={2} className="text-center py-8 text-slate">No bottle movements yet.</td></tr>}
+            {customers.length === 0 && <tr><td colSpan={(products || []).length + 2} className="text-center py-8 text-slate">No bottle movements yet.</td></tr>}
             {customers.map((c, i) => (
-              <tr key={i} className="hover:bg-foam"><Td>{c.name}</Td>
-                <Td><span className={c.balance > 10 ? "text-coral font-semibold" : "font-semibold"}>{c.balance}{c.balance > 10 ? " ⚠" : ""}</span></Td></tr>
+              <tr key={i} className="hover:bg-foam">
+                <Td>{c.name}</Td>
+                {(products || []).map((p) => <Td key={p.id}>{c.byProduct[p.id] || 0}</Td>)}
+                <Td><span className={c.total > 10 ? "text-coral font-semibold" : "font-semibold"}>{c.total}{c.total > 10 ? " ⚠" : ""}</span></Td>
+              </tr>
             ))}
           </tbody>
         </table>

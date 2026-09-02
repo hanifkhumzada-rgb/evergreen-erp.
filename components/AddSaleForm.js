@@ -4,10 +4,11 @@ import { Plus, X } from "lucide-react";
 import { createSale } from "@/app/actions";
 import Toast from "@/components/Toast";
 
-export default function AddSaleForm({ customers }) {
+export default function AddSaleForm({ customers, products }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
+  const [productId, setProductId] = useState(products?.[0]?.id || "");
   const formRef = useRef();
 
   const handleSubmit = async (formData) => {
@@ -16,7 +17,15 @@ export default function AddSaleForm({ customers }) {
     if (res?.error) { setError(res.error); return; }
     setOpen(false);
     formRef.current?.reset();
+    setProductId(products?.[0]?.id || "");
     setToast({ type: "success", message: "Sale saved & invoice generated." });
+  };
+
+  // Picking a customer defaults the bottle size to whatever they're usually
+  // billed for (Customer Master's default_product_id), staff can still change it.
+  const handleCustomerChange = (customerId) => {
+    const c = customers.find((x) => x.id === customerId);
+    if (c?.default_product_id) setProductId(c.default_product_id);
   };
 
   return (
@@ -34,12 +43,18 @@ export default function AddSaleForm({ customers }) {
             {error && <p className="text-coral text-xs mb-3">{error}</p>}
             <label className="block mb-3">
               <span className="text-xs font-semibold text-slate block mb-1">Customer</span>
-              <select name="customer_id" required className="in">
+              <select name="customer_id" required className="in" onChange={(e) => handleCustomerChange(e.target.value)}>
                 {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </label>
             <label className="block mb-3">
-              <span className="text-xs font-semibold text-slate block mb-1">Quantity (19L bottles)</span>
+              <span className="text-xs font-semibold text-slate block mb-1">Product / bottle size</span>
+              <select name="product_id" required className="in" value={productId} onChange={(e) => setProductId(e.target.value)}>
+                {products.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </label>
+            <label className="block mb-3">
+              <span className="text-xs font-semibold text-slate block mb-1">Quantity</span>
               <input name="qty" type="number" defaultValue={2} min={1} required className="in" />
             </label>
             <label className="block mb-3">
