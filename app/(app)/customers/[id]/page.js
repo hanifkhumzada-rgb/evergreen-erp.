@@ -301,15 +301,21 @@ export default async function CustomerProfilePage({ params }) {
       <div className="mt-4">
         <h4 className="text-[13.5px] font-bold mb-2">Customer ledger</h4>
         <table className="w-full text-xs border-collapse border border-line rounded-xl overflow-hidden">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Description</Th><Th>Debit</Th><Th>Credit</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Type</Th><Th>Description</Th><Th>Reference</Th><Th>Debit</Th><Th>Credit</Th></tr></thead>
           <tbody>
-            {(ledgerEntries || []).length === 0 && <tr><td colSpan={4} className="text-center py-5 text-slate">No ledger entries yet.</td></tr>}
+            {(ledgerEntries || []).length === 0 && <tr><td colSpan={6} className="text-center py-5 text-slate">No ledger entries yet.</td></tr>}
             {(ledgerEntries || []).map((l) => (
-              <tr key={l.id}><Td>{fmtDate(l.entry_date)}</Td><Td>{l.description}</Td>
-                <Td>{Number(l.debit) > 0 ? pkr(l.debit) : "—"}</Td><Td>{Number(l.credit) > 0 ? pkr(l.credit) : "—"}</Td></tr>
+              <tr key={l.id}>
+                <Td>{fmtDate(l.entry_date)}</Td>
+                <Td className="capitalize">{l.transaction_type || l.entry_type || "—"}</Td>
+                <Td>{l.description}</Td>
+                <Td className="text-slate">{l.reference || l.reference_no || "—"}</Td>
+                <Td>{Number(l.debit) > 0 ? pkr(l.debit) : "—"}</Td><Td>{Number(l.credit) > 0 ? pkr(l.credit) : "—"}</Td>
+              </tr>
             ))}
           </tbody>
         </table>
+        <p className="text-[11px] text-slate mt-1.5">Type/Reference show only where the underlying ledger row carries them.</p>
       </div>
 
       {/* ANALYTICS */}

@@ -7,9 +7,12 @@ import Toast from "@/components/Toast";
 export default function AddPaymentForm({ customers, collectors = [] }) {
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState(null);
+  const [busy, setBusy] = useState(false);
   const formRef = useRef();
   const handleSubmit = async (formData) => {
+    setBusy(true);
     const res = await createPayment(formData);
+    setBusy(false);
     if (res?.error) { setToast({ type: "error", message: res.error }); return; }
     setOpen(false);
     formRef.current?.reset();
@@ -35,7 +38,7 @@ export default function AddPaymentForm({ customers, collectors = [] }) {
                 {collectors.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}
               </select>
             </label>
-            <button type="submit" className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm">Save Payment</button>
+            <button type="submit" disabled={busy} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">{busy ? "Saving…" : "Save Payment"}</button>
           </form>
         </div>
       )}

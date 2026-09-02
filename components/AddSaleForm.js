@@ -8,12 +8,15 @@ export default function AddSaleForm({ customers, products }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
+  const [busy, setBusy] = useState(false);
   const [productId, setProductId] = useState(products?.[0]?.id || "");
   const formRef = useRef();
 
   const handleSubmit = async (formData) => {
     setError("");
+    setBusy(true);
     const res = await createSale(formData);
+    setBusy(false);
     if (res?.error) { setError(res.error); return; }
     setOpen(false);
     formRef.current?.reset();
@@ -67,7 +70,7 @@ export default function AddSaleForm({ customers, products }) {
                 <option>Cash</option><option>Bank Transfer</option><option>JazzCash</option><option>Easypaisa</option>
               </select>
             </label>
-            <button type="submit" className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm">Save Sale &amp; Generate Invoice</button>
+            <button type="submit" disabled={busy} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">{busy ? "Saving…" : "Save Sale & Generate Invoice"}</button>
           </form>
         </div>
       )}

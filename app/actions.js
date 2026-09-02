@@ -288,10 +288,87 @@ export async function createPayment(formData) {
     received_by: formData.get("collector_id") || user.id,
   });
   if (error) return { error: error.message };
+  await supabase.from("audit_logs").insert({
+    user_id: user.id, action: "CREATE", module: "payments",
+    new_value: { customer_id: formData.get("customer_id"), amount: Number(formData.get("amount")), method, collected_by: formData.get("collector_id") || user.id },
+  });
   revalidatePath("/payments");
   revalidatePath("/dashboard");
   revalidatePath("/customers");
   revalidatePath("/ledger");
+  return { ok: true };
+}
+
+// Phase 2 — the interactive counterpart to bulkImportDeliveries: same
+// insert shape (delivery -> delivery_items -> bottle_transactions ->
+// optional cash_transactions), one row at a time from a form instead of a
+// spreadsheet. Unlike the bulk path this always records rider_id — a
+// manually-entered delivery always has a known responsible delivery boy.
+export async function createDelivery(formData) {
+  const { supabase, user } = await requireUser();
+  const customerId = formData.get("customer_id");
+  const productId = formData.get("product_id");
+  const deliveredQty = Number(formData.get("delivered_qty"));
+  const returnedQty = Number(formData.get("returned_qty")) || 0;
+  const deliveryDate = formData.get("delivery_date") || new Date().toISOString().slice(0, 10);
+  const riderId = formData.get("rider_id") || user.id;
+  if (!customerId || !productId || !deliveredQty || deliveredQty <= 0) {
+    return { error: "Pick a customer, bottle size, and a delivered quantity greater than zero." };
+  }
+
+  const { data: cashAccount } = await supabase.from("cash_accounts").select("id").eq("is_active", true).limit(1).maybeSingle();
+  const rate = await getEffectiveRate(supabase, customerId, productId);
+  const amount = deliveredQty * rate;
+  const cashRaw = formData.get("cash_collected");
+  const cashCollected = cashRaw != null && cashRaw !== "" ? Number(cashRaw) : 0;
+
+  const { data: delivery, error } = await supabase.from("deliveries").insert({
+    delivery_no: genCode("DEL"),
+    customer_id: customerId,
+    rider_id: riderId,
+    delivery_date: deliveryDate,
+    status: "delivered",
+    amount,
+    amount_collected: cashCollected,
+    payment_method: "cash",
+    delivered_at: new Date().toISOString(),
+    created_by: user.id,
+  }).select("id").single();
+  if (error) return { error: error.message };
+
+  await supabase.from("delivery_items").insert({
+    delivery_id: delivery.id, product_id: productId, expected_qty: deliveredQty, delivered_qty: deliveredQty, returned_qty: returnedQty, unit_price: rate,
+  });
+  await supabase.from("bottle_transactions").insert({
+    txn_date: deliveryDate, product_id: productId, quantity: deliveredQty,
+    from_state: "with_rider", to_state: "with_customer", customer_id: customerId,
+    reference_type: "delivery", reference_id: delivery.id, created_by: user.id,
+  });
+  if (returnedQty > 0) {
+    await supabase.from("bottle_transactions").insert({
+      txn_date: deliveryDate, product_id: productId, quantity: returnedQty,
+      from_state: "with_customer", to_state: "with_rider", customer_id: customerId,
+      reference_type: "delivery_return", reference_id: delivery.id, created_by: user.id,
+    });
+  }
+  if (cashCollected > 0 && cashAccount) {
+    await supabase.from("cash_transactions").insert({
+      account_id: cashAccount.id, txn_date: deliveryDate, type: "receipt",
+      amount: cashCollected, reference_type: "delivery", reference_id: delivery.id,
+      description: "Delivery collection", created_by: user.id,
+    });
+  }
+  await supabase.from("audit_logs").insert({
+    user_id: user.id, action: "CREATE", module: "deliveries", record_id: delivery.id,
+    new_value: { customer_id: customerId, product_id: productId, delivered_qty: deliveredQty, returned_qty: returnedQty, rate, amount, cash_collected: cashCollected, rider_id: riderId },
+  });
+
+  revalidatePath("/deliveries");
+  revalidatePath("/bottles");
+  revalidatePath("/bottle-ledger");
+  revalidatePath("/dashboard");
+  revalidatePath("/customers");
+  revalidatePath(`/customers/${customerId}`);
   return { ok: true };
 }
 
