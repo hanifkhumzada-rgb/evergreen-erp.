@@ -38,11 +38,15 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
   const buildPreview = (rows) => {
     // existingValues is passed as a plain array (Sets aren't serializable
     // from a Server Component prop), turned into a Set here for lookups.
+    // duplicateKey is the field name to dedupe on (a plain string, not a
+    // function — functions can't cross the Server -> Client Component
+    // boundary), so the value is extracted from that field internally.
     const existingSet = new Set(existingValues || []);
     const valuesSeen = new Set();
     const previewRows = rows.map((data) => {
       const missing = (expectedFields || []).filter((f) => f.required && !String(data[f.key] ?? "").trim()).map((f) => f.label);
-      const dupVal = duplicateKey ? duplicateKey(data) : null;
+      const dupValRaw = duplicateKey ? data[duplicateKey] : null;
+      const dupVal = dupValRaw ? String(dupValRaw).trim() : null;
       const duplicate = !!dupVal && (existingSet.has(dupVal) || valuesSeen.has(dupVal));
       if (dupVal) valuesSeen.add(dupVal);
       return { data, missing, duplicate };

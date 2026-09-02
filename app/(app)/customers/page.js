@@ -90,7 +90,7 @@ export default async function CustomersPage() {
           sampleRow={CUSTOMER_SAMPLE_ROW}
           previewType="customers"
           expectedFields={CUSTOMER_IMPORT_FIELDS}
-          duplicateKey={(data) => (data.Mobile ? String(data.Mobile).trim() : null)}
+          duplicateKey="Mobile"
           existingValues={(customers || []).map((c) => c.mobile).filter(Boolean)}
         />
         <ExportExcelButton rows={exportRows} filename="evergreen-customers.xlsx" sheetName="Customers" />
