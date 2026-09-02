@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { pkr, fmtDate } from "@/lib/format";
 import { KPI, Badge, Th, Td, PrintButton, DownloadPdfButton } from "@/components/ui";
 import CustomerForm, { EditCustomerTrigger } from "@/components/CustomerForm";
-import { SalesTrendChart } from "@/components/DashboardCharts";
+import { SalesTrendChart } from "@/components/LazyCharts";
 
 export const dynamic = "force-dynamic";
 

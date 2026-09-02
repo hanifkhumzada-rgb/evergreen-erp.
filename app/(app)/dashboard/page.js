@@ -2,7 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { pkr } from "@/lib/format";
 import { KPI } from "@/components/ui";
-import { SalesTrendChart, ExpensePie } from "@/components/DashboardCharts";
+import { SalesTrendChart, ExpensePie } from "@/components/LazyCharts";
 import {
   AlertTriangle, UserPlus, Truck, ShoppingCart, Receipt, Wallet, Upload, BarChart3, Bot,
 } from "lucide-react";
