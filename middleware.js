@@ -24,8 +24,15 @@ export async function middleware(request) {
   );
 
   const { data: { user } } = await supabase.auth.getUser();
-  const isAuthRoute = request.nextUrl.pathname.startsWith("/login");
-  const isAppRoute = !isAuthRoute && request.nextUrl.pathname !== "/";
+  const pathname = request.nextUrl.pathname;
+  const isAuthRoute = pathname.startsWith("/login");
+  // The password-recovery email link lands here with a token that only the
+  // browser (not this server-side check) can see and exchange for a
+  // session — so this route has to be reachable while still unauthenticated,
+  // same as /login, or the client-side code that processes the link would
+  // never get to run.
+  const isPasswordReset = pathname.startsWith("/reset-password");
+  const isAppRoute = !isAuthRoute && !isPasswordReset && pathname !== "/";
 
   if (!user && isAppRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
