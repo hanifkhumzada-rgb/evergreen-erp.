@@ -20,7 +20,7 @@ const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 // form covering the full Customer Master, matching how the customers table
 // is actually structured (permanent info here; sales/deliveries/payments/
 // bottle movements are transactions elsewhere that feed the AUTO fields).
-export default function CustomerForm({ mode = "create", customer, zones, products, vehicles, riders, canManageFinancial, trigger }) {
+export default function CustomerForm({ mode = "create", customer, zones, products, vehicles, riders, routes = [], canManageFinancial, trigger }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
@@ -92,7 +92,12 @@ export default function CustomerForm({ mode = "create", customer, zones, product
                 </Field>
               </Row>
               <Row>
-                <Field label="Route"><input name="route" defaultValue={c.route} className="in" /></Field>
+                <Field label="Route">
+                  <select name="route_id" defaultValue={c.route_id || ""} className="in">
+                    <option value="">{c.route ? `— ${c.route} (legacy, pick a route below) —` : "— none —"}</option>
+                    {routes.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  </select>
+                </Field>
                 <Field label="Preferred delivery time">
                   <select name="preferred_delivery_time" defaultValue={c.preferred_delivery_time || ""} className="in">
                     <option value="">— none —</option>

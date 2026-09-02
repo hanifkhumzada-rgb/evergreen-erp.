@@ -39,7 +39,7 @@ export default async function CustomerProfilePage({ params }) {
   const [
     { data: c }, { data: invoices }, { data: payments }, { data: balanceRow }, { data: bottleBalanceRows },
     { data: deliveries }, { data: bottleTxns }, { data: ledgerEntries },
-    { data: zones }, { data: products }, { data: vehicles }, { data: riders }, { data: profile },
+    { data: zones }, { data: products }, { data: vehicles }, { data: riders }, { data: profile }, { data: routes },
   ] = await Promise.all([
     supabase.from("customers").select("*, zones(name), profiles!customers_assigned_rider_id_fkey(full_name), vehicles(registration_no)").eq("id", params.id).single(),
     supabase.from("invoices").select("*").eq("customer_id", params.id).order("invoice_date", { ascending: false }),
@@ -54,6 +54,7 @@ export default async function CustomerProfilePage({ params }) {
     supabase.from("vehicles").select("id, registration_no").eq("is_active", true).order("registration_no"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").eq("roles.key", "rider").eq("is_active", true).order("full_name"),
     supabase.from("profiles").select("roles(key)").eq("id", user.id).single(),
+    supabase.from("routes").select("id, name").eq("is_active", true).order("name"),
   ]);
 
   if (!c) {
@@ -173,7 +174,7 @@ export default async function CustomerProfilePage({ params }) {
         <div className="no-print flex gap-2">
           <CustomerForm
             mode="edit" customer={c}
-            zones={zones || []} products={products || []} vehicles={vehicles || []} riders={riders || []}
+            zones={zones || []} products={products || []} vehicles={vehicles || []} riders={riders || []} routes={routes || []}
             canManageFinancial={canManageFinancial}
             trigger={<EditCustomerTrigger />}
           />

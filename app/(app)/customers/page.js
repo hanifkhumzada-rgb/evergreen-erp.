@@ -67,7 +67,7 @@ export default async function CustomersPage({ searchParams }) {
 
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  const [{ data: customers }, { data: zones }, { data: balances }, { data: products }, { data: vehicles }, { data: riders }, { data: profile }] = await Promise.all([
+  const [{ data: customers }, { data: zones }, { data: balances }, { data: products }, { data: vehicles }, { data: riders }, { data: profile }, { data: routes }] = await Promise.all([
     supabase.from("customers").select("*, zones(name)").order("created_at", { ascending: false }),
     supabase.from("zones").select("*"),
     supabase.from("v_customer_balance").select("customer_id, balance"),
@@ -75,6 +75,7 @@ export default async function CustomersPage({ searchParams }) {
     supabase.from("vehicles").select("id, registration_no").eq("is_active", true).order("registration_no"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").eq("roles.key", "rider").eq("is_active", true).order("full_name"),
     supabase.from("profiles").select("roles(key)").eq("id", user.id).single(),
+    supabase.from("routes").select("id, name").eq("is_active", true).order("name"),
   ]);
 
   const balanceMap = {};
@@ -98,7 +99,7 @@ export default async function CustomersPage({ searchParams }) {
     "Customer ID": c.code, Name: c.name, Phone: c.mobile, Zone: c.zones?.name, Type: c.customer_type, Balance: c.balance, Status: STATUS_BADGE[c.status]?.text || (c.is_active ? "Active" : "Inactive"),
   }));
 
-  const formProps = { zones: zones || [], products: products || [], vehicles: vehicles || [], riders: riders || [], canManageFinancial };
+  const formProps = { zones: zones || [], products: products || [], vehicles: vehicles || [], riders: riders || [], routes: routes || [], canManageFinancial };
   const hasFilters = q || zoneFilter || statusFilter || typeFilter;
 
   return (

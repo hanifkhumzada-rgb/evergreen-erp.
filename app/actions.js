@@ -121,7 +121,7 @@ function customerBasicsFromForm(formData) {
     address: formData.get("address") || "",
     area: formData.get("area") || null,
     zone_id: formData.get("zone_id") || null,
-    route: formData.get("route") || null,
+    route_id: formData.get("route_id") || null,
     preferred_days: preferredDays.length ? preferredDays : null,
     preferred_delivery_time: formData.get("preferred_delivery_time") || null,
     assigned_rider_id: formData.get("assigned_rider_id") || null,
@@ -136,6 +136,16 @@ function customerBasicsFromForm(formData) {
     status: formData.get("status") || "active",
     notes: formData.get("notes") || null,
   };
+}
+
+// Keeps the legacy free-text customers.route column (still read by
+// DeliveryForm's search, older reports, etc.) in sync with the new
+// structured route_id — so switching a customer to a real route doesn't
+// silently break anything still reading the text field directly.
+async function syncLegacyRouteText(supabase, payload) {
+  if (!payload.route_id) return;
+  const { data: route } = await supabase.from("routes").select("name").eq("id", payload.route_id).maybeSingle();
+  if (route?.name) payload.route = route.name;
 }
 
 function customerFinancialsFromForm(formData) {
@@ -158,6 +168,7 @@ export async function createCustomer(formData) {
     created_by: user.id,
   };
   if (canManageFinancial) Object.assign(payload, customerFinancialsFromForm(formData));
+  await syncLegacyRouteText(supabase, payload);
 
   const { data: created, error } = await supabase.from("customers").insert(payload).select("id").single();
   if (error) return { error: error.message };
@@ -177,6 +188,7 @@ export async function createCustomer(formData) {
       });
     }
   }
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "CREATE", module: "customers", record_id: created.id, new_value: { name: payload.name, mobile: payload.mobile } });
   revalidatePath("/customers");
   return { ok: true };
 }
@@ -193,11 +205,13 @@ export async function updateCustomer(customerId, formData) {
     updated_at: new Date().toISOString(),
   };
   if (canManageFinancial) Object.assign(payload, customerFinancialsFromForm(formData));
+  await syncLegacyRouteText(supabase, payload);
 
   const { error } = await supabase.from("customers").update(payload).eq("id", customerId);
   if (error) return { error: error.message };
 
   const rate = Number(formData.get("rate"));
+  let rateChanged = false;
   if (canManageFinancial && rate > 0) {
     const productId = payload.default_product_id || (await getDefaultProduct(supabase));
     if (productId) {
@@ -208,8 +222,13 @@ export async function updateCustomer(customerId, formData) {
         effective_from: new Date().toISOString().slice(0, 10),
         created_by: user.id,
       });
+      rateChanged = true;
     }
   }
+  await supabase.from("audit_logs").insert({
+    user_id: user.id, action: rateChanged ? "RATE_CHANGE" : "UPDATE", module: "customers", record_id: customerId,
+    new_value: rateChanged ? { new_rate: rate } : { name: payload.name },
+  });
   revalidatePath("/customers");
   revalidatePath(`/customers/${customerId}`);
   return { ok: true };
@@ -1269,6 +1288,68 @@ export async function createZone(formData) {
   });
   if (error) return { error: error.message };
   revalidatePath("/zones");
+  return { ok: true };
+}
+
+// Phase 7 — Routes as a real entity (previously a free-text column on
+// customers with no management page, no assignment, no reporting).
+export async function createRoute(formData) {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.from("routes").insert({
+    name: formData.get("name"),
+    zone_id: formData.get("zone_id") || null,
+    assigned_rider_id: formData.get("assigned_rider_id") || null,
+    description: formData.get("description") || null,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/zones");
+  revalidatePath("/customers");
+  return { ok: true };
+}
+
+export async function recordEmployeeAdvance(formData) {
+  const { supabase, user } = await requireUser();
+  const employeeId = formData.get("employee_id");
+  const amount = Number(formData.get("amount"));
+  if (!employeeId || !amount || amount <= 0) return { error: "Pick an employee and enter a valid advance amount." };
+  const { error } = await supabase.from("employee_advances").insert({
+    employee_id: employeeId,
+    amount,
+    advance_date: formData.get("advance_date") || new Date().toISOString().slice(0, 10),
+    reason: formData.get("reason") || null,
+    created_by: user.id,
+  });
+  if (error) return { error: error.message };
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "CREATE", module: "employee_advances", new_value: { employee_id: employeeId, amount } });
+  revalidatePath("/employees");
+  return { ok: true };
+}
+
+export async function markAttendance(formData) {
+  const { supabase, user } = await requireUser();
+  const employeeId = formData.get("employee_id");
+  const status = formData.get("status") || "present";
+  if (!employeeId) return { error: "Pick an employee." };
+  const attendanceDate = formData.get("attendance_date") || new Date().toISOString().slice(0, 10);
+  const { error } = await supabase.from("employee_attendance")
+    .upsert({ employee_id: employeeId, attendance_date: attendanceDate, status, marked_by: user.id }, { onConflict: "employee_id,attendance_date" });
+  if (error) return { error: error.message };
+  revalidatePath("/employees");
+  return { ok: true };
+}
+
+export async function updateEmployeeProfile(employeeId, formData) {
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("profiles").update({
+    employee_code: formData.get("employee_code") || null,
+    joining_date: formData.get("joining_date") || null,
+    salary: formData.get("salary") ? Number(formData.get("salary")) : null,
+    zone_id: formData.get("zone_id") || null,
+    assigned_vehicle_id: formData.get("assigned_vehicle_id") || null,
+  }).eq("id", employeeId);
+  if (error) return { error: error.message };
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "UPDATE", module: "employees", record_id: employeeId });
+  revalidatePath("/employees");
   return { ok: true };
 }
 
