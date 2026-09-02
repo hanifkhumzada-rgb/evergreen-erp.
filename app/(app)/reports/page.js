@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import ReportCard from "@/components/ReportCard";
+import ReportsBrowser from "@/components/ReportsBrowser";
 
 export const dynamic = "force-dynamic";
 
@@ -66,10 +66,8 @@ export default async function ReportsPage() {
   return (
     <div>
       <h2 className="font-display text-2xl font-semibold mb-1">Reports</h2>
-      <p className="text-slate text-sm mb-5">Live Postgres data. Export to Excel, or print to PDF.</p>
-      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(230px, 1fr))" }}>
-        {reports.map((r) => <ReportCard key={r.name} name={r.name} rows={r.rows} />)}
-      </div>
+      <p className="text-slate text-sm mb-5">Live Postgres data. Pick a report, export to Excel, or print to PDF.</p>
+      <ReportsBrowser reports={reports} />
     </div>
   );
 }

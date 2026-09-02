@@ -211,13 +211,16 @@ export default async function DashboardPage() {
       <h2 className="font-display text-2xl font-semibold mb-0.5">How is the business doing today?</h2>
       <p className="text-slate text-sm mb-5">{new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })} · live from Postgres</p>
 
-      <div className="no-print flex gap-2.5 overflow-x-auto pb-1 mb-6">
+      <div className="no-print grid grid-cols-2 gap-2.5 mb-6 max-w-md">
         {QUICK_ACTIONS.map((a) => {
           const Icon = a.icon;
           return (
             <Link key={a.label} href={a.href}
-              className="flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-line bg-card text-xs font-semibold whitespace-nowrap hover:bg-foam transition-colors">
-              <Icon size={15} className="text-aqua" /> {a.label}
+              className="card-lift flex flex-col items-center justify-center gap-1.5 py-4 px-2 rounded-xl border border-line bg-card text-center hover:bg-foam transition-colors">
+              <div className="w-9 h-9 rounded-full bg-aquaSoft flex items-center justify-center">
+                <Icon size={16} className="text-aqua" />
+              </div>
+              <span className="text-xs font-semibold leading-tight">{a.label}</span>
             </Link>
           );
         })}
