@@ -1,8 +1,15 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { Droplet } from "lucide-react";
+
+// Supabase Auth already rate-limits sign-in attempts server-side (per
+// project, not configurable from app code) — this is an additional
+// client-side layer: after repeated failures in this browser tab, slow
+// further attempts down instead of letting a script hammer the form.
+const MAX_ATTEMPTS = 5;
+const LOCKOUT_SECONDS = 30;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -11,14 +18,40 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockedUntil, setLockedUntil] = useState(0);
+  const [lockCountdown, setLockCountdown] = useState(0);
+
+  useEffect(() => {
+    if (!lockedUntil) return;
+    const tick = () => setLockCountdown(Math.max(0, Math.ceil((lockedUntil - Date.now()) / 1000)));
+    tick();
+    const id = setInterval(tick, 500);
+    return () => clearInterval(id);
+  }, [lockedUntil]);
+
+  const isLocked = lockCountdown > 0;
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    if (isLocked) return;
     setError("");
     setLoading(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setLoading(false);
-    if (error) { setError(error.message); return; }
+    if (error) {
+      const attempts = failedAttempts + 1;
+      setFailedAttempts(attempts);
+      if (attempts >= MAX_ATTEMPTS) {
+        setLockedUntil(Date.now() + LOCKOUT_SECONDS * 1000);
+        setFailedAttempts(0);
+        setError(`Too many failed attempts. Try again in ${LOCKOUT_SECONDS} seconds.`);
+      } else {
+        setError(error.message);
+      }
+      return;
+    }
+    setFailedAttempts(0);
     router.replace("/dashboard");
     router.refresh();
   };
@@ -52,10 +85,10 @@ export default function LoginPage() {
               <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-3 py-2.5 rounded-lg border border-line text-sm outline-none focus:border-aqua" placeholder="••••••••" />
             </label>
-            {error && <p className="text-coral text-xs mb-3">{error}</p>}
-            <button disabled={loading} type="submit"
+            {error && <p className="text-coral text-xs mb-3">{isLocked ? `Too many failed attempts. Try again in ${lockCountdown}s.` : error}</p>}
+            <button disabled={loading || isLocked} type="submit"
               className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">
-              {loading ? "Signing in…" : "Sign in"}
+              {isLocked ? `Try again in ${lockCountdown}s` : loading ? "Signing in…" : "Sign in"}
             </button>
           </form>
           <p className="text-xs text-slate mt-4">No account yet? Run <code>npm run seed</code> from the project to create the first Owner login.</p>
