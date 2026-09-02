@@ -1195,3 +1195,37 @@ export async function inviteUser(formData) {
   revalidatePath("/user-management");
   return { ok: true, email, tempPassword };
 }
+
+// Permanent removal, not deactivation (toggleUserActive already covers
+// that). Uses the admin client so it can delete the auth.users row via the
+// Admin API, which bypasses RLS entirely — so the users.manage permission
+// check has to happen explicitly here (via the same fn_has_permission the
+// profiles RLS policies call), unlike updateUserRole/toggleUserActive which
+// can lean on RLS since they go through the normal client.
+export async function deleteUser(userId) {
+  const { supabase, user } = await requireUser();
+
+  const { data: allowed } = await supabase.rpc("fn_has_permission", { perm_key: "users.manage" });
+  if (!allowed) return { error: "You don't have permission to delete users." };
+
+  if (userId === user.id) return { error: "You can't delete your own account from this screen." };
+
+  const { data: target } = await supabase.from("profiles").select("id, roles(key)").eq("id", userId).maybeSingle();
+  if (!target) return { error: "User not found." };
+
+  if (target.roles?.key === "owner") {
+    const { count } = await supabase.from("profiles").select("id, roles!inner(key)", { count: "exact", head: true }).eq("roles.key", "owner");
+    if ((count || 0) <= 1) return { error: "Can't delete the last remaining Owner account." };
+  }
+
+  const admin = createAdminClient();
+  const { error: authError } = await admin.auth.admin.deleteUser(userId);
+  if (authError) return { error: authError.message };
+
+  const { error: profileError } = await admin.from("profiles").delete().eq("id", userId);
+  if (profileError) return { error: profileError.message };
+
+  revalidatePath("/user-management");
+  revalidatePath("/employees");
+  return { ok: true };
+}
