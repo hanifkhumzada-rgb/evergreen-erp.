@@ -9,9 +9,12 @@ const CATS = ["Bottle Purchase","Caps","Delivery Expenses","Electricity","Fuel",
 export default function AddExpenseForm() {
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState(null);
+  const [busy, setBusy] = useState(false);
   const formRef = useRef();
   const handleSubmit = async (formData) => {
+    setBusy(true);
     const res = await createExpense(formData);
+    setBusy(false);
     if (res?.error) { setToast({ type: "error", message: res.error }); return; }
     setOpen(false);
     formRef.current?.reset();
@@ -29,10 +32,13 @@ export default function AddExpenseForm() {
             </label>
             <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Description</span><input name="description" className="in" /></label>
             <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Amount (PKR)</span><input name="amount" type="number" required className="in" /></label>
-            <label className="block mb-4"><span className="text-xs font-semibold text-slate block mb-1">Method</span>
+            <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Method</span>
               <select name="method" className="in"><option>Cash</option><option>Bank Transfer</option></select>
             </label>
-            <button type="submit" className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm">Save Expense</button>
+            <label className="block mb-4"><span className="text-xs font-semibold text-slate block mb-1">Receipt / attachment reference (optional)</span>
+              <input name="receipt_reference" className="in" placeholder="Receipt no. or URL" />
+            </label>
+            <button type="submit" disabled={busy} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">{busy ? "Saving…" : "Save Expense"}</button>
           </form>
         </div>
       )}

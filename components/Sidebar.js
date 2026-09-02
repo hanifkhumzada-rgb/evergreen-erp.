@@ -8,7 +8,7 @@ import {
   Home, Users, ShoppingCart, Truck, Droplet, Package, Wallet, Receipt,
   BookOpen, UserCog, BarChart3, Settings, LogOut, Landmark, FileText,
   Scale, TrendingUp, ClipboardCheck, Car, Bot, Bell, MapPin, Menu, X, FileDown,
-  ChevronRight, ChevronLeft,
+  ChevronRight, ChevronLeft, Factory,
 } from "lucide-react";
 
 const SidebarContext = createContext(null);
@@ -61,6 +61,7 @@ const NAV = [
     items: [
       { href: "/payments", label: "Payments", icon: Receipt, roles: ["owner", "accountant"] },
       { href: "/expenses", label: "Expenses", icon: Wallet, roles: ["owner", "manager", "accountant"] },
+      { href: "/production", label: "Production & Filling", icon: Factory, roles: ["owner", "manager", "accountant"] },
       { href: "/ledger", label: "Customer Ledger", icon: BookOpen, roles: ["owner", "accountant"] },
       { href: "/accounting/chart-of-accounts", label: "Chart of Accounts", icon: Landmark, roles: ["owner", "accountant"] },
       { href: "/accounting/journal", label: "Journal Entries", icon: FileText, roles: ["owner", "accountant"] },

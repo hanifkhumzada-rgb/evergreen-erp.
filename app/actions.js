@@ -405,10 +405,48 @@ export async function createExpense(formData) {
     created_by: user.id,
     approved_by: status === "approved" ? user.id : null,
     approved_at: status === "approved" ? new Date().toISOString() : null,
+    receipt_reference: formData.get("receipt_reference") || null,
   });
   if (error) return { error: error.message };
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+// Phase 5 — Production & Filling. A standalone cost record, deliberately
+// not folded into the expenses table (different shape, different owner —
+// a filling run has quantity/cost-per-bottle math the generic expense form
+// has no fields for). total_filling_cost is a generated column on the
+// table itself, so it's never out of sync with quantity * cost_per_bottle.
+export async function createProductionBatch(formData) {
+  const { supabase, user } = await requireUser();
+  const productId = formData.get("product_id");
+  const quantityFilled = Number(formData.get("quantity_filled"));
+  const costPerBottle = Number(formData.get("cost_per_bottle"));
+  if (!productId || !quantityFilled || quantityFilled <= 0 || costPerBottle < 0) {
+    return { error: "Pick a bottle size and enter a valid quantity and cost per bottle." };
+  }
+  const { data: batch, error } = await supabase.from("production_batches").insert({
+    batch_no: genCode("PRD"),
+    batch_date: formData.get("batch_date") || new Date().toISOString().slice(0, 10),
+    product_id: productId,
+    quantity_filled: quantityFilled,
+    cost_per_bottle: costPerBottle,
+    caps_quantity: Number(formData.get("caps_quantity")) || null,
+    cap_cost: Number(formData.get("cap_cost")) || null,
+    other_material_cost: Number(formData.get("other_material_cost")) || 0,
+    supplier: formData.get("supplier") || null,
+    notes: formData.get("notes") || null,
+    created_by: user.id,
+  }).select("id").single();
+  if (error) return { error: error.message };
+  await supabase.from("audit_logs").insert({
+    user_id: user.id, action: "CREATE", module: "production_batches", record_id: batch.id,
+    new_value: { product_id: productId, quantity_filled: quantityFilled, cost_per_bottle: costPerBottle },
+  });
+  revalidatePath("/production");
+  revalidatePath("/dashboard");
+  revalidatePath("/reports");
   return { ok: true };
 }
 
