@@ -286,6 +286,7 @@ export async function createPayment(formData) {
     method,
     cash_account_id: await getCashAccountId(supabase, method),
     received_by: formData.get("collector_id") || user.id,
+    notes: formData.get("notes") || null,
   });
   if (error) return { error: error.message };
   await supabase.from("audit_logs").insert({
