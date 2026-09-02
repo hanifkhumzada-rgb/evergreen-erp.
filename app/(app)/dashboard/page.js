@@ -57,6 +57,7 @@ export default async function DashboardPage() {
     { data: todayPayments }, { data: todayPurchases }, { data: todayCashTxns },
     yesterdayActiveCustomersRes,
     overdueRuleRes, { data: unpaidInvoices }, { data: monthToDateExpenses }, { data: lastMonthExpenses },
+    { data: custBottleBalances }, { data: bottleLimits },
   ] = await Promise.all([
     supabase.from("invoices").select("net_amount, invoice_items(quantity)").eq("invoice_date", today).neq("status", "void"),
     supabase.from("deliveries").select("*, delivery_items(delivered_qty, returned_qty)").eq("delivery_date", today),
@@ -91,6 +92,10 @@ export default async function DashboardPage() {
     supabase.from("invoices").select("customer_id, due_date").neq("status", "paid").neq("status", "void").not("due_date", "is", null),
     supabase.from("expenses").select("amount, expense_categories(name)").in("status", ["approved", "paid"]).gte("expense_date", monthStartISO()),
     supabase.from("expenses").select("amount, expense_categories(name)").in("status", ["approved", "paid"]).gte("expense_date", lastMonthRange().from).lte("expense_date", lastMonthRange().to),
+    // Bottle alerts card — same "over their bottle_limit" check the Bottle
+    // Ledger page's "Needs Attention" section and refresh_alerts() use.
+    supabase.from("v_customer_bottle_balance").select("customer_id, name, bottles_with_customer"),
+    supabase.from("customers").select("id, bottle_limit"),
   ]);
 
   const cashBalance = (cashBalances || []).filter((a) => a.type === "cash").reduce((a, c) => a + Number(c.current_balance), 0);
@@ -148,6 +153,18 @@ export default async function DashboardPage() {
   }, {}));
 
   const lowStock = (products || []).filter((p) => (stockMap[p.id] || 0) < p.low_stock_threshold);
+
+  const bottleLimitMap = {};
+  (bottleLimits || []).forEach((c) => { bottleLimitMap[c.id] = c.bottle_limit ?? 20; });
+  const custBottleTotals = {};
+  (custBottleBalances || []).forEach((b) => {
+    const row = custBottleTotals[b.customer_id] || { name: b.name, total: 0 };
+    row.total += Number(b.bottles_with_customer);
+    custBottleTotals[b.customer_id] = row;
+  });
+  const overBottleLimitCustomers = Object.entries(custBottleTotals)
+    .filter(([id, c]) => c.total > (bottleLimitMap[id] ?? 20))
+    .map(([id, c]) => ({ customer_id: id, name: c.name, total: c.total, limit: bottleLimitMap[id] ?? 20 }));
 
   // AI Business Insights (Phase 3) — plain JS over the data already fetched
   // above, no external AI call. Every bullet below is traced to one of these
@@ -284,7 +301,10 @@ export default async function DashboardPage() {
           {(overdueCustomers || []).map((c) => (
             <div key={c.customer_id} className="text-xs flex gap-2"><AlertTriangle size={13} className="text-amber flex-shrink-0 mt-0.5" /><span>{c.name} has an outstanding balance of {pkr(c.balance)}.</span></div>
           ))}
-          {lowStock.length + (overdueCustomers || []).length === 0 && <p className="text-sm text-slate">No critical alerts right now.</p>}
+          {overBottleLimitCustomers.map((c) => (
+            <Link key={c.customer_id} href={`/customers/${c.customer_id}`} className="text-xs flex gap-2 hover:underline"><AlertTriangle size={13} className="text-amber flex-shrink-0 mt-0.5" /><span>{c.name} is holding {c.total} bottles, above their limit of {c.limit}.</span></Link>
+          ))}
+          {lowStock.length + (overdueCustomers || []).length + overBottleLimitCustomers.length === 0 && <p className="text-sm text-slate">No critical alerts right now.</p>}
         </div>
       </div>
     </div>

@@ -2,18 +2,22 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
 import { ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
+import BottleReconciliationForm from "@/components/BottleReconciliationForm";
 import { AlertTriangle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 const BOTTLE_COST = 800; // avg. replacement cost per bottle across sizes — a labeled approximation, not a per-size cost (products has no per-size cost field yet)
+const UNRECONCILED_DAYS = 30;
 
 export default async function BottleLedgerPage() {
   const supabase = await createClient();
-  const [{ data: balances }, { data: movements }, { data: customers }, { data: reconciliation }] = await Promise.all([
+  const [{ data: balances }, { data: movements }, { data: customers }, { data: reconciliation }, { data: products }, { data: reconHistory }] = await Promise.all([
     supabase.from("v_customer_bottle_balance").select("customer_id, name, bottles_with_customer"),
     supabase.from("bottle_transactions").select("*, customers(name), products(name)").order("created_at", { ascending: false }).limit(150),
     supabase.from("customers").select("id, bottle_limit"),
     supabase.from("v_bottle_reconciliation").select("*").order("product_name"),
+    supabase.from("products").select("id, name").eq("is_active", true).order("name"),
+    supabase.from("bottle_reconciliations").select("*, products(name)").order("recon_date", { ascending: false }).limit(20),
   ]);
 
   const bySize = reconciliation || [];
@@ -22,6 +26,13 @@ export default async function BottleLedgerPage() {
   const full = totalOwned - withCustomers;
   const liabilityValue = withCustomers * BOTTLE_COST;
   const exportRows = (movements || []).map((m) => ({ Date: m.txn_date, Customer: m.customers?.name, Size: m.products?.name, From: m.from_state, To: m.to_state, Qty: m.quantity }));
+
+  const expectedByProduct = {};
+  bySize.forEach((s) => { expectedByProduct[s.product_id] = Number(s.warehouse); });
+  const lastReconByProduct = {};
+  (reconHistory || []).forEach((r) => { if (!lastReconByProduct[r.product_id]) lastReconByProduct[r.product_id] = r.recon_date; });
+  const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - UNRECONCILED_DAYS);
+  const unreconciled = (products || []).filter((p) => !lastReconByProduct[p.id] || new Date(lastReconByProduct[p.id]) < cutoff);
 
   const limitMap = {};
   (customers || []).forEach((c) => { limitMap[c.id] = c.bottle_limit ?? 20; });
@@ -61,8 +72,11 @@ export default async function BottleLedgerPage() {
         <Stat label="Bottle liability value" value={pkr(liabilityValue)} sub={`@ ${pkr(BOTTLE_COST)}/bottle avg. replacement cost`} />
       </div>
 
-      <h4 className="text-sm font-bold mb-2.5">By bottle size</h4>
-      <div className="overflow-x-auto border border-line rounded-2xl mb-6">
+      <div className="no-print flex items-center justify-between mb-2.5">
+        <h4 className="text-sm font-bold">By bottle size</h4>
+        {(products || []).length > 0 && <BottleReconciliationForm products={products} expectedByProduct={expectedByProduct} />}
+      </div>
+      <div className="overflow-x-auto border border-line rounded-2xl mb-4">
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>Size</Th><Th>Warehouse</Th><Th>With Rider</Th><Th>With Customers</Th><Th>Damaged</Th><Th>Lost</Th><Th>Total</Th></tr></thead>
           <tbody>
@@ -74,6 +88,30 @@ export default async function BottleLedgerPage() {
                 <Td className={Number(s.damaged) > 0 ? "text-coral" : ""}>{s.damaged}</Td>
                 <Td className={Number(s.lost) > 0 ? "text-coral" : ""}>{s.lost}</Td>
                 <Td className="font-semibold">{s.total_assets}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {unreconciled.length > 0 && (
+        <p className="text-xs text-amber mb-6 flex items-center gap-1.5"><AlertTriangle size={13} /> Not reconciled in the last {UNRECONCILED_DAYS} days: {unreconciled.map((p) => p.name).join(", ")}.</p>
+      )}
+
+      <h4 className="text-sm font-bold mb-2.5">Reconciliation history</h4>
+      <div className="overflow-x-auto border border-line rounded-2xl mb-6">
+        <table className="w-full text-[13.5px] border-collapse">
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Size</Th><Th>Expected</Th><Th>Physical</Th><Th>Difference</Th><Th>Reason</Th></tr></thead>
+          <tbody>
+            {(reconHistory || []).length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate">No reconciliations recorded yet.</td></tr>}
+            {(reconHistory || []).map((r) => (
+              <tr key={r.id} className="hover:bg-foam">
+                <Td>{fmtDate(r.recon_date)}</Td><Td>{r.products?.name || "—"}</Td>
+                <Td>{r.expected_qty}</Td><Td>{r.physical_qty}</Td>
+                <Td className={r.difference < 0 ? "text-coral font-semibold" : r.difference > 0 ? "text-amber font-semibold" : ""}>
+                  {r.difference > 0 ? `+${r.difference}` : r.difference}
+                </Td>
+                <Td className="max-w-[220px] truncate">{r.reason || "—"}</Td>
               </tr>
             ))}
           </tbody>

@@ -756,6 +756,58 @@ export async function refreshAlerts() {
   return { ok: !error, error: error?.message };
 }
 
+// Physical stock-take for one bottle size. "Expected" is read live from
+// v_bottle_reconciliation (same figure the Bottle Ledger page shows) so
+// there's one source of truth, not a second copy of the calculation. A
+// difference requires a reason and posts a corrective bottle_transactions
+// entry — shortage moves warehouse->lost, excess moves adjustment->warehouse
+// — so the ledger reflects it and future reconciliations start from the
+// corrected count. RLS (bottles.manage) is the authorization gate; the
+// bottle_reconciliations row plus the audit trigger on it is the audit log.
+export async function recordBottleReconciliation(formData) {
+  const { supabase, user } = await requireUser();
+  const productId = formData.get("product_id");
+  const physicalQty = Number(formData.get("physical_qty"));
+  const reason = (formData.get("reason") || "").toString().trim() || null;
+  if (!productId || Number.isNaN(physicalQty)) return { error: "Pick a bottle size and enter the physical count." };
+
+  const { data: recon } = await supabase.from("v_bottle_reconciliation").select("warehouse").eq("product_id", productId).maybeSingle();
+  const expectedQty = Number(recon?.warehouse || 0);
+  const difference = physicalQty - expectedQty;
+  if (difference !== 0 && !reason) return { error: "A reason is required when the physical count doesn't match the expected count." };
+
+  let adjustmentTransactionId = null;
+  if (difference !== 0) {
+    const { data: txn, error: txnErr } = await supabase.from("bottle_transactions").insert({
+      product_id: productId,
+      quantity: Math.abs(difference),
+      from_state: difference < 0 ? "warehouse" : "adjustment",
+      to_state: difference < 0 ? "lost" : "warehouse",
+      reference_type: "reconciliation",
+      remarks: reason,
+      created_by: user.id,
+    }).select("id").single();
+    if (txnErr) return { error: txnErr.message };
+    adjustmentTransactionId = txn.id;
+  }
+
+  const { error } = await supabase.from("bottle_reconciliations").insert({
+    product_id: productId,
+    expected_qty: expectedQty,
+    physical_qty: physicalQty,
+    reason,
+    adjustment_transaction_id: adjustmentTransactionId,
+    created_by: user.id,
+  });
+  if (error) return { error: error.message };
+
+  revalidatePath("/bottle-ledger");
+  revalidatePath("/bottles");
+  revalidatePath("/notifications");
+  revalidatePath("/dashboard");
+  return { ok: true, difference };
+}
+
 const METHOD_MAP = { Cash: "cash", "Bank Transfer": "bank", JazzCash: "jazzcash", Easypaisa: "easypaisa" };
 
 async function findCustomerId(supabase, r) {

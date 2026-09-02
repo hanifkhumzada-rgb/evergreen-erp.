@@ -9,6 +9,11 @@ const UNIT = {
   stock_reorder: "",
   bottle_limit: "bottles (default for new customers)",
   payment_overdue: "days",
+  high_bottle_balance: "% with customers",
+  bottle_shortage: "days",
+  unreconciled_bottles: "days",
+  damaged_bottle_increase: "bottles / 7 days",
+  lost_bottle_increase: "bottles / 7 days",
 };
 
 function RuleRow({ rule }) {
