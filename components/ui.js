@@ -18,6 +18,7 @@ export function KPI({ label, value, sub, tone = "navy", trend, href }) {
     amber: "bg-card border border-line border-t-2 border-t-amber",
     coral: "bg-card border border-line border-t-2 border-t-coral",
     green: "bg-card border border-line border-t-2 border-t-green",
+    slate: "bg-card border border-line border-t-2 border-t-slate",
   }[tone];
   const TrendIcon = trend?.direction === "up" ? ArrowUp : trend?.direction === "down" ? ArrowDown : Minus;
   const trendColor = trend?.favorable === null || trend?.favorable === undefined ? "text-slate" : trend.favorable ? "text-green" : "text-coral";
