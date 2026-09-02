@@ -13,6 +13,7 @@ const STATUSES = [
 ];
 const DELIVERY_TIMES = ["Morning (7-10 AM)", "Midday (10 AM-1 PM)", "Afternoon (1-4 PM)", "Evening (4-7 PM)", "Anytime"];
 const PAYMENT_TERMS = ["Cash on Delivery", "Weekly Credit", "Monthly Credit", "Advance Payment"];
+const PAYMENT_FREQUENCIES = ["Daily", "Weekly", "Monthly", "Custom"];
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 // Shared by the "New Customer" and "Edit Customer" triggers — one sectioned
@@ -71,9 +72,12 @@ export default function CustomerForm({ mode = "create", customer, zones, product
               </Row>
               <Row>
                 <Field label="Mobile number *"><input name="phone" required defaultValue={c.mobile} className="in" /></Field>
-                <Field label="WhatsApp number"><input name="whatsapp" defaultValue={c.whatsapp_number} className="in" /></Field>
+                <Field label="Alternate phone"><input name="alternate_phone" defaultValue={c.alternate_phone} className="in" /></Field>
               </Row>
-              <Field label="Email"><input name="email" type="email" defaultValue={c.email} className="in" /></Field>
+              <Row>
+                <Field label="WhatsApp number"><input name="whatsapp" defaultValue={c.whatsapp_number} className="in" /></Field>
+                <Field label="Email"><input name="email" type="email" defaultValue={c.email} className="in" /></Field>
+              </Row>
             </Section>
 
             <Section title="Address & Delivery">
@@ -140,12 +144,19 @@ export default function CustomerForm({ mode = "create", customer, zones, product
               ) : (
                 <p className="text-xs text-slate mb-3">Special rate and discount are set by an Owner or Admin.</p>
               )}
-              <Field label="Payment terms">
-                <select name="payment_terms" defaultValue={c.payment_terms || ""} className="in">
-                  <option value="">— none —</option>
-                  {PAYMENT_TERMS.map((t) => <option key={t}>{t}</option>)}
-                </select>
-              </Field>
+              <Row>
+                <Field label="Payment terms">
+                  <select name="payment_terms" defaultValue={c.payment_terms || ""} className="in">
+                    <option value="">— none —</option>
+                    {PAYMENT_TERMS.map((t) => <option key={t}>{t}</option>)}
+                  </select>
+                </Field>
+                <Field label="Payment frequency">
+                  <select name="payment_frequency" defaultValue={c.payment_frequency || "Monthly"} className="in">
+                    {PAYMENT_FREQUENCIES.map((f) => <option key={f}>{f}</option>)}
+                  </select>
+                </Field>
+              </Row>
             </Section>
 
             {canManageFinancial && (

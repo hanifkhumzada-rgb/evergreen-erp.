@@ -65,6 +65,30 @@ export default async function CustomerProfilePage({ params }) {
     );
   }
 
+  // Current effective rate for this customer's default bottle size — same
+  // lookup createSale/getEffectiveRate uses (customer override first, else
+  // the standard product price), so what's shown here is what the next sale
+  // will actually charge. Past invoices keep their own stored rate regardless.
+  let currentRate = null;
+  let currentRateProductName = null;
+  if (c.default_product_id) {
+    const rateToday = new Date().toISOString().slice(0, 10);
+    const { data: custPrice } = await supabase.from("customer_prices").select("price")
+      .eq("customer_id", params.id).eq("product_id", c.default_product_id)
+      .lte("effective_from", rateToday).or(`effective_to.is.null,effective_to.gte.${rateToday}`)
+      .order("effective_from", { ascending: false }).limit(1).maybeSingle();
+    if (custPrice) {
+      currentRate = Number(custPrice.price);
+    } else {
+      const { data: prodPrice } = await supabase.from("product_prices").select("price")
+        .eq("product_id", c.default_product_id)
+        .lte("effective_from", rateToday).or(`effective_to.is.null,effective_to.gte.${rateToday}`)
+        .order("effective_from", { ascending: false }).limit(1).maybeSingle();
+      currentRate = Number(prodPrice?.price || 0);
+    }
+    currentRateProductName = (products || []).find((p) => p.id === c.default_product_id)?.name;
+  }
+
   const todayISO = new Date().toISOString().slice(0, 10);
 
   // FINANCIAL
@@ -142,7 +166,9 @@ export default async function CustomerProfilePage({ params }) {
             <h2 className="font-display text-2xl font-semibold">{c.name}</h2>
             <Badge text={statusBadge.text} tone={statusBadge.tone} />
           </div>
-          <p className="text-slate text-sm mt-1">{c.customer_type} · {c.zones?.name || "No zone"} · Customer since {fmtDate(c.created_at)}</p>
+          <p className="text-slate text-sm mt-1">
+            <span className="font-mono-num">{c.code || "—"}</span> · {c.customer_type} · {c.zones?.name || "No zone"} · Customer since {fmtDate(c.created_at)}
+          </p>
         </div>
         <div className="no-print flex gap-2">
           <CustomerForm
@@ -168,6 +194,8 @@ export default async function CustomerProfilePage({ params }) {
         {c.profiles?.full_name && <span>Driver: {c.profiles.full_name}</span>}
         {c.vehicles?.registration_no && <span>Vehicle: {c.vehicles.registration_no}</span>}
         {c.payment_terms && <span>Terms: {c.payment_terms}</span>}
+        <span>Payment frequency: {c.payment_frequency || "Monthly"}</span>
+        {c.alternate_phone && <span>Alt phone: {c.alternate_phone}</span>}
       </div>
       {c.delivery_instructions && <p className="text-[13px] text-slate mt-2"><span className="font-semibold">Delivery instructions:</span> {c.delivery_instructions}</p>}
       {c.notes && <p className="text-[13px] text-slate mt-1"><span className="font-semibold">Notes:</span> {c.notes}</p>}
@@ -175,9 +203,17 @@ export default async function CustomerProfilePage({ params }) {
       {/* FINANCIAL */}
       <SectionTitle>Financial</SectionTitle>
       <div className="flex flex-wrap gap-3.5 mb-4">
+        <KPI
+          label="CURRENT RATE"
+          value={currentRate != null ? pkr(currentRate) : "—"}
+          tone="navy"
+          sub={currentRateProductName ? `per ${currentRateProductName} · applies to future sales only` : "no default bottle size set"}
+        />
+        <KPI label="PAYMENT FREQUENCY" value={c.payment_frequency || "Monthly"} tone="slate" />
         <KPI label="TOTAL SALES" value={pkr(totalSales)} tone="navy" />
         <KPI label="TOTAL PAID" value={pkr(totalPaid)} tone="green" />
         <KPI label="OUTSTANDING" value={pkr(balance)} tone="coral" />
+        <KPI label="LAST PAYMENT" value={lastPayment ? pkr(lastPayment.amount) : "—"} tone="slate" sub={lastPayment ? fmtDate(lastPayment.payment_date) : "no payments yet"} />
         <KPI label="OPENING BALANCE" value={pkr(c.opening_balance)} tone="slate" />
         <KPI label="CREDIT LIMIT" value={pkr(c.credit_limit)} tone="slate" />
         <KPI label="AVAILABLE CREDIT" value={pkr(availableCredit)} tone={availableCredit < 0 ? "coral" : "aqua"} />
