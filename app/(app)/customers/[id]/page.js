@@ -3,19 +3,32 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { pkr, fmtDate } from "@/lib/format";
 import { KPI, Badge, Th, Td, PrintButton, DownloadPdfButton } from "@/components/ui";
+import CustomerForm, { EditCustomerTrigger } from "@/components/CustomerForm";
 
 export const dynamic = "force-dynamic";
 
 const INVOICE_TONE = { paid: "green", partially_paid: "amber", sent: "amber", draft: "slate", overdue: "coral", void: "slate" };
+const STATUS_BADGE = {
+  active: { text: "Active", tone: "green" },
+  inactive: { text: "Inactive", tone: "slate" },
+  on_hold: { text: "On Hold", tone: "amber" },
+  blacklisted: { text: "Blacklisted", tone: "coral" },
+};
 
 export default async function CustomerProfilePage({ params }) {
   const supabase = await createClient();
-  const [{ data: c }, { data: invoices }, { data: payments }, { data: balanceRow }, { data: bottleRows }] = await Promise.all([
-    supabase.from("customers").select("*, zones(name)").eq("id", params.id).single(),
+  const { data: { user } } = await supabase.auth.getUser();
+  const [{ data: c }, { data: invoices }, { data: payments }, { data: balanceRow }, { data: bottleRows }, { data: zones }, { data: products }, { data: vehicles }, { data: riders }, { data: profile }] = await Promise.all([
+    supabase.from("customers").select("*, zones(name), profiles!customers_assigned_rider_id_fkey(full_name), vehicles(registration_no)").eq("id", params.id).single(),
     supabase.from("invoices").select("*").eq("customer_id", params.id).order("invoice_date", { ascending: false }).limit(8),
     supabase.from("payments").select("*").eq("customer_id", params.id).order("payment_date", { ascending: false }).limit(8),
     supabase.from("v_customer_balance").select("balance").eq("customer_id", params.id).maybeSingle(),
     supabase.from("v_customer_bottle_balance").select("bottles_with_customer").eq("customer_id", params.id),
+    supabase.from("zones").select("*"),
+    supabase.from("products").select("id, name").eq("is_active", true).order("name"),
+    supabase.from("vehicles").select("id, registration_no").eq("is_active", true).order("registration_no"),
+    supabase.from("profiles").select("id, full_name, roles!inner(key)").eq("roles.key", "rider").eq("is_active", true).order("full_name"),
+    supabase.from("profiles").select("roles(key)").eq("id", user.id).single(),
   ]);
 
   if (!c) {
@@ -31,6 +44,8 @@ export default async function CustomerProfilePage({ params }) {
   const totalPaid = (payments || []).reduce((a, p) => a + Number(p.amount), 0);
   const balance = Number(balanceRow?.balance || 0);
   const bottleBalance = (bottleRows || []).reduce((a, b) => a + Number(b.bottles_with_customer), 0);
+  const statusBadge = STATUS_BADGE[c.status] || (c.is_active ? STATUS_BADGE.active : STATUS_BADGE.inactive);
+  const canManageFinancial = ["owner", "admin"].includes(profile?.roles?.key);
 
   return (
     <div className="print-area">
@@ -38,10 +53,19 @@ export default async function CustomerProfilePage({ params }) {
 
       <div className="flex justify-between items-start mb-5">
         <div>
-          <h2 className="font-display text-2xl font-semibold">{c.name}</h2>
+          <div className="flex items-center gap-2.5">
+            <h2 className="font-display text-2xl font-semibold">{c.name}</h2>
+            <Badge text={statusBadge.text} tone={statusBadge.tone} />
+          </div>
           <p className="text-slate text-sm mt-1">{c.customer_type} · {c.zones?.name || "No zone"} · Customer since {fmtDate(c.created_at)}</p>
         </div>
         <div className="no-print flex gap-2">
+          <CustomerForm
+            mode="edit" customer={c}
+            zones={zones || []} products={products || []} vehicles={vehicles || []} riders={riders || []}
+            canManageFinancial={canManageFinancial}
+            trigger={<EditCustomerTrigger />}
+          />
           <DownloadPdfButton href={`/api/pdf/customer-statement/${c.id}`} label="Download Statement" />
           <PrintButton />
         </div>
@@ -81,10 +105,22 @@ export default async function CustomerProfilePage({ params }) {
       </div>
 
       <div className="mt-5">
-        <h4 className="text-[13.5px] font-bold mb-2">Contact details</h4>
-        <div className="flex gap-5 flex-wrap text-[13px] text-slate">
-          <span>{c.mobile}</span><span>{c.address}</span><span>Credit limit: {pkr(c.credit_limit)}</span>
+        <h4 className="text-[13.5px] font-bold mb-2">Contact &amp; delivery details</h4>
+        <div className="flex gap-x-5 gap-y-1.5 flex-wrap text-[13px] text-slate">
+          <span>{c.mobile}</span>
+          {c.whatsapp_number && <span>WhatsApp: {c.whatsapp_number}</span>}
+          {c.email && <span>{c.email}</span>}
+          {c.contact_person && <span>Contact: {c.contact_person}</span>}
+          <span>{c.address}{c.area ? `, ${c.area}` : ""}</span>
+          {c.route && <span>Route: {c.route}</span>}
+          {c.preferred_delivery_time && <span>{c.preferred_delivery_time}</span>}
+          {c.profiles?.full_name && <span>Driver: {c.profiles.full_name}</span>}
+          {c.vehicles?.registration_no && <span>Vehicle: {c.vehicles.registration_no}</span>}
+          {c.payment_terms && <span>Terms: {c.payment_terms}</span>}
+          <span>Credit limit: {pkr(c.credit_limit)}</span>
         </div>
+        {c.delivery_instructions && <p className="text-[13px] text-slate mt-2"><span className="font-semibold">Delivery instructions:</span> {c.delivery_instructions}</p>}
+        {c.notes && <p className="text-[13px] text-slate mt-1"><span className="font-semibold">Notes:</span> {c.notes}</p>}
       </div>
     </div>
   );

@@ -10,6 +10,16 @@ async function requireUser() {
   return { supabase, user };
 }
 
+// customers.manage_financial (Customer Master's opening balance / credit
+// limit / special rate / discount) is restricted to owner+admin at the RLS
+// grant level; customers.edit itself is broader (also manager), so these
+// fields need their own app-level check before being written.
+async function getUserRole(supabase, user) {
+  const { data: profile } = await supabase.from("profiles").select("roles(key)").eq("id", user.id).single();
+  return profile?.roles?.key;
+}
+const FINANCIAL_ROLES = ["owner", "admin"];
+
 // The live schema has one primary retail product (19L bottle, sku "19L"). The
 // UI only ever asks for a quantity (no product picker), so every sale /
 // delivery is recorded against this product.
@@ -68,28 +78,69 @@ export async function signOut() {
   redirect("/login");
 }
 
-export async function createCustomer(formData) {
-  const { supabase, user } = await requireUser();
-  const payload = {
-    code: genCode("CUST"),
+// Shared by createCustomer/updateCustomer — reads every Customer Master
+// field from the form. Financial fields (opening balance, credit limit,
+// discount, special rate) are only included when the caller actually holds
+// customers.manage_financial; anyone submitting them anyway (e.g. a
+// tampered request) gets them silently dropped rather than applied.
+function customerBasicsFromForm(formData) {
+  const preferredDays = formData.getAll("preferred_days").filter(Boolean);
+  return {
     name: formData.get("name"),
+    business_name: formData.get("business_name") || null,
+    contact_person: formData.get("contact_person") || null,
     mobile: formData.get("phone"),
-    whatsapp_number: formData.get("phone"),
-    zone_id: formData.get("zone_id") || null,
+    whatsapp_number: formData.get("whatsapp") || formData.get("phone"),
+    email: formData.get("email") || null,
     customer_type: formData.get("customer_type"),
     address: formData.get("address") || "",
+    area: formData.get("area") || null,
+    zone_id: formData.get("zone_id") || null,
+    route: formData.get("route") || null,
+    preferred_days: preferredDays.length ? preferredDays : null,
+    preferred_delivery_time: formData.get("preferred_delivery_time") || null,
+    assigned_rider_id: formData.get("assigned_rider_id") || null,
+    assigned_vehicle_id: formData.get("assigned_vehicle_id") || null,
+    delivery_instructions: formData.get("delivery_instructions") || null,
+    default_product_id: formData.get("default_product_id") || null,
+    regular_qty: Number(formData.get("regular_qty")) || 0,
+    payment_terms: formData.get("payment_terms") || null,
+    bottle_limit: Number(formData.get("bottle_limit")) || 20,
+    opening_bottles_with_customer: Number(formData.get("opening_bottles_with_customer")) || 0,
+    status: formData.get("status") || "active",
+    notes: formData.get("notes") || null,
+  };
+}
+
+function customerFinancialsFromForm(formData) {
+  return {
+    credit_limit: Number(formData.get("credit_limit")) || 0,
+    opening_balance: Number(formData.get("opening_balance")) || 0,
+    discount_pct: Number(formData.get("discount_pct")) || 0,
+  };
+}
+
+export async function createCustomer(formData) {
+  const { supabase, user } = await requireUser();
+  const role = await getUserRole(supabase, user);
+  const canManageFinancial = FINANCIAL_ROLES.includes(role);
+
+  const payload = {
+    code: genCode("CUST"),
+    ...customerBasicsFromForm(formData),
+    is_active: (formData.get("status") || "active") === "active",
     created_by: user.id,
   };
+  if (canManageFinancial) Object.assign(payload, customerFinancialsFromForm(formData));
+
   const { data: created, error } = await supabase.from("customers").insert(payload).select("id").single();
   if (error) return { error: error.message };
 
-  // The live schema no longer stores a per-customer default rate directly on
-  // the customer row — pricing is per-product (product_prices / customer_prices).
-  // Preserve the "rate per bottle" the form still asks for by saving it as
-  // this customer's override price for the default (19L) product.
+  // Special/customer rate is stored as a customer_prices override, same as
+  // the standard per-product pricing — not a duplicate column on customers.
   const rate = Number(formData.get("rate"));
-  if (rate > 0) {
-    const productId = await getDefaultProduct(supabase);
+  if (canManageFinancial && rate > 0) {
+    const productId = payload.default_product_id || (await getDefaultProduct(supabase));
     if (productId) {
       await supabase.from("customer_prices").insert({
         customer_id: created.id,
@@ -101,6 +152,40 @@ export async function createCustomer(formData) {
     }
   }
   revalidatePath("/customers");
+  return { ok: true };
+}
+
+export async function updateCustomer(customerId, formData) {
+  const { supabase, user } = await requireUser();
+  const role = await getUserRole(supabase, user);
+  const canManageFinancial = FINANCIAL_ROLES.includes(role);
+
+  const payload = {
+    ...customerBasicsFromForm(formData),
+    is_active: (formData.get("status") || "active") === "active",
+    updated_by: user.id,
+    updated_at: new Date().toISOString(),
+  };
+  if (canManageFinancial) Object.assign(payload, customerFinancialsFromForm(formData));
+
+  const { error } = await supabase.from("customers").update(payload).eq("id", customerId);
+  if (error) return { error: error.message };
+
+  const rate = Number(formData.get("rate"));
+  if (canManageFinancial && rate > 0) {
+    const productId = payload.default_product_id || (await getDefaultProduct(supabase));
+    if (productId) {
+      await supabase.from("customer_prices").insert({
+        customer_id: customerId,
+        product_id: productId,
+        price: rate,
+        effective_from: new Date().toISOString().slice(0, 10),
+        created_by: user.id,
+      });
+    }
+  }
+  revalidatePath("/customers");
+  revalidatePath(`/customers/${customerId}`);
   return { ok: true };
 }
 
