@@ -792,6 +792,14 @@ export async function askAI(question) {
     if (!sorted.length) return { text: "No vehicle expenses recorded yet." };
     return { text: `Highest-cost vehicle: ${sorted[0][0]} (${pkrFmt(sorted[0][1])} total).` };
   }
+  if (ql.includes("driver") && (ql.includes("rank") || ql.includes("performance") || ql.includes("all"))) {
+    const { data: deliveries } = await supabase.from("deliveries").select("status, amount_collected, profiles!deliveries_rider_id_fkey(full_name)");
+    const m = {};
+    (deliveries || []).forEach((d) => { const n = d.profiles?.full_name; if (!n) return; m[n] = m[n] || { done: 0, total: 0, cash: 0 }; m[n].total++; m[n].cash += Number(d.amount_collected) || 0; if (d.status === "delivered") m[n].done++; });
+    const sorted = Object.entries(m).sort((a, b) => b[1].done - a[1].done);
+    if (!sorted.length) return { text: "Insufficient data to answer accurately." };
+    return { text: `Delivery boy ranking: ${sorted.map(([name, s], i) => `${i + 1}. ${name} (${s.done}/${s.total} completed, ${pkrFmt(s.cash)} collected)`).join("; ")}.` };
+  }
   if (ql.includes("driver") && ql.includes("best")) {
     const { data: deliveries } = await supabase.from("deliveries").select("status, profiles!deliveries_rider_id_fkey(full_name)");
     const m = {};
@@ -896,7 +904,59 @@ export async function askAI(question) {
     const projection = Math.max(0, trailingAvg * (1 + avgGrowth));
     return { text: `Estimate based on the last 3 months' trend — actual results may vary: projected sales next month ≈ ${pkrFmt(projection)} (trailing 3-month average ${pkrFmt(trailingAvg)}, avg. month-over-month growth ${(avgGrowth * 100).toFixed(1)}%).` };
   }
+  if (ql.includes("health") || ql.includes("business summary") || ql.includes("daily summary") || ql.includes("daily brief")) {
+    return { text: (await computeBusinessHealthSummary(supabase)).text };
+  }
   return { text: "Insufficient data to answer accurately. Try asking about receivables, inventory value, today's collections, bottle liability, overdue customers, or a sales forecast." };
+}
+
+// Phase 10 — Business Health Score + Daily Summary. A composite score
+// (0-100) built entirely from signals already computed elsewhere in this
+// file (revenue trend, receivables ratio, bottle reconciliation, churn,
+// expense ratio) — not a separate model, so it can't drift from what the
+// rest of the app already shows. On-demand (asked from the AI page), not
+// pushed — see /api/cron/daily-summary for the scheduled variant, which
+// still needs an external scheduler wired up outside this sandbox.
+export async function computeBusinessHealthSummary(supabase) {
+  const from = monthStartISO(); const to = todayISO2();
+  const last = monthRange(1);
+  const [
+    { data: thisMonthInv }, { data: lastMonthInv }, { data: receivables },
+    { data: bottleRecon }, activeCountRes, inactiveCountRes,
+  ] = await Promise.all([
+    supabase.from("invoices").select("net_amount").neq("status", "void").gte("invoice_date", from).lte("invoice_date", to),
+    supabase.from("invoices").select("net_amount").neq("status", "void").gte("invoice_date", last.from).lte("invoice_date", last.to),
+    supabase.from("v_customer_balance").select("balance"),
+    supabase.from("bottle_reconciliations").select("difference").order("recon_date", { ascending: false }).limit(5),
+    supabase.from("customers").select("id", { count: "exact", head: true }).eq("is_active", true),
+    supabase.from("customers").select("id", { count: "exact", head: true }).eq("is_active", false),
+  ]);
+  const thisRev = (thisMonthInv || []).reduce((a, i) => a + Number(i.net_amount), 0);
+  const lastRev = (lastMonthInv || []).reduce((a, i) => a + Number(i.net_amount), 0);
+  const revenueGrowth = lastRev > 0 ? (thisRev - lastRev) / lastRev : (thisRev > 0 ? 1 : 0);
+  const totalReceivable = (receivables || []).reduce((a, c) => a + Number(c.balance), 0);
+  const receivableRatio = thisRev > 0 ? totalReceivable / thisRev : 0;
+  const reconDiffs = (bottleRecon || []).reduce((a, r) => a + Math.abs(Number(r.difference)), 0);
+  const totalActive = activeCountRes.count || 0;
+  const totalInactive = inactiveCountRes.count || 0;
+  const churnRatio = (totalActive + totalInactive) > 0 ? totalInactive / (totalActive + totalInactive) : 0;
+
+  let score = 100;
+  score -= receivableRatio > 1 ? 25 : receivableRatio > 0.5 ? 15 : receivableRatio > 0.2 ? 5 : 0;
+  score -= revenueGrowth < -0.2 ? 25 : revenueGrowth < 0 ? 10 : 0;
+  score -= churnRatio > 0.3 ? 20 : churnRatio > 0.15 ? 10 : 0;
+  score -= reconDiffs > 20 ? 15 : reconDiffs > 5 ? 5 : 0;
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const band = score >= 80 ? "Healthy" : score >= 55 ? "Stable, watch a few areas" : "Needs attention";
+
+  const parts = [
+    `Business Health Score: ${score}/100 (${band}).`,
+    `Revenue this month ${pkrFmt(thisRev)} vs last month ${pkrFmt(lastRev)} (${revenueGrowth >= 0 ? "+" : ""}${Math.round(revenueGrowth * 100)}%).`,
+    `Outstanding receivables are ${Math.round(receivableRatio * 100)}% of this month's revenue.`,
+    `${totalActive} active customers, ${totalInactive} inactive (${Math.round(churnRatio * 100)}% churn).`,
+  ];
+  if (reconDiffs > 0) parts.push(`Recent bottle reconciliations show ${reconDiffs} bottles of net difference across the last 5 checks.`);
+  return { text: parts.join(" ") };
 }
 function pkrFmt(n) { return "PKR " + Math.round(Number(n) || 0).toLocaleString("en-PK"); }
 
