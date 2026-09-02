@@ -14,6 +14,8 @@ const PREVIEW_LINES = {
 };
 
 const norm = (s) => (s || "").toString().toLowerCase().replace(/[^a-z0-9]/g, "");
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10MB — well past any real Excel/CSV import for this app, guards against a huge/wrong file freezing the tab
+const MAX_ROWS = 5000; // bulk import actions insert row-by-row server-side; a much larger file would time out rather than partially import
 
 // expectedFields (optional, opt-in): [{ key, label, required }]. When given,
 // an upload goes through Upload -> Column Mapping -> Validation -> Duplicate
@@ -55,11 +57,19 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
   };
 
   const handleFile = (file) => {
+    if (file.size > MAX_FILE_BYTES) {
+      alert(`This file is too large (${(file.size / (1024 * 1024)).toFixed(1)}MB). Please split it into files under ${MAX_FILE_BYTES / (1024 * 1024)}MB.`);
+      return;
+    }
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const wb = XLSX.read(e.target.result, { type: "binary" });
         const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+        if (rows.length > MAX_ROWS) {
+          alert(`This file has ${rows.length} rows — please split it into batches of ${MAX_ROWS} or fewer.`);
+          return;
+        }
         if (!expectedFields) { setPreview({ rows: rows.map((data) => ({ data, missing: [], duplicate: false })) }); return; }
         setRawRows(rows);
         const headers = rows.length ? Object.keys(rows[0]) : [];
