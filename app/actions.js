@@ -733,21 +733,131 @@ export async function askAI(question) {
 }
 function pkrFmt(n) { return "PKR " + Math.round(Number(n) || 0).toLocaleString("en-PK"); }
 
+async function resolveByName(supabase, table, nameCol, value) {
+  const val = (value || "").toString().trim();
+  if (!val) return null;
+  const { data } = await supabase.from(table).select("id").ilike(nameCol, val).limit(1).maybeSingle();
+  return data?.id || null;
+}
+
+async function resolveRiderByName(supabase, value) {
+  const val = (value || "").toString().trim();
+  if (!val) return null;
+  const { data } = await supabase.from("profiles").select("id, roles!inner(key)").eq("roles.key", "rider").ilike("full_name", val).limit(1).maybeSingle();
+  return data?.id || null;
+}
+
+// Same field set as the Customer Master form (CustomerForm.js) — a row here
+// is just another way to fill it in, not a separate schema. Financial
+// fields (rate, discount, credit limit, opening balance) are only written
+// when the importing user holds customers.manage_financial, matching
+// createCustomer/updateCustomer's gate.
 export async function bulkImportCustomers(rows) {
   const { supabase, user } = await requireUser();
-  const payload = rows.map((r) => ({
-    code: genCode("CUST"),
-    name: r.Name || r.name || "Unnamed",
-    mobile: String(r.Phone || r.phone || ""),
-    whatsapp_number: String(r.Phone || r.phone || ""),
-    address: r.Address || "",
-    customer_type: r.Type || "Household",
-    created_by: user.id,
-  })).filter((r) => r.mobile);
-  const { data, error } = await supabase.from("customers").insert(payload).select("id");
+  const role = await getUserRole(supabase, user);
+  const canManageFinancial = FINANCIAL_ROLES.includes(role);
+  let imported = 0, failed = 0;
+
+  for (const r of rows) {
+    const name = String(r.Name || r.name || r["Customer Name"] || "").trim();
+    const mobile = String(r.Mobile || r.mobile || r.Phone || r.phone || "").trim();
+    if (!name || !mobile) { failed++; continue; }
+
+    const zoneId = await resolveByName(supabase, "zones", "name", r.Zone || r.zone);
+    const vehicleId = await resolveByName(supabase, "vehicles", "registration_no", r.Vehicle || r.vehicle);
+    const riderId = await resolveRiderByName(supabase, r.Driver || r.driver);
+    const productValue = r.Product || r.product || r["Bottle Size"] || r.Size || r.size;
+    const productId = productValue ? await resolveProductId(supabase, productValue, null) : null;
+    const preferredDays = String(r["Delivery Days"] || r.DeliveryDays || "").split(",").map((d) => d.trim()).filter(Boolean);
+    const status = String(r.Status || r.status || "active").trim().toLowerCase().replace(/\s+/g, "_") || "active";
+
+    const payload = {
+      code: String(r["Customer Code"] || r.Code || r.code || "").trim() || genCode("CUST"),
+      name,
+      business_name: r.Company || r.company || r["Business Name"] || null,
+      contact_person: r["Contact Person"] || r.ContactPerson || null,
+      mobile,
+      whatsapp_number: r.WhatsApp || r.whatsapp || mobile,
+      email: r.Email || r.email || null,
+      customer_type: r["Customer Type"] || r.Type || "Home",
+      address: r.Address || r.address || "",
+      area: r.Area || r.area || null,
+      zone_id: zoneId,
+      route: r.Route || r.route || null,
+      preferred_days: preferredDays.length ? preferredDays : null,
+      assigned_rider_id: riderId,
+      assigned_vehicle_id: vehicleId,
+      default_product_id: productId,
+      regular_qty: Number(r.Quantity || r.quantity || r.Qty || r.qty) || 0,
+      payment_terms: r["Payment Terms"] || r.PaymentTerms || null,
+      bottle_limit: Number(r["Bottle Limit"] || r.BottleLimit) || 20,
+      opening_bottles_with_customer: Number(r["Opening Bottle Balance"] || r.OpeningBottleBalance) || 0,
+      status,
+      is_active: status === "active",
+      notes: r.Notes || r.notes || null,
+      created_by: user.id,
+    };
+    if (canManageFinancial) {
+      payload.credit_limit = Number(r["Credit Limit"] || r.CreditLimit) || 0;
+      payload.opening_balance = Number(r["Opening Balance"] || r.OpeningBalance) || 0;
+      payload.discount_pct = Number(r.Discount || r.discount) || 0;
+    }
+
+    const { data: created, error } = await supabase.from("customers").insert(payload).select("id").single();
+    if (error) { failed++; continue; }
+
+    const rate = Number(r.Rate || r.rate);
+    if (canManageFinancial && rate > 0 && productId) {
+      await supabase.from("customer_prices").insert({
+        customer_id: created.id, product_id: productId, price: rate,
+        effective_from: new Date().toISOString().slice(0, 10), created_by: user.id,
+      });
+    }
+    imported++;
+  }
   revalidatePath("/customers");
-  return { ok: !error, imported: data?.length || 0, failed: payload.length - (data?.length || 0), error: error?.message };
+  return { ok: true, imported, failed };
 }
+
+// Section 10's wide format: Customer ID | Customer | 19L Opening | 6L
+// Opening | ... — one column per active bottle size. Each nonzero cell
+// becomes a real "opening_balance" bottle_transactions entry (warehouse ->
+// with_customer), the same mechanism every other movement uses — not a
+// separate hardcoded balance. Re-importing the same customer+size is a
+// no-op (skipped) rather than double-crediting them.
+export async function bulkImportBottleOpeningBalances(rows) {
+  const { supabase, user } = await requireUser();
+  const { data: products } = await supabase.from("products").select("id, sku, size_label").eq("is_active", true);
+  let imported = 0, failed = 0, skipped = 0;
+
+  for (const r of rows) {
+    const customerId = await findCustomerId(supabase, r);
+    if (!customerId) { failed++; continue; }
+    let rowImported = false;
+    for (const p of products || []) {
+      const key = Object.keys(r).find((k) => norm(k).includes(norm(p.size_label)) || norm(k).includes(norm(p.sku)));
+      if (!key) continue;
+      const qty = Number(r[key]);
+      if (!qty || qty <= 0) continue;
+
+      const { data: existing } = await supabase.from("bottle_transactions").select("id")
+        .eq("customer_id", customerId).eq("product_id", p.id).eq("reference_type", "opening_balance").maybeSingle();
+      if (existing) { skipped++; continue; }
+
+      const { error } = await supabase.from("bottle_transactions").insert({
+        product_id: p.id, quantity: qty, from_state: "warehouse", to_state: "with_customer",
+        customer_id: customerId, reference_type: "opening_balance", created_by: user.id,
+      });
+      if (!error) rowImported = true;
+    }
+    if (rowImported) imported++; else failed++;
+  }
+  revalidatePath("/bottle-ledger");
+  revalidatePath("/bottles");
+  revalidatePath("/customers");
+  return { ok: true, imported, failed, skipped };
+}
+function norm(s) { return (s || "").toString().toLowerCase().replace(/[^a-z0-9]/g, ""); }
 
 export async function refreshAlerts() {
   const { supabase } = await requireUser();
@@ -811,8 +921,13 @@ export async function recordBottleReconciliation(formData) {
 const METHOD_MAP = { Cash: "cash", "Bank Transfer": "bank", JazzCash: "jazzcash", Easypaisa: "easypaisa" };
 
 async function findCustomerId(supabase, r) {
+  const code = String(r["Customer ID"] || r.CustomerID || r.CustomerId || r.Code || r.code || "").trim();
   const phone = String(r.Phone || r.phone || r.CustomerPhone || "").trim();
   const name = String(r.Name || r.name || r.Customer || r.CustomerName || "").trim();
+  if (code) {
+    const { data } = await supabase.from("customers").select("id").eq("code", code).maybeSingle();
+    if (data) return data.id;
+  }
   if (phone) {
     const { data } = await supabase.from("customers").select("id").eq("mobile", phone).maybeSingle();
     if (data) return data.id;

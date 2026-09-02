@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
 import { ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import BottleReconciliationForm from "@/components/BottleReconciliationForm";
+import BulkImportButton from "@/components/BulkImportButton";
+import { bulkImportBottleOpeningBalances } from "@/app/actions";
 import { AlertTriangle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +18,7 @@ export default async function BottleLedgerPage() {
     supabase.from("bottle_transactions").select("*, customers(name), products(name)").order("created_at", { ascending: false }).limit(150),
     supabase.from("customers").select("id, bottle_limit"),
     supabase.from("v_bottle_reconciliation").select("*").order("product_name"),
-    supabase.from("products").select("id, name").eq("is_active", true).order("name"),
+    supabase.from("products").select("id, name, size_label").eq("is_active", true).order("name"),
     supabase.from("bottle_reconciliations").select("*, products(name)").order("recon_date", { ascending: false }).limit(20),
   ]);
 
@@ -33,6 +35,15 @@ export default async function BottleLedgerPage() {
   (reconHistory || []).forEach((r) => { if (!lastReconByProduct[r.product_id]) lastReconByProduct[r.product_id] = r.recon_date; });
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - UNRECONCILED_DAYS);
   const unreconciled = (products || []).filter((p) => !lastReconByProduct[p.id] || new Date(lastReconByProduct[p.id]) < cutoff);
+
+  // One column per active bottle size — "19L Opening", "6L Opening", etc.
+  const bottleOpeningFields = [
+    { key: "Customer ID", label: "Customer ID", required: false },
+    { key: "Customer", label: "Customer", required: true },
+    ...(products || []).map((p) => ({ key: `${p.size_label} Opening`, label: `${p.size_label} Opening`, required: false })),
+  ];
+  const bottleOpeningSample = { "Customer ID": "", Customer: "Ali Traders" };
+  (products || []).forEach((p) => { bottleOpeningSample[`${p.size_label} Opening`] = 0; });
 
   const limitMap = {};
   (customers || []).forEach((c) => { limitMap[c.id] = c.bottle_limit ?? 20; });
@@ -72,9 +83,21 @@ export default async function BottleLedgerPage() {
         <Stat label="Bottle liability value" value={pkr(liabilityValue)} sub={`@ ${pkr(BOTTLE_COST)}/bottle avg. replacement cost`} />
       </div>
 
-      <div className="no-print flex items-center justify-between mb-2.5">
+      <div className="no-print flex items-center justify-between mb-2.5 flex-wrap gap-2">
         <h4 className="text-sm font-bold">By bottle size</h4>
-        {(products || []).length > 0 && <BottleReconciliationForm products={products} expectedByProduct={expectedByProduct} />}
+        <div className="flex gap-2">
+          {(products || []).length > 0 && (
+            <BulkImportButton
+              label="Import Opening Balances"
+              columnsHint={`Customer ID or Customer*, ${(products || []).map((p) => `${p.size_label} Opening`).join(", ")}`}
+              action={bulkImportBottleOpeningBalances}
+              sampleRow={bottleOpeningSample}
+              previewType="bottleOpening"
+              expectedFields={bottleOpeningFields}
+            />
+          )}
+          {(products || []).length > 0 && <BottleReconciliationForm products={products} expectedByProduct={expectedByProduct} />}
+        </div>
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl mb-4">
         <table className="w-full text-[13.5px] border-collapse">
