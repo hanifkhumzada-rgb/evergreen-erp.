@@ -307,7 +307,8 @@ export default async function DashboardPage({ searchParams }) {
         <KPI label="REVENUE" value={pkr(rangeSales)} tone="navy" />
         <KPI label="PAYMENTS COLLECTED" value={pkr(rangePaidAmt)} tone="green" />
         <KPI label="EXPENSES" value={pkr(rangeExpAmt)} tone="amber" />
-        <KPI label="NET" value={pkr(rangeNet)} tone={rangeNet >= 0 ? "green" : "coral"} />
+        <KPI label="NET PROFIT" value={pkr(rangeNet)} tone={rangeNet >= 0 ? "green" : "coral"} sub="revenue − expenses" />
+        <KPI label="OVERDUE CUSTOMERS" value={overdueCustomerCount ?? 0} tone={overdueCustomerCount > 0 ? "coral" : "slate"} sub={overdueDays != null ? `> ${overdueDays} days` : "rule disabled"} href="/payments" />
       </div>
 
       {leaderboard.length > 0 && (

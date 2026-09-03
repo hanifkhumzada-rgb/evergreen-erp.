@@ -175,10 +175,10 @@ export default async function CustomersPage({ searchParams }) {
                   <Td><Badge text={badge.text} tone={badge.tone} /></Td>
                   <Td className="no-print">
                     <div className="flex gap-1.5">
-                      <Link href={`/deliveries?customer=${c.id}`} title="Deliver" className="w-7 h-7 flex items-center justify-center rounded-lg border border-line text-aqua hover:bg-aquaSoft"><Truck size={14} /></Link>
-                      <Link href={`/payments?customer=${c.id}`} title="Collect Payment" className="w-7 h-7 flex items-center justify-center rounded-lg border border-line text-green hover:bg-greenSoft"><Wallet size={14} /></Link>
-                      <Link href={`/invoices?customer=${c.id}`} title="Create Invoice" className="w-7 h-7 flex items-center justify-center rounded-lg border border-line text-navy hover:bg-foam"><FilePlus size={14} /></Link>
-                      <Link href={`/customers/${c.id}`} title="View Profile" className="w-7 h-7 flex items-center justify-center rounded-lg border border-line text-slate hover:bg-foam"><UserCircle2 size={14} /></Link>
+                      <Link href={`/deliveries?customer=${c.id}`} title="Deliver" className="w-9 h-9 flex items-center justify-center rounded-lg border border-line text-aqua hover:bg-aquaSoft"><Truck size={15} /></Link>
+                      <Link href={`/payments?customer=${c.id}`} title="Collect Payment" className="w-9 h-9 flex items-center justify-center rounded-lg border border-line text-green hover:bg-greenSoft"><Wallet size={15} /></Link>
+                      <Link href={`/invoices?customer=${c.id}`} title="Create Invoice" className="w-9 h-9 flex items-center justify-center rounded-lg border border-line text-navy hover:bg-foam"><FilePlus size={15} /></Link>
+                      <Link href={`/customers/${c.id}`} title="View Profile" className="w-9 h-9 flex items-center justify-center rounded-lg border border-line text-slate hover:bg-foam"><UserCircle2 size={15} /></Link>
                     </div>
                   </Td>
                 </tr>

@@ -677,8 +677,27 @@ export async function addVehicle(formData) {
     registration_no: formData.get("vehicle_no"),
     vehicle_type: formData.get("vehicle_type") || null,
     assigned_rider_id: formData.get("driver_employee_id") || null,
+    insurance_expiry: formData.get("insurance_expiry") || null,
+    registration_expiry: formData.get("registration_expiry") || null,
+    service_due_date: formData.get("service_due_date") || null,
   });
   if (error) return { error: error.message };
+  revalidatePath("/fleet");
+  return { ok: true };
+}
+
+// Fleet had insurance_expiry/registration_expiry/service_due_date columns
+// with nowhere in the UI to set them — addVehicle above covers new
+// vehicles; this covers editing dates on ones already on file.
+export async function updateVehicleExpiry(vehicleId, formData) {
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("vehicles").update({
+    insurance_expiry: formData.get("insurance_expiry") || null,
+    registration_expiry: formData.get("registration_expiry") || null,
+    service_due_date: formData.get("service_due_date") || null,
+  }).eq("id", vehicleId);
+  if (error) return { error: error.message };
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "UPDATE", module: "vehicles", record_id: vehicleId });
   revalidatePath("/fleet");
   return { ok: true };
 }
@@ -1486,19 +1505,25 @@ export async function recordEmployeeAdvance(formData) {
   if (error) return { error: error.message };
   await supabase.from("audit_logs").insert({ user_id: user.id, action: "CREATE", module: "employee_advances", new_value: { employee_id: employeeId, amount } });
   revalidatePath("/employees");
+  revalidatePath(`/employees/${employeeId}`);
   return { ok: true };
 }
 
+// Bug fix: employee_attendance has no marked_by column (only id/employee_id/
+// attendance_date/status/check_in/check_out/notes/created_at) — the upsert
+// below previously included one and would fail on every call. Verified
+// against the live schema (qysuvxweyxbwtrvyocxl) before removing it.
 export async function markAttendance(formData) {
-  const { supabase, user } = await requireUser();
+  const { supabase } = await requireUser();
   const employeeId = formData.get("employee_id");
   const status = formData.get("status") || "present";
   if (!employeeId) return { error: "Pick an employee." };
   const attendanceDate = formData.get("attendance_date") || new Date().toISOString().slice(0, 10);
   const { error } = await supabase.from("employee_attendance")
-    .upsert({ employee_id: employeeId, attendance_date: attendanceDate, status, marked_by: user.id }, { onConflict: "employee_id,attendance_date" });
+    .upsert({ employee_id: employeeId, attendance_date: attendanceDate, status }, { onConflict: "employee_id,attendance_date" });
   if (error) return { error: error.message };
   revalidatePath("/employees");
+  revalidatePath(`/employees/${employeeId}`);
   return { ok: true };
 }
 
@@ -1514,6 +1539,7 @@ export async function updateEmployeeProfile(employeeId, formData) {
   if (error) return { error: error.message };
   await supabase.from("audit_logs").insert({ user_id: user.id, action: "UPDATE", module: "employees", record_id: employeeId });
   revalidatePath("/employees");
+  revalidatePath(`/employees/${employeeId}`);
   return { ok: true };
 }
 

@@ -32,8 +32,8 @@ export default function AddPaymentForm({ customers, collectors = [], initialCust
     <>
       <button onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold"><Plus size={15} /> Collect Payment</button>
       {open && (
-        <div className="fixed inset-0 bg-navy/40 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
-          <form ref={formRef} action={handleSubmit} onClick={(e) => e.stopPropagation()} className="bg-card rounded-2xl p-6 max-w-md w-full">
+        <div className="fixed inset-0 bg-navy/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setOpen(false)}>
+          <form ref={formRef} action={handleSubmit} onClick={(e) => e.stopPropagation()} className="bg-card rounded-t-2xl sm:rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4"><h3 className="font-display text-lg font-semibold">Collect Payment</h3><button type="button" onClick={() => setOpen(false)}><X size={18} /></button></div>
             <label className="block mb-1"><span className="text-xs font-semibold text-slate block mb-1">Customer</span>
               <select name="customer_id" required value={customerId} onChange={(e) => setCustomerId(e.target.value)} className="in">

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
 import { ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
@@ -57,7 +58,7 @@ export default async function EmployeesPage() {
             {perf.length === 0 && <tr><td colSpan={12} className="text-center py-8 text-slate">No employees yet.</td></tr>}
             {perf.map((e) => (
               <tr key={e.id} className="hover:bg-foam">
-                <Td className="font-semibold">{e.full_name}</Td>
+                <Td><Link href={`/employees/${e.id}`} className="font-semibold text-navy hover:text-aqua">{e.full_name}</Link></Td>
                 <Td className="font-mono-num text-slate">{e.employee_code || "—"}</Td>
                 <Td>{e.role_name}</Td>
                 <Td>{e.phone || "—"}</Td>
