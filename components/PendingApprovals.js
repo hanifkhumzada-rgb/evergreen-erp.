@@ -24,12 +24,12 @@ function ApprovalRow({ expense }) {
       </div>
       <div className="font-mono-num text-sm font-semibold flex-shrink-0">{pkr(expense.amount)}</div>
       <div className="flex gap-2 flex-shrink-0">
-        <button
+        <button type="button"
           onClick={() => act("approve", approveExpense)}
           disabled={!!busy}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-green text-white text-xs font-semibold disabled:opacity-60"
         ><CheckCircle2 size={14} /> {busy === "approve" ? "Approving…" : "Approve"}</button>
-        <button
+        <button type="button"
           onClick={() => act("reject", rejectExpense)}
           disabled={!!busy}
           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-coral text-white text-xs font-semibold disabled:opacity-60"

@@ -21,7 +21,7 @@ export function SidebarProvider({ children }) {
 export function SidebarToggleButton() {
   const { open, setOpen } = useContext(SidebarContext);
   return (
-    <button onClick={() => setOpen(!open)} className="no-print md:hidden p-1.5 -ml-1.5 rounded-lg hover:bg-foam" aria-label="Toggle menu">
+    <button type="button" onClick={() => setOpen(!open)} className="no-print md:hidden p-1.5 -ml-1.5 rounded-lg hover:bg-foam" aria-label="Toggle menu">
       {open ? <X size={20} /> : <Menu size={20} />}
     </button>
   );

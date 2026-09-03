@@ -29,7 +29,7 @@ export default function ProductionBatchForm({ products }) {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold">
+      <button type="button" onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold">
         <Plus size={15} /> New Batch
       </button>
       {open && (

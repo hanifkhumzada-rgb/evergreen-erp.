@@ -117,10 +117,10 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
     <>
       <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden"
         onChange={(e) => { if (e.target.files[0]) handleFile(e.target.files[0]); e.target.value = ""; }} />
-      <button onClick={downloadTemplate} className="no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold" title="Download a starter Excel template">
+      <button type="button" onClick={downloadTemplate} className="no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold" title="Download a starter Excel template">
         <Download size={14} />
       </button>
-      <button onClick={() => fileRef.current.click()} className="no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold">
+      <button type="button" onClick={() => fileRef.current.click()} className="no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold">
         <Upload size={14} /> {label}
       </button>
 
@@ -129,7 +129,7 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
           <div onClick={(e) => e.stopPropagation()} className="bg-card rounded-2xl p-6 max-w-lg w-full max-h-[85vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-3">
               <h3 className="font-display text-lg font-semibold">Match columns</h3>
-              <button onClick={() => { setRawRows(null); setMapping(null); }}><X size={18} /></button>
+              <button type="button" onClick={() => { setRawRows(null); setMapping(null); }}><X size={18} /></button>
             </div>
             <p className="text-xs text-slate mb-3">We matched what we could recognize — check each row and fix any that are wrong.</p>
             <div className="flex flex-col gap-2 mb-4">
@@ -145,7 +145,7 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
                 </div>
               ))}
             </div>
-            <button onClick={applyMapping} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm">Continue to Preview</button>
+            <button type="button" onClick={applyMapping} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm">Continue to Preview</button>
           </div>
         </div>
       )}
@@ -155,7 +155,7 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
           <div onClick={(e) => e.stopPropagation()} className="bg-card rounded-2xl p-6 max-w-lg w-full max-h-[85vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-3">
               <h3 className="font-display text-lg font-semibold">Preview import</h3>
-              <button onClick={() => setPreview(null)}><X size={18} /></button>
+              <button type="button" onClick={() => setPreview(null)}><X size={18} /></button>
             </div>
             <p className="text-sm mb-2">
               {preview.rows.length} rows found
@@ -178,7 +178,7 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
                 </div>
               ))}
             </div>
-            <button disabled={busy || (expectedFields && validCount === 0)} onClick={confirmImport} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">
+            <button type="button" disabled={busy || (expectedFields && validCount === 0)} onClick={confirmImport} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">
               {busy ? "Importing…" : `Confirm import of ${expectedFields ? validCount : preview.rows.length} rows`}
             </button>
           </div>
@@ -194,7 +194,7 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
               {result.skippedDuplicate > 0 && <>{result.skippedDuplicate} skipped (duplicate).</>}
             </p>
           )}
-          <button className="text-xs text-aqua font-semibold mt-1" onClick={() => setResult(null)}>Dismiss</button>
+          <button type="button" className="text-xs text-aqua font-semibold mt-1" onClick={() => setResult(null)}>Dismiss</button>
         </div>
       )}
     </>

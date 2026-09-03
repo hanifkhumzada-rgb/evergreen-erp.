@@ -16,7 +16,7 @@ export default function UserActiveToggle({ userId, isActive }) {
   };
 
   return (
-    <button onClick={onClick} disabled={busy} className="disabled:opacity-60">
+    <button type="button" onClick={onClick} disabled={busy} className="disabled:opacity-60">
       <Badge text={active ? "Active" : "Inactive"} tone={active ? "green" : "slate"} />
     </button>
   );

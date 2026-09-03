@@ -25,7 +25,7 @@ export default function ErrorBoundary({ error, reset }) {
         </p>
         {error?.digest && <p className="text-[11px] text-slate mb-5 font-mono-num">Reference: {error.digest}</p>}
         <div className="flex gap-2 justify-center">
-          <button onClick={() => reset()} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-aqua text-white font-bold text-sm">
+          <button type="button" onClick={() => reset()} className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-aqua text-white font-bold text-sm">
             <RotateCw size={14} /> Try again
           </button>
           <a href="/dashboard" className="flex items-center px-4 py-2.5 rounded-xl border border-line text-sm font-semibold">

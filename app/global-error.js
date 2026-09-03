@@ -20,7 +20,7 @@ export default function GlobalError({ error, reset }) {
               The app hit an unexpected error loading this page. Your data is safe — nothing was lost.
             </p>
             {error?.digest && <p style={{ fontSize: 11, color: "#5C7D78", marginBottom: 20 }}>Reference: {error.digest}</p>}
-            <button
+            <button type="button"
               onClick={() => reset()}
               style={{ padding: "10px 20px", borderRadius: 12, background: "#059669", color: "#fff", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer" }}
             >

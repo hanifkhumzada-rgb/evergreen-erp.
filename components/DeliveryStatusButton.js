@@ -14,7 +14,7 @@ export default function DeliveryStatusButton({ deliveryId, status, label, tone =
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border bg-card text-xs font-semibold ${toneClass}`}>
+      <button type="button" onClick={() => setOpen(true)} className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border bg-card text-xs font-semibold ${toneClass}`}>
         {label}
       </button>
     );
@@ -30,7 +30,7 @@ export default function DeliveryStatusButton({ deliveryId, status, label, tone =
         value={note} onChange={(e) => setNote(e.target.value)} placeholder="Reason / note (optional)" rows={2}
         className="w-full px-2 py-1.5 rounded-lg border border-line bg-card text-ink text-xs outline-none"
       />
-      <button
+      <button type="button"
         disabled={busy}
         onClick={async () => {
           setBusy(true);

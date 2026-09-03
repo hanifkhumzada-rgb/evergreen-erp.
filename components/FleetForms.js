@@ -10,7 +10,7 @@ export function AddVehicleForm({ employees }) {
   const submit = async (fd) => { setBusy(true); await addVehicle(fd); setBusy(false); setOpen(false); formRef.current?.reset(); };
   return (
     <>
-      <button onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold"><Plus size={15} /> Add Vehicle</button>
+      <button type="button" onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold"><Plus size={15} /> Add Vehicle</button>
       {open && (
         <div className="fixed inset-0 bg-navy/40 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
           <form ref={formRef} action={submit} onClick={(e) => e.stopPropagation()} className="bg-card rounded-2xl p-6 max-w-md w-full">
@@ -41,7 +41,7 @@ export function AddVehicleExpenseForm({ vehicles }) {
   const submit = async (fd) => { setBusy(true); await addVehicleExpense(fd); setBusy(false); setOpen(false); formRef.current?.reset(); };
   return (
     <>
-      <button onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-line bg-card text-xs font-semibold"><Plus size={15} /> Log Vehicle Expense</button>
+      <button type="button" onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-lg border border-line bg-card text-xs font-semibold"><Plus size={15} /> Log Vehicle Expense</button>
       {open && (
         <div className="fixed inset-0 bg-navy/40 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
           <form ref={formRef} action={submit} onClick={(e) => e.stopPropagation()} className="bg-card rounded-2xl p-6 max-w-md w-full">
@@ -73,7 +73,7 @@ export function EditVehicleDatesForm({ vehicle }) {
 
   if (!open) {
     return (
-      <button onClick={() => setOpen(true)} className="flex items-center gap-1 text-[11px] text-aqua font-semibold hover:underline">
+      <button type="button" onClick={() => setOpen(true)} className="flex items-center gap-1 text-[11px] text-aqua font-semibold hover:underline">
         <CalendarClock size={12} /> Edit dates
       </button>
     );

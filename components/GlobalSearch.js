@@ -99,7 +99,7 @@ export default function GlobalSearch() {
         />
       </div>
 
-      <button onClick={() => setMobileOpen((v) => !v)} className="md:hidden p-1.5 rounded-lg hover:bg-foam" aria-label="Search">
+      <button type="button" onClick={() => setMobileOpen((v) => !v)} className="md:hidden p-1.5 rounded-lg hover:bg-foam" aria-label="Search">
         <Search size={18} className="text-slate" />
       </button>
 
@@ -113,7 +113,7 @@ export default function GlobalSearch() {
             placeholder="Search customers, sales, deliveries…"
             className="bg-transparent outline-none text-sm flex-1 min-w-0"
           />
-          <button onClick={closeAll} aria-label="Close search"><X size={18} /></button>
+          <button type="button" onClick={closeAll} aria-label="Close search"><X size={18} /></button>
           {open && query.trim().length >= 2 && (
             <div className="absolute top-full inset-x-3 mt-0">
               <ResultsDropdown query={query} results={results} isPending={isPending} onSelect={closeAll} />

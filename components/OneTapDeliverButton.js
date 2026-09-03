@@ -36,7 +36,7 @@ export default function OneTapDeliverButton({ variant, label, customer, delivere
 
   return (
     <>
-      <button onClick={handleClick} disabled={busy} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-line bg-card text-xs font-semibold disabled:opacity-60">
+      <button type="button" onClick={handleClick} disabled={busy} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-line bg-card text-xs font-semibold disabled:opacity-60">
         <Icon size={14} /> {busy ? "Saving…" : label}
       </button>
       {toast && <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
@@ -60,7 +60,7 @@ export function SkipDeliveryButton({ customerId }) {
 
   return (
     <>
-      <button onClick={handleClick} disabled={busy} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-line text-coral bg-card text-xs font-semibold disabled:opacity-60">
+      <button type="button" onClick={handleClick} disabled={busy} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-line text-coral bg-card text-xs font-semibold disabled:opacity-60">
         {busy ? "…" : "Skip"}
       </button>
       {toast && <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}

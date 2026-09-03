@@ -41,7 +41,7 @@ export default function DeliverSheet({ customer, riders = [], currentUserId }) {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-aqua text-white text-xs font-semibold">
+      <button type="button" onClick={() => setOpen(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-aqua text-white text-xs font-semibold">
         <Truck size={14} /> Deliver
       </button>
       {open && (

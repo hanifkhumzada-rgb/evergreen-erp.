@@ -19,7 +19,7 @@ export default function DeleteUserButton({ userId, userName, isSelf }) {
 
   return (
     <div className="flex flex-col items-start gap-1">
-      <button
+      <button type="button"
         onClick={onClick}
         disabled={busy || isSelf}
         title={isSelf ? "You can't delete your own account from this screen" : "Permanently delete this user — cannot be undone"}

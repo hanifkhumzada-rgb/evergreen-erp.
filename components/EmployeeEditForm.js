@@ -23,7 +23,7 @@ export default function EmployeeEditForm({ employee, zones = [], vehicles = [] }
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="p-1.5 rounded-lg hover:bg-foam" aria-label="Edit"><Pencil size={13} /></button>
+      <button type="button" onClick={() => setOpen(true)} className="p-1.5 rounded-lg hover:bg-foam" aria-label="Edit"><Pencil size={13} /></button>
       {open && (
         <div className="fixed inset-0 bg-navy/40 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
           <form ref={formRef} action={handleSubmit} onClick={(e) => e.stopPropagation()} className="bg-card rounded-2xl p-6 max-w-md w-full">

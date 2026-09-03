@@ -37,7 +37,7 @@ export default function BottleReconciliationForm({ products, expectedByProduct }
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">
+      <button type="button" onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">
         <ClipboardCheck size={14} /> Reconcile
       </button>
       {open && (

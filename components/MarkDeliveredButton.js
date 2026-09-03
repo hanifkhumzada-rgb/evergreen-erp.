@@ -11,7 +11,7 @@ export default function MarkDeliveredButton({ deliveryId, emptyExpected }) {
 
   if (!open) {
     return (
-      <button
+      <button type="button"
         onClick={() => setOpen(true)}
         className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-aqua text-white text-xs font-semibold"
       >
@@ -41,7 +41,7 @@ export default function MarkDeliveredButton({ deliveryId, emptyExpected }) {
         </label>
       </div>
       <div className="flex gap-2">
-        <button
+        <button type="button"
           disabled={busy}
           onClick={async () => {
             setBusy(true);
@@ -52,7 +52,7 @@ export default function MarkDeliveredButton({ deliveryId, emptyExpected }) {
         >
           <Check size={14} /> {busy ? "Saving…" : "Confirm"}
         </button>
-        <button
+        <button type="button"
           disabled={busy}
           onClick={() => setOpen(false)}
           className="px-3 py-2 rounded-xl border border-line bg-card text-xs font-semibold disabled:opacity-60"

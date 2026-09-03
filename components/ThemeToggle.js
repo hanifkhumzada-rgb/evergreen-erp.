@@ -24,7 +24,7 @@ export default function ThemeToggle({ className = "text-slate hover:bg-foam" }) 
   if (!mounted) return <div className="w-8 h-8" />;
 
   return (
-    <button
+    <button type="button"
       onClick={toggle}
       aria-label="Toggle dark mode"
       className={`no-print w-8 h-8 rounded-full flex items-center justify-center transition-colors ${className}`}

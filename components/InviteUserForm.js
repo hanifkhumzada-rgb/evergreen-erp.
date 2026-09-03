@@ -21,7 +21,7 @@ export default function InviteUserForm({ roles }) {
 
   return (
     <>
-      <button onClick={() => setOpen(true)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold">
+      <button type="button" onClick={() => setOpen(true)} className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold">
         <Plus size={15} /> Invite User
       </button>
       {open && (
@@ -29,7 +29,7 @@ export default function InviteUserForm({ roles }) {
           <div onClick={(e) => e.stopPropagation()} className="bg-card rounded-2xl p-6 max-w-md w-full">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-display text-lg font-semibold">Invite User</h3>
-              <button onClick={() => { setOpen(false); setResult(null); }}><X size={18} /></button>
+              <button type="button" onClick={() => { setOpen(false); setResult(null); }}><X size={18} /></button>
             </div>
 
             {result ? (
@@ -40,7 +40,7 @@ export default function InviteUserForm({ roles }) {
                   <div>Temp password: {result.tempPassword}</div>
                 </div>
                 <p className="text-xs text-slate mb-3">Ask them to change this password after first login.</p>
-                <button onClick={() => { setOpen(false); setResult(null); }} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm">Done</button>
+                <button type="button" onClick={() => { setOpen(false); setResult(null); }} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm">Done</button>
               </div>
             ) : (
               <form ref={formRef} action={handleSubmit}>

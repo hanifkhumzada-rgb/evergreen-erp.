@@ -39,7 +39,7 @@ export function KPI({ label, value, sub, tone = "navy", trend, href }) {
 
 export function ExportExcelButton({ rows, filename, sheetName = "Sheet1" }) {
   return (
-    <button
+    <button type="button"
       onClick={() => {
         if (!rows?.length) { alert("No data to export."); return; }
         const ws = XLSX.utils.json_to_sheet(rows);
@@ -68,7 +68,7 @@ export function DownloadPdfButton({ href, label = "Download PDF" }) {
 
 export function PrintButton() {
   return (
-    <button onClick={() => window.print()} className="no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold">
+    <button type="button" onClick={() => window.print()} className="no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold">
       <Printer size={14} /> Export PDF
     </button>
   );
