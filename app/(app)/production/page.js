@@ -1,9 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
+import { KPI, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import ProductionBatchForm from "@/components/ProductionBatchForm";
 
 export const dynamic = "force-dynamic";
+
+function batchCost(b) { return Number(b.total_filling_cost || 0) + Number(b.cap_cost || 0) + Number(b.other_material_cost || 0); }
 
 export default async function ProductionPage() {
   const supabase = await createClient();
@@ -13,9 +15,12 @@ export default async function ProductionPage() {
   ]);
 
   const rows = batches || [];
-  const totalCost = rows.reduce((a, b) => a + Number(b.total_filling_cost || 0) + Number(b.cap_cost || 0) + Number(b.other_material_cost || 0), 0);
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = today.slice(0, 7) + "-01";
+  const todayRows = rows.filter((b) => b.batch_date === today);
+  const monthRows = rows.filter((b) => b.batch_date >= monthStart);
+  const totalCost = rows.reduce((a, b) => a + batchCost(b), 0);
   const totalBottles = rows.reduce((a, b) => a + Number(b.quantity_filled || 0), 0);
-  const avgCostPerBottle = totalBottles ? totalCost / totalBottles : 0;
   const exportRows = rows.map((b) => ({
     Date: b.batch_date, Size: b.products?.name, Quantity: b.quantity_filled, CostPerBottle: b.cost_per_bottle,
     FillingCost: b.total_filling_cost, Caps: b.caps_quantity, CapCost: b.cap_cost, OtherMaterial: b.other_material_cost,
@@ -27,11 +32,11 @@ export default async function ProductionPage() {
       <h2 className="font-display text-2xl font-semibold mb-1">Production & Filling</h2>
       <p className="text-slate text-sm mb-5">Bottle filling runs, kept separate from general expenses — quantity × cost per bottle, with caps and materials tracked alongside.</p>
 
-      <div className="flex gap-3 flex-wrap mb-6">
-        <Stat label="Bottles filled" value={totalBottles} />
-        <Stat label="Total production cost" value={pkr(totalCost)} />
-        <Stat label="Avg cost / bottle" value={pkr(avgCostPerBottle)} />
-        <Stat label="Batches recorded" value={rows.length} />
+      <div className="flex flex-wrap gap-3.5 mb-6">
+        <KPI label="TODAY'S PRODUCTION" value={todayRows.reduce((a, b) => a + Number(b.quantity_filled || 0), 0)} tone="navy" sub={`${todayRows.length} batch${todayRows.length === 1 ? "" : "es"}`} />
+        <KPI label="THIS MONTH" value={monthRows.reduce((a, b) => a + Number(b.quantity_filled || 0), 0)} tone="aqua" sub={pkr(monthRows.reduce((a, b) => a + batchCost(b), 0))} />
+        <KPI label="TOTAL FILLED" value={totalBottles} tone="slate" sub={`${rows.length} batches all-time`} />
+        <KPI label="TOTAL COST" value={pkr(totalCost)} tone="coral" sub={totalBottles ? `${pkr(totalCost / totalBottles)}/bottle avg` : undefined} />
       </div>
 
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
@@ -59,7 +64,4 @@ export default async function ProductionPage() {
       </div>
     </div>
   );
-}
-function Stat({ label, value }) {
-  return <div className="text-center flex-1 min-w-[140px] border border-line rounded-2xl py-4"><div className="font-mono-num font-bold text-2xl text-aqua">{value}</div><div className="text-xs text-slate mt-1">{label}</div></div>;
 }

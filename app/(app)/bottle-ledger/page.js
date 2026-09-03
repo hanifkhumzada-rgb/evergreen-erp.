@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
+import { Badge, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import BottleReconciliationForm from "@/components/BottleReconciliationForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import { bulkImportBottleOpeningBalances } from "@/app/actions";
@@ -10,6 +10,22 @@ import { AlertTriangle } from "lucide-react";
 export const dynamic = "force-dynamic";
 const BOTTLE_COST = 800; // avg. replacement cost per bottle across sizes — a labeled approximation, not a per-size cost (products has no per-size cost field yet)
 const UNRECONCILED_DAYS = 30;
+
+// bottle_transactions carries reference_type + a from/to state pair, not a
+// single "type" field — this is the one place that turns that pair into
+// the Purchase/Delivery/Return/Damaged/Lost/Adjustment vocabulary the
+// activity timeline shows, so every row (however it was recorded) reads
+// the same way.
+function movementType(m) {
+  if (m.reference_type === "delivery") return { text: "Delivery", tone: "aqua" };
+  if (m.reference_type === "delivery_return") return { text: "Return", tone: "green" };
+  if (m.reference_type === "opening_balance") return { text: "Opening", tone: "slate" };
+  if (m.to_state === "damaged") return { text: "Damaged", tone: "coral" };
+  if (m.to_state === "lost") return { text: "Lost", tone: "coral" };
+  if (m.reference_type === "reconciliation") return { text: "Adjustment", tone: "amber" };
+  if (m.reference_type === "purchase") return { text: "Purchase", tone: "green" };
+  return { text: "Adjustment", tone: "amber" };
+}
 
 export default async function BottleLedgerPage() {
   const supabase = await createClient();
@@ -31,7 +47,7 @@ export default async function BottleLedgerPage() {
   const withRiderTotal = bySize.reduce((a, s) => a + Number(s.with_rider), 0);
   const damagedTotal = bySize.reduce((a, s) => a + Number(s.damaged), 0);
   const lostTotal = bySize.reduce((a, s) => a + Number(s.lost), 0);
-  const exportRows = (movements || []).map((m) => ({ Date: m.txn_date, Customer: m.customers?.name, Size: m.products?.name, From: m.from_state, To: m.to_state, Qty: m.quantity, By: m.profiles?.full_name }));
+  const exportRows = (movements || []).map((m) => ({ Date: m.txn_date, Type: movementType(m).text, Customer: m.customers?.name, Size: m.products?.name, From: m.from_state, To: m.to_state, Qty: m.quantity, By: m.profiles?.full_name }));
 
   // Before/after "with customer" balance per row — computed from each
   // customer+size's full transaction history (not just the 150-row feed
@@ -112,14 +128,14 @@ export default async function BottleLedgerPage() {
       )}
 
       <div className="flex gap-3 flex-wrap mb-6">
-        <Stat label="Total owned (all sizes)" value={totalOwned} />
-        <Stat label="Full (available)" value={full} />
+        <Stat label="Total Owned" value={totalOwned} />
+        <Stat label="Full Available" value={full} />
         <Stat label="Warehouse" value={warehouseTotal} />
-        <Stat label="With riders" value={withRiderTotal} />
-        <Stat label="With customers" value={withCustomers} />
+        <Stat label="With Delivery Boys" value={withRiderTotal} />
+        <Stat label="With Customers" value={withCustomers} />
         <Stat label="Damaged" value={damagedTotal} />
         <Stat label="Lost" value={lostTotal} />
-        <Stat label="Bottle liability value" value={pkr(liabilityValue)} sub={`@ ${pkr(BOTTLE_COST)}/bottle avg. replacement cost`} />
+        <Stat label="Bottle Liability Value" value={pkr(liabilityValue)} sub={`@ ${pkr(BOTTLE_COST)}/bottle avg. replacement cost`} />
       </div>
 
       <div className="no-print flex items-center justify-between mb-2.5 flex-wrap gap-2">
@@ -140,7 +156,7 @@ export default async function BottleLedgerPage() {
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl mb-4">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Size</Th><Th>Warehouse</Th><Th>With Rider</Th><Th>With Customers</Th><Th>Damaged</Th><Th>Lost</Th><Th>Total</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Size</Th><Th>Warehouse</Th><Th>With Delivery Boys</Th><Th>With Customers</Th><Th>Damaged</Th><Th>Lost</Th><Th>Total</Th></tr></thead>
           <tbody>
             {bySize.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-slate">No bottle movements yet.</td></tr>}
             {bySize.map((s) => (
@@ -180,21 +196,24 @@ export default async function BottleLedgerPage() {
         </table>
       </div>
 
+      <h4 className="text-sm font-bold mb-2.5">Activity timeline</h4>
       <div className="no-print flex gap-2.5 mb-3">
         <ExportExcelButton rows={exportRows} filename="bottle-ledger.xlsx" sheetName="Bottle Ledger" />
         <PrintButton />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Size</Th><Th>From</Th><Th>To</Th><Th>Qty</Th><Th>Before</Th><Th>After</Th><Th>By</Th><Th>Reason</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Type</Th><Th>Customer</Th><Th>Size</Th><Th>Qty</Th><Th>Before</Th><Th>After</Th><Th>Who</Th><Th>Reason</Th></tr></thead>
           <tbody>
-            {(movements || []).length === 0 && <tr><td colSpan={10} className="text-center py-8 text-slate">No movements recorded yet.</td></tr>}
+            {(movements || []).length === 0 && <tr><td colSpan={9} className="text-center py-8 text-slate">No movements recorded yet.</td></tr>}
             {(movements || []).map((m) => {
               const rb = runningBalance[m.id];
+              const type = movementType(m);
               return (
                 <tr key={m.id} className="hover:bg-foam">
-                  <Td>{fmtDate(m.txn_date)}</Td><Td>{m.customers?.name || "—"}</Td><Td>{m.products?.name || "—"}</Td>
-                  <Td>{m.from_state}</Td><Td>{m.to_state}</Td><Td>{m.quantity}</Td>
+                  <Td>{fmtDate(m.txn_date)}</Td>
+                  <Td><Badge text={type.text} tone={type.tone} /></Td>
+                  <Td>{m.customers?.name || "—"}</Td><Td>{m.products?.name || "—"}</Td><Td>{m.quantity}</Td>
                   <Td className="text-slate">{rb ? rb.before : "—"}</Td>
                   <Td className="font-semibold">{rb ? rb.after : "—"}</Td>
                   <Td>{m.profiles?.full_name || "—"}</Td>
