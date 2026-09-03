@@ -100,6 +100,33 @@ async function getCashAccountId(supabase, method) {
   return any?.id || null;
 }
 
+// Shared by createDelivery/bulkImportDeliveries — posts a delivery's charge
+// and any cash collected into the SAME ledger the DB-side
+// record_delivery_completion() RPC (used by markDelivered, for pre-scheduled
+// deliveries) posts to: a customer_ledger_entries debit for the charge, and
+// a real payments row (never a raw cash_transactions insert) for cash
+// collected so fn_post_payment_to_ledger/fn_journal_from_payment fire and
+// the credit + journal entry + cash_transactions row all come from one
+// source of truth. Without this, a delivery recorded through these two
+// entry points never touched the customer's outstanding balance at all —
+// v_customer_balance sums customer_ledger_entries only.
+async function postDeliveryToLedger(supabase, { customerId, deliveryId, deliveryNo, deliveryDate, amount, cashCollected, riderId, actorId }) {
+  if (amount > 0) {
+    await supabase.from("customer_ledger_entries").insert({
+      customer_id: customerId, entry_date: deliveryDate, reference_type: "delivery", reference_id: deliveryId,
+      description: `Delivery ${deliveryNo}`, debit: amount, credit: 0, created_by: actorId,
+    });
+  }
+  if (cashCollected > 0) {
+    const { data: receiptNo } = await supabase.rpc("fn_next_receipt_no");
+    await supabase.from("payments").insert({
+      receipt_no: receiptNo, customer_id: customerId, amount: cashCollected, payment_date: deliveryDate,
+      method: "cash", cash_account_id: await getCashAccountId(supabase, "cash"),
+      received_by: riderId || actorId, reference: deliveryNo, notes: `Collected on delivery ${deliveryNo}`,
+    });
+  }
+}
+
 export async function signOut() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -325,11 +352,12 @@ export async function createPayment(formData) {
   return { ok: true };
 }
 
-// Phase 2 — the interactive counterpart to bulkImportDeliveries: same
-// insert shape (delivery -> delivery_items -> bottle_transactions ->
-// optional cash_transactions), one row at a time from a form instead of a
-// spreadsheet. Unlike the bulk path this always records rider_id — a
-// manually-entered delivery always has a known responsible delivery boy.
+// The interactive counterpart to bulkImportDeliveries: same insert shape
+// (delivery -> delivery_items -> bottle_transactions -> ledger/payment),
+// one row at a time from a form instead of a spreadsheet. Unlike the bulk
+// path this always records rider_id — a manually-entered delivery always
+// has a known responsible delivery boy. Used by both the "+ New Delivery"
+// form and the Today's Deliveries workspace's per-customer Deliver sheet.
 export async function createDelivery(formData) {
   const { supabase, user } = await requireUser();
   const customerId = formData.get("customer_id");
@@ -341,15 +369,26 @@ export async function createDelivery(formData) {
   if (!customerId || !productId || !deliveredQty || deliveredQty <= 0) {
     return { error: "Pick a customer, bottle size, and a delivered quantity greater than zero." };
   }
+  if (!riderId) return { error: "Delivery boy is required." };
 
-  const { data: cashAccount } = await supabase.from("cash_accounts").select("id").eq("is_active", true).limit(1).maybeSingle();
   const rate = await getEffectiveRate(supabase, customerId, productId);
   const amount = deliveredQty * rate;
   const cashRaw = formData.get("cash_collected");
   const cashCollected = cashRaw != null && cashRaw !== "" ? Number(cashRaw) : 0;
 
+  // Duplicate-submission guard — a double-tapped Deliver button or a retried
+  // network request within a few seconds resolves to the already-created
+  // delivery instead of double-charging/double-posting bottles for the
+  // same customer.
+  const { data: recentDup } = await supabase.from("deliveries")
+    .select("id").eq("customer_id", customerId).eq("delivery_date", deliveryDate).eq("status", "delivered")
+    .gte("created_at", new Date(Date.now() - 20000).toISOString())
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (recentDup) return { ok: true, duplicate: true };
+
+  const deliveryNo = genCode("DEL");
   const { data: delivery, error } = await supabase.from("deliveries").insert({
-    delivery_no: genCode("DEL"),
+    delivery_no: deliveryNo,
     customer_id: customerId,
     rider_id: riderId,
     delivery_date: deliveryDate,
@@ -377,13 +416,9 @@ export async function createDelivery(formData) {
       reference_type: "delivery_return", reference_id: delivery.id, created_by: user.id,
     });
   }
-  if (cashCollected > 0 && cashAccount) {
-    await supabase.from("cash_transactions").insert({
-      account_id: cashAccount.id, txn_date: deliveryDate, type: "receipt",
-      amount: cashCollected, reference_type: "delivery", reference_id: delivery.id,
-      description: "Delivery collection", created_by: user.id,
-    });
-  }
+  await postDeliveryToLedger(supabase, {
+    customerId, deliveryId: delivery.id, deliveryNo, deliveryDate, amount, cashCollected, riderId, actorId: user.id,
+  });
   await supabase.from("audit_logs").insert({
     user_id: user.id, action: "CREATE", module: "deliveries", record_id: delivery.id,
     new_value: { customer_id: customerId, product_id: productId, delivered_qty: deliveredQty, returned_qty: returnedQty, rate, amount, cash_collected: cashCollected, rider_id: riderId },
@@ -395,6 +430,9 @@ export async function createDelivery(formData) {
   revalidatePath("/dashboard");
   revalidatePath("/customers");
   revalidatePath(`/customers/${customerId}`);
+  revalidatePath("/ledger");
+  revalidatePath("/payments");
+  revalidatePath("/employees");
   return { ok: true };
 }
 
@@ -539,6 +577,32 @@ export async function updateDeliveryStatus(deliveryId, status, note) {
     rider_remarks: note || null,
   }).eq("id", deliveryId);
   if (error) return { error: error.message };
+  revalidatePath("/deliveries");
+  revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+// Today's Deliveries workspace — "Skip" on a customer who has no delivery
+// row yet today (nothing scheduled ahead of time to update the status of,
+// unlike updateDeliveryStatus above). Creates a zero-amount deliveries row
+// so the card's Pending/Completed/Skipped status has something to read,
+// without touching bottles, cash, or the ledger.
+export async function skipTodayDelivery(customerId, note) {
+  const { supabase, user } = await requireUser();
+  if (!customerId) return { error: "Customer required." };
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: existing } = await supabase.from("deliveries").select("id")
+    .eq("customer_id", customerId).eq("delivery_date", today).limit(1).maybeSingle();
+  if (existing) {
+    const { error } = await supabase.from("deliveries").update({ status: "missed", rider_remarks: note || null }).eq("id", existing.id);
+    if (error) return { error: error.message };
+  } else {
+    const { error } = await supabase.from("deliveries").insert({
+      delivery_no: genCode("DEL"), customer_id: customerId, rider_id: user.id, delivery_date: today,
+      status: "missed", amount: 0, amount_collected: 0, rider_remarks: note || null, created_by: user.id,
+    });
+    if (error) return { error: error.message };
+  }
   revalidatePath("/deliveries");
   revalidatePath("/dashboard");
   return { ok: true };
@@ -1278,7 +1342,6 @@ export async function bulkImportSales(rows) {
 // collected, exactly as if a rider had completed it via the app.
 export async function bulkImportDeliveries(rows) {
   const { supabase, user } = await requireUser();
-  const { data: cashAccount } = await supabase.from("cash_accounts").select("id").eq("is_active", true).limit(1).maybeSingle();
   let imported = 0, failed = 0;
   for (const r of rows) {
     const customerId = await findCustomerId(supabase, r);
@@ -1290,13 +1353,16 @@ export async function bulkImportDeliveries(rows) {
     const returnedQty = r.Returned != null && r.Returned !== "" ? Number(r.Returned) : qty;
     const rate = await getEffectiveRate(supabase, customerId, productId);
     const cashCollected = r.CashCollected != null && r.CashCollected !== "" ? Number(r.CashCollected) : qty * rate;
+    const deliveryDate = r.Date || r.date || new Date().toISOString().slice(0, 10);
+    const amount = qty * rate;
+    const deliveryNo = genCode("DEL");
 
     const { data: delivery, error } = await supabase.from("deliveries").insert({
-      delivery_no: genCode("DEL"),
+      delivery_no: deliveryNo,
       customer_id: customerId,
-      delivery_date: r.Date || r.date || undefined,
+      delivery_date: deliveryDate,
       status: "delivered",
-      amount: qty * rate,
+      amount,
       amount_collected: cashCollected,
       payment_method: "cash",
       delivered_at: new Date().toISOString(),
@@ -1308,30 +1374,28 @@ export async function bulkImportDeliveries(rows) {
       delivery_id: delivery.id, product_id: productId, expected_qty: qty, delivered_qty: qty, returned_qty: returnedQty, unit_price: rate,
     });
     await supabase.from("bottle_transactions").insert({
-      txn_date: r.Date || r.date || undefined, product_id: productId, quantity: qty,
+      txn_date: deliveryDate, product_id: productId, quantity: qty,
       from_state: "with_rider", to_state: "with_customer", customer_id: customerId,
       reference_type: "delivery", reference_id: delivery.id, created_by: user.id,
     });
     if (returnedQty > 0) {
       await supabase.from("bottle_transactions").insert({
-        txn_date: r.Date || r.date || undefined, product_id: productId, quantity: returnedQty,
+        txn_date: deliveryDate, product_id: productId, quantity: returnedQty,
         from_state: "with_customer", to_state: "with_rider", customer_id: customerId,
         reference_type: "delivery_return", reference_id: delivery.id, created_by: user.id,
       });
     }
-    if (cashCollected > 0 && cashAccount) {
-      await supabase.from("cash_transactions").insert({
-        account_id: cashAccount.id, txn_date: r.Date || r.date || undefined, type: "receipt",
-        amount: cashCollected, reference_type: "delivery", reference_id: delivery.id,
-        description: "Bulk-imported delivery collection", created_by: user.id,
-      });
-    }
+    await postDeliveryToLedger(supabase, {
+      customerId, deliveryId: delivery.id, deliveryNo, deliveryDate, amount, cashCollected, riderId: null, actorId: user.id,
+    });
     imported++;
   }
   revalidatePath("/deliveries");
   revalidatePath("/bottles");
   revalidatePath("/bottle-ledger");
   revalidatePath("/dashboard");
+  revalidatePath("/ledger");
+  revalidatePath("/payments");
   return { ok: true, imported, failed };
 }
 
