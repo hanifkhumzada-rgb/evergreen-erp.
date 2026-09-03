@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { getCurrentProfile } from "@/lib/session";
 import { pkr, fmtDate } from "@/lib/format";
-import { ExportExcelButton, PrintButton, Th, Td, Badge } from "@/components/ui";
+import { KPI, ExportExcelButton, PrintButton, Th, Td, Badge } from "@/components/ui";
 import AddExpenseForm from "@/components/AddExpenseForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import PendingApprovals from "@/components/PendingApprovals";
 import { bulkImportExpenses } from "@/app/actions";
+import { Tag } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,30 @@ export default async function ExpensesPage({ searchParams }) {
   const isOwner = profile?.roles?.key === "owner";
   const pendingExpenses = (expenses || []).filter((e) => e.status === "submitted");
 
+  // KPIs + category tiles — counted spend is submitted/approved/paid
+  // (rejected never happened, draft isn't committed yet). Production &
+  // Filling has its own workspace against production_batches; nothing
+  // here overlaps it since no expense_categories row represents filling.
+  const today = new Date().toISOString().slice(0, 10);
+  const monthStart = today.slice(0, 7) + "-01";
+  const spendRows = (expenses || []).filter((e) => ["submitted", "approved", "paid"].includes(e.status));
+  const todayTotal = spendRows.filter((e) => e.expense_date === today).reduce((a, e) => a + Number(e.amount), 0);
+  const monthRows = spendRows.filter((e) => e.expense_date >= monthStart);
+  const monthTotal = monthRows.reduce((a, e) => a + Number(e.amount), 0);
+  const categoryTotals = {};
+  monthRows.forEach((e) => {
+    const name = e.expense_categories?.name || "Uncategorized";
+    categoryTotals[name] = (categoryTotals[name] || 0) + Number(e.amount);
+  });
+  const topCategory = Object.entries(categoryTotals).sort(([, a], [, b]) => b - a)[0];
+  const allTimeCategoryTotals = {};
+  const allTimeCategoryCounts = {};
+  spendRows.forEach((e) => {
+    const name = e.expense_categories?.name || "Uncategorized";
+    allTimeCategoryTotals[name] = (allTimeCategoryTotals[name] || 0) + Number(e.amount);
+    allTimeCategoryCounts[name] = (allTimeCategoryCounts[name] || 0) + 1;
+  });
+
   const categoryFilter = sp.category || "";
   const statusFilter = sp.status || "";
   const fromDate = sp.from || "";
@@ -44,7 +69,30 @@ export default async function ExpensesPage({ searchParams }) {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-4">Expenses</h2>
+      <h2 className="font-display text-2xl font-semibold mb-1">Expenses</h2>
+      <p className="text-slate text-sm mb-4">Operating costs by category — filling/production costs live in their own workspace.</p>
+
+      <div className="flex flex-wrap gap-3.5 mb-5">
+        <KPI label="TODAY" value={pkr(todayTotal)} tone="navy" />
+        <KPI label="THIS MONTH" value={pkr(monthTotal)} tone="aqua" />
+        <KPI label="PENDING APPROVAL" value={pendingExpenses.length} tone={pendingExpenses.length > 0 ? "amber" : "slate"} />
+        <KPI label="TOP CATEGORY" value={topCategory ? topCategory[0] : "—"} tone="coral" sub={topCategory ? `${pkr(topCategory[1])} this month` : "no spend yet this month"} />
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 mb-6">
+        {(categories || []).map((c) => (
+          <Link
+            key={c.id} href={`/expenses?category=${encodeURIComponent(c.name)}`}
+            className={`card-lift flex flex-col gap-1.5 p-3.5 rounded-2xl border ${categoryFilter === c.name ? "border-aqua bg-aquaSoft" : "border-line bg-card"}`}
+          >
+            <Tag size={15} className="text-aqua" />
+            <span className="text-[12.5px] font-semibold truncate">{c.name}</span>
+            <span className="font-mono-num text-sm font-semibold">{pkr(allTimeCategoryTotals[c.name] || 0)}</span>
+            <span className="text-[10.5px] text-slate">{allTimeCategoryCounts[c.name] || 0} entries</span>
+          </Link>
+        ))}
+      </div>
+
       {isOwner && <PendingApprovals expenses={pendingExpenses} />}
       <form className="no-print flex flex-wrap gap-2.5 mb-2 items-center" action="/expenses">
         <select name="category" defaultValue={categoryFilter} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">

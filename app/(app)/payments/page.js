@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
+import { Badge, KPI, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import AddPaymentForm from "@/components/AddPaymentForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import { bulkImportPayments } from "@/app/actions";
@@ -25,10 +25,10 @@ export default async function PaymentsPage({ searchParams }) {
     supabase.from("payments").select("*, customers(name), profiles!payments_received_by_fkey(full_name)").order("created_at", { ascending: false }).limit(200),
     supabase.from("v_customer_balance").select("customer_id, name, balance"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").neq("roles.key", "customer").eq("is_active", true).order("full_name"),
-    supabase.from("payments").select("customer_id, payment_date").order("payment_date", { ascending: false }),
+    supabase.from("payments").select("customer_id, payment_date, amount").order("payment_date", { ascending: false }),
     supabase.from("customers").select("id, payment_frequency"),
   ]);
-  const exportRows = (payments || []).map((p) => ({ Date: p.payment_date, Customer: p.customers?.name, Amount: p.amount, Method: p.method, Collector: p.profiles?.full_name }));
+  const exportRows = (payments || []).map((p) => ({ Date: p.payment_date, Customer: p.customers?.name, Amount: p.amount, Method: p.method, Collector: p.profiles?.full_name, Reference: p.reference }));
 
   const lastPaymentMap = {};
   (allPayments || []).forEach((p) => { if (!lastPaymentMap[p.customer_id]) lastPaymentMap[p.customer_id] = p.payment_date; });
@@ -56,9 +56,23 @@ export default async function PaymentsPage({ searchParams }) {
   const bucketSum = (arr) => arr.reduce((a, d) => a + d.balance, 0);
   const actionable = [...buckets.overdue, ...buckets.today].sort((a, b) => a.balance === b.balance ? 0 : b.balance - a.balance);
 
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const todaysDue = bucketSum(buckets.today);
+  const todaysCollected = (allPayments || []).filter((p) => p.payment_date === todayISO).reduce((a, p) => a + Number(p.amount), 0);
+  const todaysRemaining = Math.max(0, todaysDue - todaysCollected);
+  const overdueTotal = bucketSum(buckets.overdue);
+
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-4">Payments</h2>
+      <h2 className="font-display text-2xl font-semibold mb-1">Payment Collection</h2>
+      <p className="text-slate text-sm mb-4">Due today, collected today, and every overdue customer that needs a follow-up.</p>
+
+      <div className="flex flex-wrap gap-3.5 mb-5">
+        <KPI label="TODAY'S DUE" value={pkr(todaysDue)} tone="navy" />
+        <KPI label="COLLECTED" value={pkr(todaysCollected)} tone="green" />
+        <KPI label="REMAINING" value={pkr(todaysRemaining)} tone={todaysRemaining > 0 ? "amber" : "slate"} />
+        <KPI label="OVERDUE" value={pkr(overdueTotal)} tone="coral" sub={`${buckets.overdue.length} customers`} />
+      </div>
 
       <h3 className="font-display text-base font-semibold mb-2.5">Recovery</h3>
       <div className="flex gap-3 flex-wrap mb-4">
@@ -103,18 +117,18 @@ export default async function PaymentsPage({ searchParams }) {
         <ExportExcelButton rows={exportRows} filename="evergreen-payments.xlsx" sheetName="Payments" />
         <PrintButton />
         <AddPaymentForm
-          customers={(balances || []).map((b) => ({ id: b.customer_id, name: b.name, balance: b.balance }))}
+          customers={(balances || []).map((b) => ({ id: b.customer_id, name: b.name, balance: b.balance, frequency: freqMap[b.customer_id] }))}
           collectors={collectors || []}
           initialCustomerId={sp.customer || ""}
         />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Amount</Th><Th>Method</Th><Th>Collector</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Amount</Th><Th>Method</Th><Th>Collected By</Th><Th>Reference</Th></tr></thead>
           <tbody>
-            {(payments || []).length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate">No payments yet.</td></tr>}
+            {(payments || []).length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate">No payments yet.</td></tr>}
             {(payments || []).map((p) => (
-              <tr key={p.id} className="hover:bg-foam"><Td>{fmtDate(p.payment_date)}</Td><Td>{p.customers?.name}</Td><Td>{pkr(p.amount)}</Td><Td>{p.method}</Td><Td>{p.profiles?.full_name || "—"}</Td></tr>
+              <tr key={p.id} className="hover:bg-foam"><Td>{fmtDate(p.payment_date)}</Td><Td>{p.customers?.name}</Td><Td>{pkr(p.amount)}</Td><Td>{p.method}</Td><Td>{p.profiles?.full_name || "—"}</Td><Td className="text-slate">{p.reference || "—"}</Td></tr>
             ))}
           </tbody>
         </table>
