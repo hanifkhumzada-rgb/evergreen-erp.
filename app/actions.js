@@ -1553,9 +1553,31 @@ export async function updateEmployeeProfile(employeeId, formData) {
 // ============================================================
 // OWNER CONTROL: user management
 // ============================================================
-export async function updateUserRole(userId, roleKey) {  const { supabase, user } = await requireUser();
-  const { data: role } = await supabase.from("roles").select("id").eq("key", roleKey).single();
+// SECURITY: the DB layer (trg_guard_profile_privilege on profiles) blocks
+// role_id/is_active changes by anyone lacking users.manage, so this can't be
+// bypassed even from raw SQL/PostgREST. These app-level checks are defense in
+// depth: they give a clean error message instead of a raw DB error, and they
+// cover the self-change / last-owner cases the trigger doesn't know about.
+export async function updateUserRole(userId, roleKey) {
+  const { supabase, user } = await requireUser();
+
+  const { data: allowed } = await supabase.rpc("fn_has_permission", { perm_key: "users.manage" });
+  if (!allowed) return { error: "You don't have permission to change user roles." };
+
+  if (userId === user.id) return { error: "You can't change your own role from this screen." };
+
+  const { data: role } = await supabase.from("roles").select("id, key").eq("key", roleKey).single();
   if (!role) return { error: "Unknown role" };
+
+  if (role.key !== "owner") {
+    const { data: target } = await supabase.from("profiles").select("id, roles(key)").eq("id", userId).maybeSingle();
+    if (!target) return { error: "User not found." };
+    if (target.roles?.key === "owner") {
+      const { count } = await supabase.from("profiles").select("id, roles!inner(key)", { count: "exact", head: true }).eq("roles.key", "owner");
+      if ((count || 0) <= 1) return { error: "Can't demote the last remaining Owner account." };
+    }
+  }
+
   const { error } = await supabase.from("profiles").update({ role_id: role.id }).eq("id", userId);
   if (!error) await supabase.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "profiles", record_id: userId, new_value: { role: roleKey } });
   revalidatePath("/user-management");
@@ -1565,6 +1587,21 @@ export async function updateUserRole(userId, roleKey) {  const { supabase, user 
 
 export async function toggleUserActive(userId, isActive) {
   const { supabase, user } = await requireUser();
+
+  const { data: allowed } = await supabase.rpc("fn_has_permission", { perm_key: "users.manage" });
+  if (!allowed) return { error: "You don't have permission to change user status." };
+
+  if (userId === user.id) return { error: "You can't deactivate your own account from this screen." };
+
+  if (!isActive) {
+    const { data: target } = await supabase.from("profiles").select("id, roles(key)").eq("id", userId).maybeSingle();
+    if (!target) return { error: "User not found." };
+    if (target.roles?.key === "owner") {
+      const { count } = await supabase.from("profiles").select("id, roles!inner(key)", { count: "exact", head: true }).eq("roles.key", "owner").eq("is_active", true);
+      if ((count || 0) <= 1) return { error: "Can't deactivate the last remaining active Owner account." };
+    }
+  }
+
   const { error } = await supabase.from("profiles").update({ is_active: isActive }).eq("id", userId);
   if (!error) await supabase.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "profiles", record_id: userId, new_value: { is_active: isActive } });
   revalidatePath("/user-management");
