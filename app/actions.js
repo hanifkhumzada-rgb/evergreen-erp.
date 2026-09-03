@@ -201,8 +201,9 @@ export async function createCustomer(formData) {
   const role = await getUserRole(supabase, user);
   const canManageFinancial = FINANCIAL_ROLES.includes(role);
 
+  const { data: nextCode } = await supabase.rpc("fn_next_customer_code");
   const payload = {
-    code: genCode("CUST"),
+    code: nextCode || genCode("CUST"),
     ...customerBasicsFromForm(formData),
     is_active: (formData.get("status") || "active") === "active",
     created_by: user.id,
@@ -1079,7 +1080,16 @@ export async function bulkImportCustomers(rows) {
   const { supabase, user } = await requireUser();
   const role = await getUserRole(supabase, user);
   const canManageFinancial = FINANCIAL_ROLES.includes(role);
-  let imported = 0, failed = 0;
+  let imported = 0, failed = 0, duplicateCodesReassigned = 0;
+
+  // A supplied "Customer Code" column is only realistic on a re-import/
+  // migration file (this ID format doesn't exist anywhere else) — track
+  // codes already in use (DB + earlier rows in this same file) so a
+  // colliding supplied code gets a freshly generated EW-#### instead of
+  // either silently overwriting another customer's ID or failing the whole
+  // row over an ID clash that has nothing to do with the customer's data.
+  const { data: existingCodesData } = await supabase.from("customers").select("code");
+  const usedCodes = new Set((existingCodesData || []).map((c) => c.code));
 
   for (const r of rows) {
     const name = String(r.Name || r.name || r["Customer Name"] || "").trim();
@@ -1094,8 +1104,16 @@ export async function bulkImportCustomers(rows) {
     const preferredDays = String(r["Delivery Days"] || r.DeliveryDays || "").split(",").map((d) => d.trim()).filter(Boolean);
     const status = String(r.Status || r.status || "active").trim().toLowerCase().replace(/\s+/g, "_") || "active";
 
+    let code = String(r["Customer Code"] || r.Code || r.code || "").trim();
+    if (code && usedCodes.has(code)) { duplicateCodesReassigned++; code = ""; }
+    if (!code) {
+      const { data: nextCode } = await supabase.rpc("fn_next_customer_code");
+      code = nextCode || genCode("CUST");
+    }
+    usedCodes.add(code);
+
     const payload = {
-      code: String(r["Customer Code"] || r.Code || r.code || "").trim() || genCode("CUST"),
+      code,
       name,
       business_name: r.Company || r.company || r["Business Name"] || null,
       contact_person: r["Contact Person"] || r.ContactPerson || null,
@@ -1142,7 +1160,7 @@ export async function bulkImportCustomers(rows) {
     imported++;
   }
   revalidatePath("/customers");
-  return { ok: true, imported, failed };
+  return { ok: true, imported, failed, duplicateCodesReassigned };
 }
 
 // Section 10's wide format: Customer ID | Customer | 19L Opening | 6L

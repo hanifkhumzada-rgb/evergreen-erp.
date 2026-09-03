@@ -188,10 +188,11 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
       {result && (
         <div className="fixed bottom-6 right-6 bg-card border border-line rounded-xl p-4 shadow-lg z-50 text-sm max-w-xs">
           <p><strong className="text-green">{result.imported}</strong> imported, <strong className="text-coral">{result.failed}</strong> failed.</p>
-          {(result.skippedInvalid > 0 || result.skippedDuplicate > 0) && (
+          {(result.skippedInvalid > 0 || result.skippedDuplicate > 0 || result.duplicateCodesReassigned > 0) && (
             <p className="text-xs text-slate mt-1">
               {result.skippedInvalid > 0 && <>{result.skippedInvalid} skipped (missing required fields). </>}
-              {result.skippedDuplicate > 0 && <>{result.skippedDuplicate} skipped (duplicate).</>}
+              {result.skippedDuplicate > 0 && <>{result.skippedDuplicate} skipped (duplicate). </>}
+              {result.duplicateCodesReassigned > 0 && <>{result.duplicateCodesReassigned} had a duplicate Customer Code and were assigned a new one.</>}
             </p>
           )}
           <button type="button" className="text-xs text-aqua font-semibold mt-1" onClick={() => setResult(null)}>Dismiss</button>
