@@ -8,7 +8,7 @@ import {
   Home, Users, Truck, Droplet, Package, Wallet, Receipt, ReceiptText,
   BookOpen, UserCog, BarChart3, Settings, LogOut, Landmark, FileText,
   Scale, TrendingUp, ClipboardCheck, Car, Bot, Bell, MapPin, Menu, X,
-  ChevronRight, ChevronLeft, Factory, FolderInput,
+  ChevronRight, ChevronLeft, Factory, FolderInput, ShieldCheck,
 } from "lucide-react";
 
 const SidebarContext = createContext(null);
@@ -77,6 +77,7 @@ const NAV = [
     type: "group", key: "system", label: "System", icon: Settings,
     items: [
       { href: "/user-management", label: "User Management", icon: UserCog, roles: ["owner"] },
+      { href: "/user-management/permissions", label: "Permissions", icon: ShieldCheck, roles: ["owner"] },
       { href: "/audit-logs", label: "Audit Logs", icon: FileText, roles: ["owner"] },
       { href: "/settings/export", label: "Import/Export", icon: FolderInput, roles: ["owner"] },
       { href: "/settings", label: "Settings", icon: Settings, roles: ["owner"] },
