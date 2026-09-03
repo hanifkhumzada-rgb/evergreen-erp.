@@ -1797,8 +1797,10 @@ export async function inviteUser(formData) {
 // check has to happen explicitly here (via the same fn_has_permission the
 // profiles RLS policies call), unlike updateUserRole/toggleUserActive which
 // can lean on RLS since they go through the normal client.
-export async function deleteUser(userId) {
+export async function deleteUser(userId, reason) {
   const { supabase, user } = await requireUser();
+  const trimmed = (reason || "").toString().trim();
+  if (!trimmed) return { error: "A reason is required to delete a user." };
 
   const { data: allowed } = await supabase.rpc("fn_has_permission", { perm_key: "users.manage" });
   if (!allowed) return { error: "You don't have permission to delete users." };
@@ -1820,7 +1822,7 @@ export async function deleteUser(userId) {
   const { error: profileError } = await admin.from("profiles").delete().eq("id", userId);
   if (profileError) return { error: profileError.message };
 
-  await admin.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "profiles", new_value: { action: "deleted", target_user_id: userId } });
+  await admin.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "profiles", new_value: { action: "deleted", target_user_id: userId, reason: trimmed } });
   revalidatePath("/user-management");
   revalidatePath("/employees");
   return { ok: true };
