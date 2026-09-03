@@ -3,8 +3,9 @@ import { pkr } from "@/lib/format";
 import { Badge, KPI, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import { AddVehicleForm, AddVehicleExpenseForm, EditVehicleDatesForm } from "@/components/FleetForms";
 import BulkImportButton from "@/components/BulkImportButton";
-import { bulkImportVehicles } from "@/app/actions";
-import { AlertTriangle } from "lucide-react";
+import ReasonConfirmButton from "@/components/ReasonConfirmButton";
+import { bulkImportVehicles, deleteVehicle } from "@/app/actions";
+import { AlertTriangle, Trash2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +13,13 @@ const EXPIRY_WARNING_DAYS = 30;
 
 export default async function FleetPage() {
   const supabase = await createClient();
-  const [{ data: vehicles }, { data: riders }, { data: fuelLogs }, { data: maintLogs }, { data: customers }] = await Promise.all([
+  const [{ data: vehicles }, { data: riders }, { data: fuelLogs }, { data: maintLogs }, { data: customers }, { data: canDelete }] = await Promise.all([
     supabase.from("vehicles").select("*, profiles!vehicles_assigned_rider_id_fkey(full_name)"),
     supabase.from("profiles").select("id, full_name"),
     supabase.from("vehicle_fuel_logs").select("*, vehicles(registration_no)"),
     supabase.from("vehicle_maintenance_logs").select("*, vehicles(registration_no)"),
     supabase.from("customers").select("assigned_vehicle_id"),
+    supabase.rpc("fn_has_permission", { perm_key: "vehicles.delete" }),
   ]);
 
   const vehExpenses = [
@@ -108,7 +110,15 @@ export default async function FleetPage() {
                 <Td className={isExpiringSoon(v.registration_expiry) ? (isExpired(v.registration_expiry) ? "text-coral font-semibold" : "text-amber font-semibold") : ""}>{v.registration_expiry || "—"}</Td>
                 <Td className={isExpiringSoon(v.service_due_date) ? (isExpired(v.service_due_date) ? "text-coral font-semibold" : "text-amber font-semibold") : ""}>{v.service_due_date || "—"}</Td>
                 <Td><Badge text={v.is_active ? "Active" : "Inactive"} tone={v.is_active ? "green" : "slate"} /></Td>
-                <Td className="no-print"><EditVehicleDatesForm vehicle={v} /></Td>
+                <Td className="no-print flex items-center gap-1.5">
+                  <EditVehicleDatesForm vehicle={v} />
+                  {canDelete && (
+                    <ReasonConfirmButton action={deleteVehicle} id={v.id} label="Delete" icon={Trash2}
+                      confirmText={`Permanently delete vehicle ${v.registration_no}?`}
+                      detailText="This can't be undone. Blocked automatically if the vehicle is still assigned to a customer, driver, or has delivery/expense history."
+                      confirmLabel="Confirm Delete" busyLabel="Deleting…" />
+                  )}
+                </Td>
               </tr>
             ))}
           </tbody>

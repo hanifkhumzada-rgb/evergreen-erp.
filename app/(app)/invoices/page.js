@@ -4,7 +4,7 @@ import { pkr, fmtDate } from "@/lib/format";
 import { Badge, KPI, ExportExcelButton, PrintButton, DownloadPdfButton, Th, Td } from "@/components/ui";
 import AddSaleForm from "@/components/AddSaleForm";
 import BulkImportButton from "@/components/BulkImportButton";
-import VoidButton from "@/components/VoidButton";
+import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { bulkImportSales, voidInvoice } from "@/app/actions";
 
 // Invoice Center. Invoices in this schema ARE the invoices table
@@ -109,7 +109,7 @@ export default async function InvoicesPage({ searchParams }) {
                   <Td>{qtyOf(s)}</Td>
                   <Td>{pkr(s.net_amount)}</Td>
                   <Td><Badge text={STATUS_LABEL[s.status] || s.status} tone={STATUS_TONE[s.status] || "slate"} />{s.status === "void" && s.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{s.void_reason}</div>}</Td>
-                  <Td>{canVoidThis && <VoidButton action={voidInvoice} id={s.id} confirmText={`Void invoice ${s.invoice_no}?`} />}</Td>
+                  <Td>{canVoidThis && <ReasonConfirmButton action={voidInvoice} id={s.id} confirmText={`Void invoice ${s.invoice_no}?`} />}</Td>
                 </tr>
               );
             })}

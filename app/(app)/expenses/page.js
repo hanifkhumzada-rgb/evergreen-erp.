@@ -5,7 +5,7 @@ import { KPI, ExportExcelButton, PrintButton, Th, Td, Badge } from "@/components
 import AddExpenseForm from "@/components/AddExpenseForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import PendingApprovals from "@/components/PendingApprovals";
-import VoidButton from "@/components/VoidButton";
+import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { bulkImportExpenses, voidExpense } from "@/app/actions";
 import { Tag } from "lucide-react";
 
@@ -141,7 +141,7 @@ export default async function ExpensesPage({ searchParams }) {
                   <Td>{fmtDate(e.expense_date)}</Td><Td>{e.expense_categories?.name}</Td><Td>{e.description}</Td><Td>{pkr(e.amount)}</Td><Td>{e.payment_method}</Td>
                   <Td>{e.profiles?.full_name || "—"}</Td><Td className="text-xs text-slate max-w-[140px] truncate">{e.receipt_reference || "—"}</Td>
                   <Td><Badge text={badge.text} tone={badge.tone} />{e.voided && e.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{e.void_reason}</div>}</Td>
-                  <Td>{canVoid && !e.voided && <VoidButton action={voidExpense} id={e.id} confirmText={`Void expense "${e.description || e.expense_categories?.name}"?`} />}</Td>
+                  <Td>{canVoid && !e.voided && <ReasonConfirmButton action={voidExpense} id={e.id} confirmText={`Void expense "${e.description || e.expense_categories?.name}"?`} />}</Td>
                 </tr>
               );
             })}

@@ -764,6 +764,27 @@ export async function addVehicle(formData) {
   return { ok: true };
 }
 
+// Hard delete, gated on vehicles.delete (separate from vehicles.manage,
+// migration 0012). The FK from customers/deliveries/expenses/profiles into
+// vehicles is NO ACTION, so the database itself refuses to delete a
+// vehicle still assigned/referenced anywhere — surfaced here as a clean
+// message (Postgres code 23503) instead of a raw constraint error.
+export async function deleteVehicle(vehicleId, reason) {
+  const { supabase, user } = await requireUser();
+  const trimmed = (reason || "").toString().trim();
+  if (!trimmed) return { error: "A reason is required to delete a vehicle." };
+
+  const { error } = await supabase.from("vehicles").delete().eq("id", vehicleId);
+  if (error) {
+    if (error.code === "23503") return { error: "Can't delete — this vehicle is still assigned to a customer, driver, or has delivery/expense history. Reassign those first." };
+    return { error: error.message };
+  }
+
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "DELETE", module: "vehicles", record_id: vehicleId, new_value: { reason: trimmed } });
+  revalidatePath("/fleet");
+  return { ok: true };
+}
+
 // Fleet had insurance_expiry/registration_expiry/service_due_date columns
 // with nowhere in the UI to set them — addVehicle above covers new
 // vehicles; this covers editing dates on ones already on file.
@@ -1569,6 +1590,25 @@ export async function createZone(formData) {
   return { ok: true };
 }
 
+// Hard delete, gated on zones.delete (separate from settings.manage,
+// migration 0012). FK from customers/expenses/profiles/routes into zones
+// is NO ACTION — a zone still in use anywhere can't be deleted.
+export async function deleteZone(zoneId, reason) {
+  const { supabase, user } = await requireUser();
+  const trimmed = (reason || "").toString().trim();
+  if (!trimmed) return { error: "A reason is required to delete a zone." };
+
+  const { error } = await supabase.from("zones").delete().eq("id", zoneId);
+  if (error) {
+    if (error.code === "23503") return { error: "Can't delete — this zone still has customers, routes, or other records assigned to it. Reassign those first." };
+    return { error: error.message };
+  }
+
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "DELETE", module: "zones", record_id: zoneId, new_value: { reason: trimmed } });
+  revalidatePath("/zones");
+  return { ok: true };
+}
+
 // Phase 7 — Routes as a real entity (previously a free-text column on
 // customers with no management page, no assignment, no reporting).
 export async function createRoute(formData) {
@@ -1580,6 +1620,26 @@ export async function createRoute(formData) {
     description: formData.get("description") || null,
   });
   if (error) return { error: error.message };
+  revalidatePath("/zones");
+  revalidatePath("/customers");
+  return { ok: true };
+}
+
+// Hard delete, gated on routes.delete (separate from settings.manage,
+// migration 0012). FK from customers into routes is NO ACTION — a route
+// still assigned to a customer can't be deleted.
+export async function deleteRoute(routeId, reason) {
+  const { supabase, user } = await requireUser();
+  const trimmed = (reason || "").toString().trim();
+  if (!trimmed) return { error: "A reason is required to delete a route." };
+
+  const { error } = await supabase.from("routes").delete().eq("id", routeId);
+  if (error) {
+    if (error.code === "23503") return { error: "Can't delete — this route still has customers assigned to it. Reassign those first." };
+    return { error: error.message };
+  }
+
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "DELETE", module: "routes", record_id: routeId, new_value: { reason: trimmed } });
   revalidatePath("/zones");
   revalidatePath("/customers");
   return { ok: true };
