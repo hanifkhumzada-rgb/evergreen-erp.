@@ -13,9 +13,9 @@ export async function GET(request, { params }) {
   const customer = invoice.customers;
 
   const [{ data: payments }, { data: priorInvoices }, { data: priorPayments }] = await Promise.all([
-    supabase.from("payments").select("amount").eq("customer_id", customer?.id).eq("reference", invoice.invoice_no),
-    customer?.id ? supabase.from("invoices").select("net_amount").eq("customer_id", customer.id).lt("created_at", invoice.created_at) : Promise.resolve({ data: [] }),
-    customer?.id ? supabase.from("payments").select("amount").eq("customer_id", customer.id).lt("created_at", invoice.created_at) : Promise.resolve({ data: [] }),
+    supabase.from("payments").select("amount").eq("customer_id", customer?.id).eq("reference", invoice.invoice_no).eq("voided", false),
+    customer?.id ? supabase.from("invoices").select("net_amount").eq("customer_id", customer.id).lt("created_at", invoice.created_at).neq("status", "void") : Promise.resolve({ data: [] }),
+    customer?.id ? supabase.from("payments").select("amount").eq("customer_id", customer.id).lt("created_at", invoice.created_at).eq("voided", false) : Promise.resolve({ data: [] }),
   ]);
   const paid = (payments || []).reduce((a, p) => a + Number(p.amount), 0);
   const previousBalance = Number(customer?.opening_balance || 0)

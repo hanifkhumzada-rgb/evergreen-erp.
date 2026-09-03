@@ -1,0 +1,11 @@
+-- Every existing spend-total query in the app (dashboard, reports, P&L,
+-- balance sheet, daily closing) filters expenses with
+-- .in("status", ["approved", "paid"]) — an allowlist, not a denylist of
+-- "voided". Rather than adding a `voided=true` exclusion to over a dozen
+-- separate call sites (error-prone, easy to miss one), give expense_status
+-- a 'void' value exactly like invoice_status already has, so those
+-- existing allowlist filters exclude a voided expense automatically, with
+-- no other code changes needed anywhere. Must be its own migration/
+-- transaction — a newly added enum value can't be referenced by name in
+-- the same transaction that adds it.
+alter type expense_status add value if not exists 'void';

@@ -20,7 +20,7 @@ export default async function InvoicePage({ params }) {
     );
   }
   const c = s.customers;
-  const { data: payments } = await supabase.from("payments").select("amount").eq("customer_id", c?.id).eq("reference", s.invoice_no);
+  const { data: payments } = await supabase.from("payments").select("amount").eq("customer_id", c?.id).eq("reference", s.invoice_no).eq("voided", false);
   const paid = (payments || []).reduce((a, p) => a + Number(p.amount), 0);
   const balance = Number(s.net_amount) - paid;
 
@@ -28,8 +28,8 @@ export default async function InvoicePage({ params }) {
   // and payment strictly before this one, replayed in order — not the
   // customer's CURRENT balance, which would include everything since.
   const [{ data: priorInvoices }, { data: priorPayments }] = await Promise.all([
-    c?.id ? supabase.from("invoices").select("net_amount").eq("customer_id", c.id).lt("created_at", s.created_at) : Promise.resolve({ data: [] }),
-    c?.id ? supabase.from("payments").select("amount").eq("customer_id", c.id).lt("created_at", s.created_at) : Promise.resolve({ data: [] }),
+    c?.id ? supabase.from("invoices").select("net_amount").eq("customer_id", c.id).lt("created_at", s.created_at).neq("status", "void") : Promise.resolve({ data: [] }),
+    c?.id ? supabase.from("payments").select("amount").eq("customer_id", c.id).lt("created_at", s.created_at).eq("voided", false) : Promise.resolve({ data: [] }),
   ]);
   const previousBalance = Number(c?.opening_balance || 0)
     + (priorInvoices || []).reduce((a, i) => a + Number(i.net_amount), 0)

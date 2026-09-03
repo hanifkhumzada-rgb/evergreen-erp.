@@ -41,8 +41,8 @@ export default async function CustomerProfilePage({ params }) {
     { data: zones }, { data: products }, { data: vehicles }, { data: riders }, { data: routes },
   ] = await Promise.all([
     supabase.from("customers").select("*, zones(name), profiles!customers_assigned_rider_id_fkey(full_name), vehicles(registration_no)").eq("id", params.id).single(),
-    supabase.from("invoices").select("*").eq("customer_id", params.id).order("invoice_date", { ascending: false }),
-    supabase.from("payments").select("*").eq("customer_id", params.id).order("payment_date", { ascending: false }),
+    supabase.from("invoices").select("*").eq("customer_id", params.id).neq("status", "void").order("invoice_date", { ascending: false }),
+    supabase.from("payments").select("*").eq("customer_id", params.id).eq("voided", false).order("payment_date", { ascending: false }),
     supabase.from("v_customer_balance").select("balance").eq("customer_id", params.id).maybeSingle(),
     supabase.from("v_customer_bottle_balance").select("product_id, product_name, bottles_with_customer").eq("customer_id", params.id),
     supabase.from("deliveries").select("*, delivery_items(product_id, delivered_qty, returned_qty, products(name))").eq("customer_id", params.id).order("delivery_date", { ascending: false }),

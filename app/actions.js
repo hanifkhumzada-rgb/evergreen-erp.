@@ -334,6 +334,31 @@ export async function createSale(formData) {
   return { ok: true };
 }
 
+// Every report/dashboard query in this file already filters invoices with
+// .neq("status", "void") — so setting status to 'void' here is enough to
+// pull a voided invoice out of every revenue total with no further changes
+// anywhere else. fn_void_invoice (migration 0010_financial_void_workflows)
+// also reverses the customer ledger debit (if the invoice had posted one)
+// and the journal entry, and refuses to void an invoice that already has
+// payments applied against it — void/reverse those first.
+export async function voidInvoice(invoiceId, reason) {
+  const { supabase, user } = await requireUser();
+  const trimmed = (reason || "").toString().trim();
+  if (!trimmed) return { error: "A reason is required to void an invoice." };
+
+  const { error } = await supabase.rpc("fn_void_invoice", { p_invoice_id: invoiceId, p_reason: trimmed });
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "VOID", module: "invoices", record_id: invoiceId, new_value: { reason: trimmed } });
+  revalidatePath("/invoices");
+  revalidatePath("/sales");
+  revalidatePath("/dashboard");
+  revalidatePath("/customers");
+  revalidatePath("/ledger");
+  revalidatePath("/accounting/journal");
+  return { ok: true };
+}
+
 export async function createPayment(formData) {
   const { supabase, user } = await requireUser();
   const { data: receiptNo } = await supabase.rpc("fn_next_receipt_no");
@@ -358,6 +383,30 @@ export async function createPayment(formData) {
   revalidatePath("/dashboard");
   revalidatePath("/customers");
   revalidatePath("/ledger");
+  return { ok: true };
+}
+
+// Payments are immutable once created (no edit) — voiding is the only way
+// to correct one, and it's the only UPDATE payments' RLS allows at all
+// (p_payments_update_void, gated on payments.delete). fn_void_payment
+// (migration 0010_financial_void_workflows) reverses the customer ledger
+// credit, the cash movement (if any), and the journal entry in one
+// transaction — verified live to restore both the customer's balance and
+// the cash account balance to exactly their pre-payment values.
+export async function voidPayment(paymentId, reason) {
+  const { supabase, user } = await requireUser();
+  const trimmed = (reason || "").toString().trim();
+  if (!trimmed) return { error: "A reason is required to void a payment." };
+
+  const { error } = await supabase.rpc("fn_void_payment", { p_payment_id: paymentId, p_reason: trimmed });
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "VOID", module: "payments", record_id: paymentId, new_value: { reason: trimmed } });
+  revalidatePath("/payments");
+  revalidatePath("/dashboard");
+  revalidatePath("/customers");
+  revalidatePath("/ledger");
+  revalidatePath("/accounting/journal");
   return { ok: true };
 }
 
@@ -550,6 +599,27 @@ export async function rejectExpense(expenseId) {
   return { ok: true };
 }
 
+// Financial records are never hard-deleted (see section 6-7 of the void
+// workflow request) — fn_void_expense (SECURITY DEFINER, migration
+// 0010_financial_void_workflows) does the whole thing atomically: checks
+// expenses.delete, flips voided/void_reason, and posts a reversing journal
+// entry if the expense had already been posted. RLS/the column-guard
+// trigger enforce the same permission again beneath this app-level check.
+export async function voidExpense(expenseId, reason) {
+  const { supabase, user } = await requireUser();
+  const trimmed = (reason || "").toString().trim();
+  if (!trimmed) return { error: "A reason is required to void an expense." };
+
+  const { error } = await supabase.rpc("fn_void_expense", { p_expense_id: expenseId, p_reason: trimmed });
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "VOID", module: "expenses", record_id: expenseId, new_value: { reason: trimmed } });
+  revalidatePath("/expenses");
+  revalidatePath("/dashboard");
+  revalidatePath("/accounting/journal");
+  return { ok: true };
+}
+
 export async function markDelivered(deliveryId, deliveredQty, emptyReceived) {
   const { supabase, user } = await requireUser();
   const { data: d } = await supabase.from("deliveries").select("delivery_date, customer_id, delivery_items(product_id, expected_qty, unit_price)").eq("id", deliveryId).single();
@@ -649,8 +719,8 @@ export async function closeDay(formData) {
   const openingCash = Number(formData.get("opening_cash")) || 0;
   const actualCash = Number(formData.get("actual_cash"));
 
-  const { data: invoices } = await supabase.from("invoices").select("net_amount").eq("invoice_date", closeDate);
-  const { data: payments } = await supabase.from("payments").select("amount").eq("payment_date", closeDate);
+  const { data: invoices } = await supabase.from("invoices").select("net_amount").eq("invoice_date", closeDate).neq("status", "void");
+  const { data: payments } = await supabase.from("payments").select("amount").eq("payment_date", closeDate).eq("voided", false);
   const { data: expenses } = await supabase.from("expenses").select("amount").eq("expense_date", closeDate).in("status", ["approved", "paid"]);
 
   const salesTotal = (invoices || []).reduce((a, s) => a + Number(s.net_amount), 0);
@@ -856,7 +926,7 @@ export async function askAI(question) {
   }
   if (ql.includes("collect") && (ql.includes("today") || ql.includes("day"))) {
     const today = todayISO2();
-    const { data: payments } = await supabase.from("payments").select("amount").eq("payment_date", today);
+    const { data: payments } = await supabase.from("payments").select("amount").eq("payment_date", today).eq("voided", false);
     const total = (payments || []).reduce((a, p) => a + Number(p.amount), 0);
     return { text: `Collected today: ${pkrFmt(total)}.` };
   }

@@ -5,7 +5,8 @@ import { KPI, ExportExcelButton, PrintButton, Th, Td, Badge } from "@/components
 import AddExpenseForm from "@/components/AddExpenseForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import PendingApprovals from "@/components/PendingApprovals";
-import { bulkImportExpenses } from "@/app/actions";
+import VoidButton from "@/components/VoidButton";
+import { bulkImportExpenses, voidExpense } from "@/app/actions";
 import { Tag } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -16,14 +17,16 @@ const STATUS_BADGE = {
   paid: { text: "Paid", tone: "green" },
   rejected: { text: "Rejected", tone: "coral" },
   draft: { text: "Draft", tone: "slate" },
+  void: { text: "Voided", tone: "coral" },
 };
 
 export default async function ExpensesPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const { supabase, profile } = await getCurrentProfile();
-  const [{ data: expenses }, { data: categories }] = await Promise.all([
+  const [{ data: expenses }, { data: categories }, { data: canVoid }] = await Promise.all([
     supabase.from("expenses").select("*, expense_categories(name), profiles!expenses_submitted_by_fkey(full_name)").order("created_at", { ascending: false }).limit(200),
     supabase.from("expense_categories").select("id, name").order("name"),
+    supabase.rpc("fn_has_permission", { perm_key: "expenses.delete" }),
   ]);
   const isOwner = profile?.roles?.key === "owner";
   const pendingExpenses = (expenses || []).filter((e) => e.status === "submitted");
@@ -128,16 +131,17 @@ export default async function ExpensesPage({ searchParams }) {
       <p className="no-print text-xs text-slate mb-2">{rows.length} of {allRows.length} expenses</p>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Category</Th><Th>Description</Th><Th>Amount</Th><Th>Method</Th><Th>Entered By</Th><Th>Receipt</Th><Th>Status</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Category</Th><Th>Description</Th><Th>Amount</Th><Th>Method</Th><Th>Entered By</Th><Th>Receipt</Th><Th>Status</Th><Th>&nbsp;</Th></tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate">No expenses match.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-slate">No expenses match.</td></tr>}
             {rows.map((e) => {
               const badge = STATUS_BADGE[e.status] || STATUS_BADGE.approved;
               return (
-                <tr key={e.id} className="hover:bg-foam">
+                <tr key={e.id} className={`hover:bg-foam ${e.voided ? "opacity-60" : ""}`}>
                   <Td>{fmtDate(e.expense_date)}</Td><Td>{e.expense_categories?.name}</Td><Td>{e.description}</Td><Td>{pkr(e.amount)}</Td><Td>{e.payment_method}</Td>
                   <Td>{e.profiles?.full_name || "—"}</Td><Td className="text-xs text-slate max-w-[140px] truncate">{e.receipt_reference || "—"}</Td>
-                  <Td><Badge text={badge.text} tone={badge.tone} /></Td>
+                  <Td><Badge text={badge.text} tone={badge.tone} />{e.voided && e.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{e.void_reason}</div>}</Td>
+                  <Td>{canVoid && !e.voided && <VoidButton action={voidExpense} id={e.id} confirmText={`Void expense "${e.description || e.expense_categories?.name}"?`} />}</Td>
                 </tr>
               );
             })}

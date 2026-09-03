@@ -95,7 +95,7 @@ export default async function DashboardPage({ searchParams }) {
     supabase.from("invoices").select("net_amount, invoice_items(quantity)").eq("invoice_date", yesterday).neq("status", "void"),
     supabase.from("expenses").select("amount").eq("expense_date", yesterday).in("status", ["approved", "paid"]),
     supabase.from("deliveries").select("*, delivery_items(delivered_qty)").eq("delivery_date", yesterday),
-    supabase.from("payments").select("amount").eq("payment_date", today),
+    supabase.from("payments").select("amount").eq("payment_date", today).eq("voided", false),
     supabase.from("purchases").select("purchase_date, purchase_items(quantity, rate, discount)").eq("purchase_date", today),
     supabase.from("cash_transactions").select("amount, cash_accounts(type)").eq("txn_date", today),
     supabase.from("customers").select("id", { count: "exact", head: true }).eq("is_active", true).lt("created_at", `${today}T00:00:00`),
@@ -114,7 +114,7 @@ export default async function DashboardPage({ searchParams }) {
     supabase.from("invoices").select("net_amount").gte("invoice_date", range.from).lte("invoice_date", range.to).neq("status", "void"),
     supabase.from("deliveries").select("status, delivery_items(delivered_qty, returned_qty)").gte("delivery_date", range.from).lte("delivery_date", range.to),
     supabase.from("expenses").select("amount").in("status", ["approved", "paid"]).gte("expense_date", range.from).lte("expense_date", range.to),
-    supabase.from("payments").select("amount").gte("payment_date", range.from).lte("payment_date", range.to),
+    supabase.from("payments").select("amount").gte("payment_date", range.from).lte("payment_date", range.to).eq("voided", false),
     // Employee performance leaderboard for the same range.
     supabase.from("deliveries").select("rider_id, status, amount_collected, profiles!deliveries_rider_id_fkey(full_name)").gte("delivery_date", range.from).lte("delivery_date", range.to),
   ]);

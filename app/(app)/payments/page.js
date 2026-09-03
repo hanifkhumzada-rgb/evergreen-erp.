@@ -4,7 +4,8 @@ import { pkr, fmtDate } from "@/lib/format";
 import { Badge, KPI, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import AddPaymentForm from "@/components/AddPaymentForm";
 import BulkImportButton from "@/components/BulkImportButton";
-import { bulkImportPayments } from "@/app/actions";
+import VoidButton from "@/components/VoidButton";
+import { bulkImportPayments, voidPayment } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -21,12 +22,13 @@ const BUCKET_TONE = { overdue: "coral", today: "amber", week: "aqua", month: "sl
 export default async function PaymentsPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const supabase = await createClient();
-  const [{ data: payments }, { data: balances }, { data: collectors }, { data: allPayments }, { data: customersMeta }] = await Promise.all([
+  const [{ data: payments }, { data: balances }, { data: collectors }, { data: allPayments }, { data: customersMeta }, { data: canVoid }] = await Promise.all([
     supabase.from("payments").select("*, customers(name), profiles!payments_received_by_fkey(full_name)").order("created_at", { ascending: false }).limit(200),
     supabase.from("v_customer_balance").select("customer_id, name, balance"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").neq("roles.key", "customer").eq("is_active", true).order("full_name"),
-    supabase.from("payments").select("customer_id, payment_date, amount").order("payment_date", { ascending: false }),
+    supabase.from("payments").select("customer_id, payment_date, amount").eq("voided", false).order("payment_date", { ascending: false }),
     supabase.from("customers").select("id, payment_frequency"),
+    supabase.rpc("fn_has_permission", { perm_key: "payments.delete" }),
   ]);
   const exportRows = (payments || []).map((p) => ({ Date: p.payment_date, Customer: p.customers?.name, Amount: p.amount, Method: p.method, Collector: p.profiles?.full_name, Reference: p.reference }));
 
@@ -124,11 +126,15 @@ export default async function PaymentsPage({ searchParams }) {
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Amount</Th><Th>Method</Th><Th>Collected By</Th><Th>Reference</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Amount</Th><Th>Method</Th><Th>Collected By</Th><Th>Reference</Th><Th>Status</Th><Th>&nbsp;</Th></tr></thead>
           <tbody>
-            {(payments || []).length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate">No payments yet.</td></tr>}
+            {(payments || []).length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate">No payments yet.</td></tr>}
             {(payments || []).map((p) => (
-              <tr key={p.id} className="hover:bg-foam"><Td>{fmtDate(p.payment_date)}</Td><Td>{p.customers?.name}</Td><Td>{pkr(p.amount)}</Td><Td>{p.method}</Td><Td>{p.profiles?.full_name || "—"}</Td><Td className="text-slate">{p.reference || "—"}</Td></tr>
+              <tr key={p.id} className={`hover:bg-foam ${p.voided ? "opacity-60" : ""}`}>
+                <Td>{fmtDate(p.payment_date)}</Td><Td>{p.customers?.name}</Td><Td>{pkr(p.amount)}</Td><Td>{p.method}</Td><Td>{p.profiles?.full_name || "—"}</Td><Td className="text-slate">{p.reference || "—"}</Td>
+                <Td>{p.voided ? <><Badge text="Voided" tone="coral" />{p.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{p.void_reason}</div>}</> : <Badge text="Active" tone="green" />}</Td>
+                <Td>{canVoid && !p.voided && <VoidButton action={voidPayment} id={p.id} confirmText={`Void payment of ${pkr(p.amount)} from ${p.customers?.name}?`} />}</Td>
+              </tr>
             ))}
           </tbody>
         </table>
