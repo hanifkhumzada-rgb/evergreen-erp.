@@ -644,6 +644,25 @@ export async function createProductionBatch(formData) {
   return { ok: true };
 }
 
+// production_batches has no inventory-table side effect to reverse (it's a
+// standalone cost record, per the comment above) — fn_void_production_batch
+// (migration 0016) just marks it voided; production/page.js excludes voided
+// batches from every KPI total while still listing them.
+export async function voidProductionBatch(batchId, reason) {
+  const { supabase, user } = await requireUser();
+  const trimmed = (reason || "").toString().trim();
+  if (!trimmed) return { error: "A reason is required to void a production batch." };
+
+  const { error } = await supabase.rpc("fn_void_production_batch", { p_batch_id: batchId, p_reason: trimmed });
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "VOID", module: "production_batches", record_id: batchId, new_value: { reason: trimmed } });
+  revalidatePath("/production");
+  revalidatePath("/dashboard");
+  revalidatePath("/reports");
+  return { ok: true };
+}
+
 // Owner-only in the UI (Pending Approvals section on the Expenses page); RLS
 // still requires expenses.edit to update the row either way.
 export async function approveExpense(expenseId) {
@@ -693,6 +712,31 @@ export async function voidExpense(expenseId, reason) {
   return { ok: true };
 }
 
+// Every journal entry in this schema is a system-generated side effect of
+// an expense/payment/invoice/delivery — there's no manual journal-entry
+// creation anywhere in the app. fn_void_journal_entry (migration 0017)
+// refuses to touch an entry tied to one of those four source modules (void
+// the source record instead — its own void action posts the correct
+// reversal already) and only reverses a genuinely standalone/orphaned
+// entry, by posting a new entry with every line's debit/credit swapped —
+// verified live to mirror the original exactly and to correctly refuse an
+// entry still tied to a live expense.
+export async function voidJournalEntry(entryId, reason) {
+  const { supabase, user } = await requireUser();
+  const trimmed = (reason || "").toString().trim();
+  if (!trimmed) return { error: "A reason is required to void a journal entry." };
+
+  const { error } = await supabase.rpc("fn_void_journal_entry", { p_entry_id: entryId, p_reason: trimmed });
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "VOID", module: "journal_entries", record_id: entryId, new_value: { reason: trimmed } });
+  revalidatePath("/accounting/journal");
+  revalidatePath("/accounting/trial-balance");
+  revalidatePath("/accounting/balance-sheet");
+  revalidatePath("/accounting/profit-loss");
+  return { ok: true };
+}
+
 export async function markDelivered(deliveryId, deliveredQty, emptyReceived) {
   const { supabase, user } = await requireUser();
   const { data: d } = await supabase.from("deliveries").select("delivery_date, customer_id, delivery_items(product_id, expected_qty, unit_price)").eq("id", deliveryId).single();
@@ -717,6 +761,35 @@ export async function markDelivered(deliveryId, deliveredQty, emptyReceived) {
   revalidatePath("/deliveries");
   revalidatePath("/bottles");
   revalidatePath("/bottle-ledger");
+  return { ok: true };
+}
+
+// Corrects a mistakenly entered delivery (wrong quantity, wrong customer,
+// accidental double-entry) — never edits the original row's numbers, only
+// marks it voided and reverses everything its creation touched:
+// fn_void_delivery (migration 0015_delivery_void_workflow) reverses the
+// bottle_transactions movement(s), the customer_ledger_entries charge, and
+// (if cash was collected on the delivery) the associated payment's own
+// ledger/cash/journal impact — verified live to restore the customer
+// balance, cash balance, and bottle-with-customer balance all to their
+// exact pre-delivery values.
+export async function voidDelivery(deliveryId, reason) {
+  const { supabase, user } = await requireUser();
+  const trimmed = (reason || "").toString().trim();
+  if (!trimmed) return { error: "A reason is required to void a delivery." };
+
+  const { error } = await supabase.rpc("fn_void_delivery", { p_delivery_id: deliveryId, p_reason: trimmed });
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "VOID", module: "deliveries", record_id: deliveryId, new_value: { reason: trimmed } });
+  revalidatePath("/deliveries");
+  revalidatePath("/bottles");
+  revalidatePath("/bottle-ledger");
+  revalidatePath("/dashboard");
+  revalidatePath("/customers");
+  revalidatePath("/ledger");
+  revalidatePath("/payments");
+  revalidatePath("/accounting/journal");
   return { ok: true };
 }
 
@@ -1737,6 +1810,28 @@ export async function recordEmployeeAdvance(formData) {
   return { ok: true };
 }
 
+// Advances have no cash/journal side effect of their own (no trigger on
+// the table — verified) and nothing else references an advance row, so a
+// hard delete (gated on the same users.manage the existing employee_advances
+// RLS "ALL" policy already requires) is a real removal, not a void.
+export async function deleteEmployeeAdvance(advanceId, reason) {
+  const { supabase, user } = await requireUser();
+  const trimmed = (reason || "").toString().trim();
+  if (!trimmed) return { error: "A reason is required to delete an advance." };
+
+  const { data: allowed } = await supabase.rpc("fn_has_permission", { perm_key: "users.manage" });
+  if (!allowed) return { error: "You don't have permission to delete employee advances." };
+
+  const { data: advance } = await supabase.from("employee_advances").select("employee_id").eq("id", advanceId).maybeSingle();
+  const { error } = await supabase.from("employee_advances").delete().eq("id", advanceId);
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "DELETE", module: "employee_advances", record_id: advanceId, new_value: { reason: trimmed } });
+  revalidatePath("/employees");
+  if (advance?.employee_id) revalidatePath(`/employees/${advance.employee_id}`);
+  return { ok: true };
+}
+
 // Bug fix: employee_attendance has no marked_by column (only id/employee_id/
 // attendance_date/status/check_in/check_out/notes/created_at) — the upsert
 // below previously included one and would fail on every call. Verified
@@ -1752,6 +1847,29 @@ export async function markAttendance(formData) {
   if (error) return { error: error.message };
   revalidatePath("/employees");
   revalidatePath(`/employees/${employeeId}`);
+  return { ok: true };
+}
+
+// Correcting a wrongly-marked day is normally just re-marking it (the
+// upsert above overwrites same-day records) — this is for removing one
+// entirely, e.g. a day that shouldn't have been marked at all. No
+// financial/ledger effect to reverse, so a hard delete (same users.manage
+// gate the table's own RLS already requires).
+export async function deleteEmployeeAttendance(attendanceId, reason) {
+  const { supabase, user } = await requireUser();
+  const trimmed = (reason || "").toString().trim();
+  if (!trimmed) return { error: "A reason is required to delete an attendance record." };
+
+  const { data: allowed } = await supabase.rpc("fn_has_permission", { perm_key: "users.manage" });
+  if (!allowed) return { error: "You don't have permission to delete attendance records." };
+
+  const { data: record } = await supabase.from("employee_attendance").select("employee_id").eq("id", attendanceId).maybeSingle();
+  const { error } = await supabase.from("employee_attendance").delete().eq("id", attendanceId);
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "DELETE", module: "employee_attendance", record_id: attendanceId, new_value: { reason: trimmed } });
+  revalidatePath("/employees");
+  if (record?.employee_id) revalidatePath(`/employees/${record.employee_id}`);
   return { ok: true };
 }
 

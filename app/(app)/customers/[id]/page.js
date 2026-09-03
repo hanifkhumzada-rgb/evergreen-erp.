@@ -6,7 +6,7 @@ import { KPI, Badge, Th, Td, PrintButton, DownloadPdfButton } from "@/components
 import CustomerForm, { EditCustomerTrigger } from "@/components/CustomerForm";
 import { SalesTrendChart } from "@/components/LazyCharts";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
-import { archiveCustomer, deleteCustomer } from "@/app/actions";
+import { archiveCustomer, deleteCustomer, voidDelivery } from "@/app/actions";
 import { Archive, Trash2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +19,7 @@ const STATUS_BADGE = {
   blacklisted: { text: "Blacklisted", tone: "coral" },
   archived: { text: "Archived", tone: "slate" },
 };
-const DELIVERY_TONE = (s) => (s === "delivered" ? "green" : s === "cancelled" || s === "missed" ? "coral" : "amber");
+const DELIVERY_TONE = (s) => (s === "delivered" ? "green" : s === "cancelled" || s === "missed" || s === "void" ? "coral" : "amber");
 const UNPAID_STATUSES = ["sent", "partially_paid", "overdue"];
 const AGING_BUCKETS = ["Current", "1-30 days", "31-60 days", "61-90 days", "90+ days"];
 
@@ -60,6 +60,7 @@ export default async function CustomerProfilePage({ params }) {
     supabase.from("routes").select("id, name").eq("is_active", true).order("name"),
     supabase.rpc("fn_has_permission", { perm_key: "customers.delete" }),
   ]);
+  const { data: canVoidDeliveries } = await supabase.rpc("fn_has_permission", { perm_key: "deliveries.delete" });
 
   if (!c) {
     return (
@@ -253,15 +254,23 @@ export default async function CustomerProfilePage({ params }) {
         <KPI label="FAILED DELIVERIES" value={failedDeliveries} tone={failedDeliveries > 0 ? "coral" : "slate"} />
       </div>
       <table className="w-full text-xs border-collapse border border-line rounded-xl overflow-hidden">
-        <thead><tr className="bg-foam"><Th>Date</Th><Th>Items</Th><Th>Status</Th><Th>Collected</Th></tr></thead>
+        <thead><tr className="bg-foam"><Th>Date</Th><Th>Items</Th><Th>Status</Th><Th>Collected</Th><Th className="no-print">&nbsp;</Th></tr></thead>
         <tbody>
-          {(deliveries || []).length === 0 && <tr><td colSpan={4} className="text-center py-5 text-slate">No deliveries yet.</td></tr>}
+          {(deliveries || []).length === 0 && <tr><td colSpan={5} className="text-center py-5 text-slate">No deliveries yet.</td></tr>}
           {(deliveries || []).slice(0, 10).map((d) => (
-            <tr key={d.id}>
+            <tr key={d.id} className={d.status === "void" ? "opacity-60" : ""}>
               <Td>{fmtDate(d.delivery_date)}</Td>
               <Td>{(d.delivery_items || []).map((it) => `${it.products?.name || "?"} x${it.delivered_qty}`).join(", ") || "—"}</Td>
               <Td><Badge text={d.status} tone={DELIVERY_TONE(d.status)} /></Td>
               <Td>{pkr(d.amount_collected)}</Td>
+              <Td className="no-print">
+                {canVoidDeliveries && d.status !== "void" && (
+                  <ReasonConfirmButton action={voidDelivery} id={d.id} label="Void"
+                    confirmText="Void this delivery?"
+                    detailText="This can't be undone. Reverses the bottle movement, the ledger charge, and any payment collected on this delivery."
+                    confirmLabel="Confirm Void" busyLabel="Voiding…" />
+                )}
+              </Td>
             </tr>
           ))}
         </tbody>

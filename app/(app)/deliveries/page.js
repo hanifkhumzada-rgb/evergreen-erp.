@@ -8,12 +8,13 @@ import BulkImportButton from "@/components/BulkImportButton";
 import DeliveryForm from "@/components/DeliveryForm";
 import DeliverSheet from "@/components/DeliverSheet";
 import OneTapDeliverButton, { SkipDeliveryButton } from "@/components/OneTapDeliverButton";
-import { bulkImportDeliveries } from "@/app/actions";
+import ReasonConfirmButton from "@/components/ReasonConfirmButton";
+import { bulkImportDeliveries, voidDelivery } from "@/app/actions";
 import { Phone, MessageCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 function todayISO() { return new Date().toISOString().slice(0, 10); }
-const STATUS_TONE = (s) => (s === "delivered" ? "green" : s === "cancelled" || s === "missed" ? "coral" : "amber");
+const STATUS_TONE = (s) => (s === "delivered" ? "green" : s === "cancelled" || s === "missed" || s === "void" ? "coral" : "amber");
 const CARD_STATUS = { delivered: { text: "Completed", tone: "green" }, missed: { text: "Skipped", tone: "coral" }, cancelled: { text: "Skipped", tone: "coral" }, pending: { text: "Pending", tone: "amber" }, rescheduled: { text: "Pending", tone: "amber" } };
 
 // Most recent price row whose validity window covers today — same rule
@@ -82,6 +83,7 @@ export default async function DeliveriesPage({ searchParams }) {
     { data: deliveries }, { data: todayDeliveries }, { data: lastDeliveredRaw },
     { data: customersRaw }, { data: zones }, { data: routes }, { data: products },
     { data: balances }, { data: bottleBalances }, { data: customerPrices }, { data: productPrices }, { data: riders },
+    { data: canVoidDeliveries },
   ] = await Promise.all([
     supabase.from("deliveries")
       .select("*, customers(name, zone_id), profiles!deliveries_rider_id_fkey(id, full_name), delivery_items(expected_qty)")
@@ -102,6 +104,7 @@ export default async function DeliveriesPage({ searchParams }) {
     supabase.from("customer_prices").select("customer_id, product_id, price, effective_from, effective_to"),
     supabase.from("product_prices").select("product_id, price, effective_from, effective_to"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").eq("roles.key", "rider").eq("is_active", true).order("full_name"),
+    supabase.rpc("fn_has_permission", { perm_key: "deliveries.delete" }),
   ]);
 
   const qtyOf = (d) => (d.delivery_items || []).reduce((a, i) => a + Number(i.expected_qty), 0);
@@ -299,6 +302,7 @@ export default async function DeliveriesPage({ searchParams }) {
               <option value="missed">Missed</option>
               <option value="rescheduled">Rescheduled</option>
               <option value="cancelled">Cancelled</option>
+              <option value="void">Voided</option>
             </select>
             <input type="date" name="from" defaultValue={fromDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
             <input type="date" name="to" defaultValue={toDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
@@ -318,12 +322,23 @@ export default async function DeliveriesPage({ searchParams }) {
           <p className="no-print text-xs text-slate mb-2">{historyRows.length} of {allRows.length} deliveries</p>
           <div className="overflow-x-auto border border-line rounded-2xl">
             <table className="w-full text-[13.5px] border-collapse">
-              <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Delivery Boy</Th><Th>Status</Th><Th>Cash Collected</Th><Th>Notes</Th></tr></thead>
+              <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Delivery Boy</Th><Th>Status</Th><Th>Cash Collected</Th><Th>Notes</Th><Th className="no-print">&nbsp;</Th></tr></thead>
               <tbody>
-                {historyRows.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-slate">No deliveries match.</td></tr>}
+                {historyRows.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate">No deliveries match.</td></tr>}
                 {historyRows.map((d) => (
-                  <tr key={d.id} className="hover:bg-foam"><Td>{fmtDate(d.delivery_date)}</Td><Td>{d.customers?.name}</Td><Td>{qtyOf(d)}</Td><Td>{d.profiles?.full_name || "—"}</Td>
-                    <Td><Badge text={d.status} tone={STATUS_TONE(d.status)} /></Td><Td>{pkr(d.amount_collected)}</Td><Td className="max-w-[220px] truncate">{d.rider_remarks || "—"}</Td></tr>
+                  <tr key={d.id} className={`hover:bg-foam ${d.status === "void" ? "opacity-60" : ""}`}>
+                    <Td>{fmtDate(d.delivery_date)}</Td><Td>{d.customers?.name}</Td><Td>{qtyOf(d)}</Td><Td>{d.profiles?.full_name || "—"}</Td>
+                    <Td><Badge text={d.status} tone={STATUS_TONE(d.status)} />{d.status === "void" && d.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{d.void_reason}</div>}</Td>
+                    <Td>{pkr(d.amount_collected)}</Td><Td className="max-w-[220px] truncate">{d.rider_remarks || "—"}</Td>
+                    <Td className="no-print">
+                      {canVoidDeliveries && d.status !== "void" && (
+                        <ReasonConfirmButton action={voidDelivery} id={d.id} label="Void"
+                          confirmText={`Void this delivery for ${d.customers?.name}?`}
+                          detailText="This can't be undone. Reverses the bottle movement, the ledger charge, and any payment collected on this delivery."
+                          confirmLabel="Confirm Void" busyLabel="Voiding…" />
+                      )}
+                    </Td>
+                  </tr>
                 ))}
               </tbody>
             </table>

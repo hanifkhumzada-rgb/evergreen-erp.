@@ -6,6 +6,8 @@ import { KPI, Badge, Th, Td } from "@/components/ui";
 import EmployeeEditForm from "@/components/EmployeeEditForm";
 import EmployeeAdvanceForm from "@/components/EmployeeAdvanceForm";
 import AttendanceButtons from "@/components/AttendanceButtons";
+import ReasonConfirmButton from "@/components/ReasonConfirmButton";
+import { deleteEmployeeAdvance, deleteEmployeeAttendance } from "@/app/actions";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +21,7 @@ export default async function EmployeeProfilePage({ params }) {
   const monthStart = today.slice(0, 8) + "01";
   const [
     { data: e }, { data: zones }, { data: vehicles },
-    { data: deliveries }, { data: advances }, { data: attendance },
+    { data: deliveries }, { data: advances }, { data: attendance }, { data: canManage },
   ] = await Promise.all([
     supabase.from("profiles").select("*, roles!inner(name, key), zones(name), vehicles(registration_no)").eq("id", params.id).single(),
     supabase.from("zones").select("id, name").order("name"),
@@ -27,6 +29,7 @@ export default async function EmployeeProfilePage({ params }) {
     supabase.from("deliveries").select("delivery_date, status, amount_collected").eq("rider_id", params.id).order("delivery_date", { ascending: false }),
     supabase.from("employee_advances").select("*").eq("employee_id", params.id).order("advance_date", { ascending: false }),
     supabase.from("employee_attendance").select("*").eq("employee_id", params.id).order("attendance_date", { ascending: false }).limit(60),
+    supabase.rpc("fn_has_permission", { perm_key: "users.manage" }),
   ]);
 
   if (!e) {
@@ -88,9 +91,9 @@ export default async function EmployeeProfilePage({ params }) {
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl mb-8">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Status</Th><Th>Notes</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Status</Th><Th>Notes</Th><Th className="no-print">&nbsp;</Th></tr></thead>
           <tbody>
-            {(attendance || []).length === 0 && <tr><td colSpan={3} className="text-center py-8 text-slate">No attendance recorded yet.</td></tr>}
+            {(attendance || []).length === 0 && <tr><td colSpan={4} className="text-center py-8 text-slate">No attendance recorded yet.</td></tr>}
             {(attendance || []).map((a) => {
               const badge = ATTENDANCE_BADGE[a.status] || { text: a.status, tone: "slate" };
               return (
@@ -98,6 +101,14 @@ export default async function EmployeeProfilePage({ params }) {
                   <Td>{fmtDate(a.attendance_date)}</Td>
                   <Td><Badge text={badge.text} tone={badge.tone} /></Td>
                   <Td className="text-slate max-w-[240px] truncate">{a.notes || "—"}</Td>
+                  <Td className="no-print">
+                    {canManage && (
+                      <ReasonConfirmButton action={deleteEmployeeAttendance} id={a.id} label="Delete"
+                        confirmText={`Delete this attendance record (${fmtDate(a.attendance_date)})?`}
+                        detailText="This can't be undone."
+                        confirmLabel="Confirm Delete" busyLabel="Deleting…" />
+                    )}
+                  </Td>
                 </tr>
               );
             })}
@@ -111,15 +122,23 @@ export default async function EmployeeProfilePage({ params }) {
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Amount</Th><Th>Reason</Th><Th>Status</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Amount</Th><Th>Reason</Th><Th>Status</Th><Th className="no-print">&nbsp;</Th></tr></thead>
           <tbody>
-            {(advances || []).length === 0 && <tr><td colSpan={4} className="text-center py-8 text-slate">No advances recorded yet.</td></tr>}
+            {(advances || []).length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate">No advances recorded yet.</td></tr>}
             {(advances || []).map((a) => (
               <tr key={a.id} className="hover:bg-foam">
                 <Td>{fmtDate(a.advance_date)}</Td>
                 <Td className="font-semibold">{pkr(a.amount)}</Td>
                 <Td className="text-slate max-w-[240px] truncate">{a.reason || "—"}</Td>
                 <Td><Badge text={a.repaid ? "Repaid" : "Outstanding"} tone={a.repaid ? "green" : "amber"} /></Td>
+                <Td className="no-print">
+                  {canManage && (
+                    <ReasonConfirmButton action={deleteEmployeeAdvance} id={a.id} label="Delete"
+                      confirmText={`Delete this advance of ${pkr(a.amount)}?`}
+                      detailText="This can't be undone."
+                      confirmLabel="Confirm Delete" busyLabel="Deleting…" />
+                  )}
+                </Td>
               </tr>
             ))}
           </tbody>

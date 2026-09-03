@@ -4,8 +4,9 @@ import { pkr } from "@/lib/format";
 import { Badge, KPI, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import CustomerForm from "@/components/CustomerForm";
 import BulkImportButton from "@/components/BulkImportButton";
-import { bulkImportCustomers } from "@/app/actions";
-import { Truck, Wallet, FilePlus, UserCircle2 } from "lucide-react";
+import ReasonConfirmButton from "@/components/ReasonConfirmButton";
+import { bulkImportCustomers, deleteCustomer } from "@/app/actions";
+import { Truck, Wallet, FilePlus, UserCircle2, Trash2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -68,7 +69,7 @@ export default async function CustomersPage({ searchParams }) {
   const typeFilter = sp.type || "";
 
   const { supabase, profile } = await getCurrentProfile();
-  const [{ data: customers }, { data: zones }, { data: balances }, { data: products }, { data: vehicles }, { data: riders }, { data: routes }] = await Promise.all([
+  const [{ data: customers }, { data: zones }, { data: balances }, { data: products }, { data: vehicles }, { data: riders }, { data: routes }, { data: canDelete }] = await Promise.all([
     supabase.from("customers").select("*, zones(name)").order("created_at", { ascending: false }),
     supabase.from("zones").select("*"),
     supabase.from("v_customer_balance").select("customer_id, balance"),
@@ -76,6 +77,7 @@ export default async function CustomersPage({ searchParams }) {
     supabase.from("vehicles").select("id, registration_no").eq("is_active", true).order("registration_no"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").eq("roles.key", "rider").eq("is_active", true).order("full_name"),
     supabase.from("routes").select("id, name").eq("is_active", true).order("name"),
+    supabase.rpc("fn_has_permission", { perm_key: "customers.delete" }),
   ]);
 
   const balanceMap = {};
@@ -189,6 +191,12 @@ export default async function CustomersPage({ searchParams }) {
                       <Link href={`/payments?customer=${c.id}`} title="Collect Payment" className="w-9 h-9 flex items-center justify-center rounded-lg border border-line text-green hover:bg-greenSoft"><Wallet size={15} /></Link>
                       <Link href={`/invoices?customer=${c.id}`} title="Create Invoice" className="w-9 h-9 flex items-center justify-center rounded-lg border border-line text-navy hover:bg-foam"><FilePlus size={15} /></Link>
                       <Link href={`/customers/${c.id}`} title="View Profile" className="w-9 h-9 flex items-center justify-center rounded-lg border border-line text-slate hover:bg-foam"><UserCircle2 size={15} /></Link>
+                      {canDelete && (
+                        <ReasonConfirmButton action={deleteCustomer} id={c.id} label="" icon={Trash2}
+                          confirmText={`Permanently delete ${c.name}?`}
+                          detailText="This can't be undone. Blocked automatically if this customer has any delivery, invoice, payment, or ledger history — archive instead in that case."
+                          confirmLabel="Confirm Delete" busyLabel="Deleting…" />
+                      )}
                     </div>
                   </Td>
                 </tr>
