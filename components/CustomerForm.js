@@ -1,7 +1,8 @@
 "use client";
 import { useState, useRef } from "react";
-import { Plus, Pencil, X } from "lucide-react";
-import { createCustomer, updateCustomer } from "@/app/actions";
+import Link from "next/link";
+import { Plus, Pencil, X, AlertTriangle } from "lucide-react";
+import { createCustomer, updateCustomer, checkDuplicateCustomer } from "@/app/actions";
 import Toast from "@/components/Toast";
 
 const CUSTOMER_TYPES = ["Home", "Office", "Corporate", "Shop", "Other"];
@@ -25,18 +26,30 @@ export default function CustomerForm({ mode = "create", customer, zones, product
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [duplicates, setDuplicates] = useState(null); // { matches, formData } while the Cancel/Use Existing/Create Anyway dialog is open
   const formRef = useRef();
   const c = customer || {};
 
-  const handleSubmit = async (formData) => {
-    setError("");
+  const saveCustomer = async (formData) => {
     setBusy(true);
     const res = mode === "edit" ? await updateCustomer(c.id, formData) : await createCustomer(formData);
     setBusy(false);
     if (res?.error) { setError(res.error); return; }
     setOpen(false);
+    setDuplicates(null);
     if (mode === "create") formRef.current?.reset();
     setToast({ type: "success", message: mode === "edit" ? "Customer updated." : "Customer added." });
+  };
+
+  const handleSubmit = async (formData) => {
+    setError("");
+    if (mode === "create") {
+      setBusy(true);
+      const { matches } = await checkDuplicateCustomer(formData.get("phone"), formData.get("name"));
+      setBusy(false);
+      if (matches?.length) { setDuplicates({ matches, formData }); return; }
+    }
+    await saveCustomer(formData);
   };
 
   return (
@@ -196,6 +209,30 @@ export default function CustomerForm({ mode = "create", customer, zones, product
               {busy ? "Saving…" : mode === "edit" ? "Save Changes" : "Save Customer"}
             </button>
           </form>
+        </div>
+      )}
+      {duplicates && (
+        <div className="fixed inset-0 bg-black/40 z-[60] flex items-center justify-center p-4" onClick={() => !busy && setDuplicates(null)}>
+          <div className="bg-card rounded-2xl p-5 w-full max-w-sm shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <p className="font-semibold text-sm mb-1 flex items-center gap-1.5 text-amber"><AlertTriangle size={16} /> Possible duplicate customer</p>
+            <p className="text-xs text-slate mb-3">This mobile number or name matches {duplicates.matches.length === 1 ? "an existing customer" : "existing customers"} already on file:</p>
+            <div className="flex flex-col gap-1.5 mb-4">
+              {duplicates.matches.map((m) => (
+                <Link key={m.id} href={`/customers/${m.id}`} target="_blank"
+                  className="flex items-center justify-between px-3 py-2 rounded-lg border border-line hover:bg-foam text-xs">
+                  <span><strong>{m.name}</strong> · {m.mobile || "no phone"} {m.area ? `· ${m.area}` : ""}</span>
+                  <span className="text-[10px] text-slate uppercase">{m.matchReason} match</span>
+                </Link>
+              ))}
+            </div>
+            <p className="text-[11px] text-slate mb-3">Use Existing opens that customer&apos;s page in a new tab. Create Anyway saves this as a separate, new customer.</p>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setDuplicates(null)} disabled={busy}
+                className="flex-1 py-2 rounded-xl border border-line text-sm font-semibold disabled:opacity-60">Cancel</button>
+              <button type="button" onClick={() => saveCustomer(duplicates.formData)} disabled={busy}
+                className="flex-1 py-2 rounded-xl bg-amber text-white text-sm font-bold disabled:opacity-60">{busy ? "Saving…" : "Create Anyway"}</button>
+            </div>
+          </div>
         </div>
       )}
       <style jsx global>{`.in { width:100%; padding:9px 11px; border-radius:9px; border:1px solid var(--line); background: var(--card); color: var(--ink); font-size:13.5px; outline:none; }`}</style>

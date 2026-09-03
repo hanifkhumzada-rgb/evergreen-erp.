@@ -196,6 +196,35 @@ function customerFinancialsFromForm(formData) {
   };
 }
 
+// Section 9: duplicate-customer detection on create (and, separately,
+// bulk import already dedupes by mobile via BulkImportButton's
+// duplicateKey mechanism). A mobile match is a near-certain duplicate; an
+// exact case-insensitive name match (with a different number, e.g. a
+// second line) is a softer signal — both are returned so the UI can offer
+// Cancel / Use Existing / Create Anyway rather than silently blocking.
+export async function checkDuplicateCustomer(mobile, name) {
+  const { supabase } = await requireUser();
+  const trimmedMobile = (mobile || "").toString().trim();
+  const trimmedName = (name || "").toString().trim();
+  if (!trimmedMobile && !trimmedName) return { matches: [] };
+
+  const orParts = [];
+  if (trimmedMobile) orParts.push(`mobile.eq.${trimmedMobile}`);
+  if (trimmedName) orParts.push(`name.ilike.${trimmedName}`);
+
+  const { data } = await supabase.from("customers")
+    .select("id, code, name, mobile, area, status")
+    .or(orParts.join(","))
+    .limit(5);
+
+  return {
+    matches: (data || []).map((c) => ({
+      ...c,
+      matchReason: c.mobile === trimmedMobile ? "mobile" : "name",
+    })),
+  };
+}
+
 export async function createCustomer(formData) {
   const { supabase, user } = await requireUser();
   const role = await getUserRole(supabase, user);
@@ -272,6 +301,50 @@ export async function updateCustomer(customerId, formData) {
   });
   revalidatePath("/customers");
   revalidatePath(`/customers/${customerId}`);
+  return { ok: true };
+}
+
+// Section 11: a distinct status from inactive/on_hold/blacklisted — an
+// archived customer stops showing up for deliveries (is_active=false, the
+// same flag deliveries/page.js already filters on) but stays fully
+// visible/searchable everywhere else, with every historical record intact.
+// Deliberately its own action (not just "set status via the edit form") so
+// it always gets a reason and an audit log entry.
+export async function archiveCustomer(customerId, reason) {
+  const { supabase, user } = await requireUser();
+  const trimmed = (reason || "").toString().trim();
+  if (!trimmed) return { error: "A reason is required to archive a customer." };
+
+  const { error } = await supabase.from("customers").update({ status: "archived", is_active: false }).eq("id", customerId);
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "ARCHIVE", module: "customers", record_id: customerId, new_value: { reason: trimmed } });
+  revalidatePath("/customers");
+  revalidatePath(`/customers/${customerId}`);
+  return { ok: true };
+}
+
+// Section 10: hard delete, gated on customers.delete. The FK from
+// bottle_transactions/customer_ledger_entries/deliveries/invoices/orders/
+// payments into customers is NO ACTION (verified against the schema), so
+// the database itself already refuses to delete a customer with any real
+// transaction history — this surfaces that (Postgres code 23503) as a
+// clear "archive instead" message rather than a raw constraint error, and
+// only customers with zero history (a genuine data-entry duplicate/
+// mistake) can actually be removed this way.
+export async function deleteCustomer(customerId, reason) {
+  const { supabase, user } = await requireUser();
+  const trimmed = (reason || "").toString().trim();
+  if (!trimmed) return { error: "A reason is required to delete a customer." };
+
+  const { error } = await supabase.from("customers").delete().eq("id", customerId);
+  if (error) {
+    if (error.code === "23503") return { error: "Can't delete — this customer has delivery, invoice, payment, or ledger history. Archive instead to keep the records but stop new activity." };
+    return { error: error.message };
+  }
+
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "DELETE", module: "customers", record_id: customerId, new_value: { reason: trimmed } });
+  revalidatePath("/customers");
   return { ok: true };
 }
 

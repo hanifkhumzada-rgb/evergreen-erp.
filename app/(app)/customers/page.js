@@ -14,6 +14,7 @@ const STATUS_BADGE = {
   inactive: { text: "Inactive", tone: "slate" },
   on_hold: { text: "On Hold", tone: "amber" },
   blacklisted: { text: "Blacklisted", tone: "coral" },
+  archived: { text: "Archived", tone: "slate" },
 };
 
 // Same field set as the Customer Master form — the template's columns line

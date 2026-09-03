@@ -5,6 +5,9 @@ import { pkr, fmtDate } from "@/lib/format";
 import { KPI, Badge, Th, Td, PrintButton, DownloadPdfButton } from "@/components/ui";
 import CustomerForm, { EditCustomerTrigger } from "@/components/CustomerForm";
 import { SalesTrendChart } from "@/components/LazyCharts";
+import ReasonConfirmButton from "@/components/ReasonConfirmButton";
+import { archiveCustomer, deleteCustomer } from "@/app/actions";
+import { Archive, Trash2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +17,7 @@ const STATUS_BADGE = {
   inactive: { text: "Inactive", tone: "slate" },
   on_hold: { text: "On Hold", tone: "amber" },
   blacklisted: { text: "Blacklisted", tone: "coral" },
+  archived: { text: "Archived", tone: "slate" },
 };
 const DELIVERY_TONE = (s) => (s === "delivered" ? "green" : s === "cancelled" || s === "missed" ? "coral" : "amber");
 const UNPAID_STATUSES = ["sent", "partially_paid", "overdue"];
@@ -39,6 +43,7 @@ export default async function CustomerProfilePage({ params }) {
     { data: c }, { data: invoices }, { data: payments }, { data: balanceRow }, { data: bottleBalanceRows },
     { data: deliveries }, { data: bottleTxns }, { data: ledgerEntries },
     { data: zones }, { data: products }, { data: vehicles }, { data: riders }, { data: routes },
+    { data: canDelete },
   ] = await Promise.all([
     supabase.from("customers").select("*, zones(name), profiles!customers_assigned_rider_id_fkey(full_name), vehicles(registration_no)").eq("id", params.id).single(),
     supabase.from("invoices").select("*").eq("customer_id", params.id).neq("status", "void").order("invoice_date", { ascending: false }),
@@ -53,6 +58,7 @@ export default async function CustomerProfilePage({ params }) {
     supabase.from("vehicles").select("id, registration_no").eq("is_active", true).order("registration_no"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").eq("roles.key", "rider").eq("is_active", true).order("full_name"),
     supabase.from("routes").select("id, name").eq("is_active", true).order("name"),
+    supabase.rpc("fn_has_permission", { perm_key: "customers.delete" }),
   ]);
 
   if (!c) {
@@ -178,6 +184,18 @@ export default async function CustomerProfilePage({ params }) {
           />
           <DownloadPdfButton href={`/api/pdf/customer-statement/${c.id}`} label="Download Statement" />
           <PrintButton />
+          {canDelete && c.status !== "archived" && (
+            <ReasonConfirmButton action={archiveCustomer} id={c.id} label="Archive" icon={Archive}
+              confirmText={`Archive ${c.name}?`}
+              detailText="Their record and full history stay intact and searchable — they just stop showing up for new deliveries. Can be reversed by editing their status back."
+              confirmLabel="Confirm Archive" busyLabel="Archiving…" />
+          )}
+          {canDelete && (
+            <ReasonConfirmButton action={deleteCustomer} id={c.id} label="Delete" icon={Trash2}
+              confirmText={`Permanently delete ${c.name}?`}
+              detailText="This can't be undone. Blocked automatically if this customer has any delivery, invoice, payment, or ledger history — archive instead in that case."
+              confirmLabel="Confirm Delete" busyLabel="Deleting…" />
+          )}
         </div>
       </div>
 
