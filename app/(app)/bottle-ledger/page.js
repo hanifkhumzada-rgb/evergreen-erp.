@@ -89,7 +89,10 @@ export default async function BottleLedgerPage() {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-1">Bottle Ledger</h2>
+      <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
+        <h2 className="font-display text-2xl font-semibold">Bottle Inventory</h2>
+        <Link href="/bottles" className="no-print text-xs font-semibold text-aqua hover:underline">Customer-wise balances →</Link>
+      </div>
       <p className="text-slate text-sm mb-5">Professional bottle accounting — every movement traceable, valued against replacement cost.</p>
 
       {needsAttention.length > 0 && (

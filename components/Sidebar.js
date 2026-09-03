@@ -5,10 +5,10 @@ import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { signOut } from "@/app/actions";
 import ThemeToggle from "@/components/ThemeToggle";
 import {
-  Home, Users, ShoppingCart, Truck, Droplet, Package, Wallet, Receipt,
+  Home, Users, Truck, Droplet, Package, Wallet, Receipt, ReceiptText,
   BookOpen, UserCog, BarChart3, Settings, LogOut, Landmark, FileText,
-  Scale, TrendingUp, ClipboardCheck, Car, Bot, Bell, MapPin, Menu, X, FileDown,
-  ChevronRight, ChevronLeft, Factory,
+  Scale, TrendingUp, ClipboardCheck, Car, Bot, Bell, MapPin, Menu, X,
+  ChevronRight, ChevronLeft, Factory, FolderInput,
 } from "lucide-react";
 
 const SidebarContext = createContext(null);
@@ -27,59 +27,58 @@ export function SidebarToggleButton() {
   );
 }
 
-// Same nav items as before, just regrouped: Dashboard / Reports / Evergreen AI
-// stay single direct links, everything else nests under one of four flyout
-// groups (Sales & Operations, Inventory & Bottles, Fleet & Team, Finance) or
-// the Settings group.
+// UX redesign Phase 1 — flat MAIN section (every day-to-day workflow as its
+// own top-level icon, nothing buried in a flyout) plus three collapsible
+// groups for things that are genuinely secondary to daily operations:
+// ACCOUNTING & FINANCE (the ledger-and-statements side of accounting —
+// deliberately does NOT include Payments/Expenses/Customer Ledger/Invoices,
+// which are day-to-day and stay in MAIN), INTELLIGENCE (AI + alerts), and
+// SYSTEM (admin-only). "Financial Reports" reuses the existing /reports
+// browser (it also has non-financial reports like Delivery/Fleet/Production
+// performance — those stay reachable from the same page, just linked here
+// under its most financial-sounding entry rather than duplicating a second
+// reports page). "Inventory" (raw materials/purchases — a different system
+// from bottle tracking) isn't in the spec's MAIN list but is kept reachable
+// here rather than silently dropped from the nav.
 const NAV = [
   { type: "link", href: "/dashboard", label: "Dashboard", icon: Home, roles: ["owner", "manager", "accountant"] },
+  { type: "link", href: "/customers", label: "Customers", icon: Users, roles: ["owner", "manager"] },
+  { type: "link", href: "/deliveries", label: "Deliveries", icon: Truck, roles: ["owner", "manager", "rider"] },
+  { type: "link", href: "/bottle-ledger", label: "Bottle Inventory", icon: Droplet, roles: ["owner", "manager"] },
+  { type: "link", href: "/production", label: "Production & Filling", icon: Factory, roles: ["owner", "manager", "accountant"] },
+  { type: "link", href: "/payments", label: "Payments", icon: Receipt, roles: ["owner", "accountant"] },
+  { type: "link", href: "/expenses", label: "Expenses", icon: Wallet, roles: ["owner", "manager", "accountant"] },
+  { type: "link", href: "/ledger", label: "Customer Ledger", icon: BookOpen, roles: ["owner", "accountant"] },
+  { type: "link", href: "/invoices", label: "Invoices", icon: ReceiptText, roles: ["owner", "manager", "accountant"] },
+  { type: "link", href: "/fleet", label: "Fleet", icon: Car, roles: ["owner", "manager"] },
+  { type: "link", href: "/employees", label: "Employees", icon: UserCog, roles: ["owner", "manager"] },
+  { type: "link", href: "/zones", label: "Zones & Routes", icon: MapPin, roles: ["owner", "manager"] },
+  { type: "link", href: "/inventory", label: "Inventory", icon: Package, roles: ["owner", "manager"] },
   {
-    type: "group", key: "sales-ops", label: "Sales & Operations", icon: ShoppingCart,
+    type: "group", key: "accounting-finance", label: "Accounting & Finance", icon: Landmark,
     items: [
-      { href: "/customers", label: "Customers", icon: Users, roles: ["owner", "manager"] },
-      { href: "/sales", label: "Sales", icon: ShoppingCart, roles: ["owner", "manager", "accountant"] },
-      { href: "/deliveries", label: "Deliveries", icon: Truck, roles: ["owner", "manager", "rider"] },
-      { href: "/zones", label: "Zones & Routes", icon: MapPin, roles: ["owner", "manager"] },
-    ],
-  },
-  {
-    type: "group", key: "inventory-bottles", label: "Inventory & Bottles", icon: Package,
-    items: [
-      { href: "/inventory", label: "Inventory", icon: Package, roles: ["owner", "manager"] },
-      { href: "/bottle-ledger", label: "Bottle Ledger", icon: Droplet, roles: ["owner", "manager"] },
-    ],
-  },
-  {
-    type: "group", key: "fleet-team", label: "Fleet & Team", icon: Car,
-    items: [
-      { href: "/fleet", label: "Fleet", icon: Car, roles: ["owner", "manager"] },
-      { href: "/employees", label: "Employees", icon: UserCog, roles: ["owner", "manager"] },
-    ],
-  },
-  {
-    type: "group", key: "finance", label: "Finance", icon: Landmark,
-    items: [
-      { href: "/payments", label: "Payments", icon: Receipt, roles: ["owner", "accountant"] },
-      { href: "/expenses", label: "Expenses", icon: Wallet, roles: ["owner", "manager", "accountant"] },
-      { href: "/production", label: "Production & Filling", icon: Factory, roles: ["owner", "manager", "accountant"] },
-      { href: "/ledger", label: "Customer Ledger", icon: BookOpen, roles: ["owner", "accountant"] },
       { href: "/accounting/chart-of-accounts", label: "Chart of Accounts", icon: Landmark, roles: ["owner", "accountant"] },
       { href: "/accounting/journal", label: "Journal Entries", icon: FileText, roles: ["owner", "accountant"] },
       { href: "/accounting/trial-balance", label: "Trial Balance", icon: Scale, roles: ["owner", "accountant"] },
       { href: "/accounting/profit-loss", label: "Profit & Loss", icon: TrendingUp, roles: ["owner", "accountant"] },
       { href: "/accounting/balance-sheet", label: "Balance Sheet", icon: Scale, roles: ["owner", "accountant"] },
       { href: "/accounting/daily-closing", label: "Daily Closing", icon: ClipboardCheck, roles: ["owner", "accountant"] },
+      { href: "/reports", label: "Financial Reports", icon: BarChart3, roles: ["owner", "manager", "accountant"] },
     ],
   },
-  { type: "link", href: "/reports", label: "Reports", icon: BarChart3, roles: ["owner", "manager", "accountant"] },
-  { type: "link", href: "/ai", label: "Evergreen AI", icon: Bot, roles: ["owner", "manager", "accountant"] },
   {
-    type: "group", key: "settings", label: "Settings", icon: Settings,
+    type: "group", key: "intelligence", label: "Intelligence", icon: Bot,
     items: [
-      { href: "/notifications", label: "Notifications", icon: Bell, roles: ["owner", "manager", "accountant"] },
+      { href: "/ai", label: "Evergreen AI", icon: Bot, roles: ["owner", "manager", "accountant"] },
+      { href: "/notifications", label: "Alerts & Notifications", icon: Bell, roles: ["owner", "manager", "accountant"] },
+    ],
+  },
+  {
+    type: "group", key: "system", label: "System", icon: Settings,
+    items: [
       { href: "/user-management", label: "User Management", icon: UserCog, roles: ["owner"] },
       { href: "/audit-logs", label: "Audit Logs", icon: FileText, roles: ["owner"] },
-      { href: "/settings/export", label: "Export Data", icon: FileDown, roles: ["owner"] },
+      { href: "/settings/export", label: "Import/Export", icon: FolderInput, roles: ["owner"] },
       { href: "/settings", label: "Settings", icon: Settings, roles: ["owner"] },
     ],
   },
