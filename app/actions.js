@@ -2,6 +2,8 @@
 import { createClient, createAdminClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { REMEMBER_ME_COOKIE } from "@/lib/rememberMe";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -132,6 +134,11 @@ export async function signOut() {
   const { data: { user } } = await supabase.auth.getUser();
   if (user) await supabase.from("audit_logs").insert({ user_id: user.id, action: "LOGOUT", module: "auth" });
   await supabase.auth.signOut();
+  // supabase.auth.signOut() clears the real session cookies regardless of
+  // remember-me (createClient's setAll removal branch is untouched by that
+  // flag). This clears the flag itself too, so a plain, unchecked sign-in
+  // right after doesn't inherit a stale "remembered" cookie from before.
+  try { (await cookies()).set(REMEMBER_ME_COOKIE, "", { path: "/", maxAge: 0 }); } catch {}
   redirect("/login");
 }
 
