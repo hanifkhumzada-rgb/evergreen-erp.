@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/session";
 import { Th, Td } from "@/components/ui";
 import UserRoleSelect from "@/components/UserRoleSelect";
 import UserActiveToggle from "@/components/UserActiveToggle";
@@ -8,8 +8,7 @@ import DeleteUserButton from "@/components/DeleteUserButton";
 export const dynamic = "force-dynamic";
 
 export default async function UserManagementPage() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { supabase, user } = await getCurrentProfile();
   const [{ data: users }, { data: roles }] = await Promise.all([
     supabase.from("profiles").select("*, roles(key, name)").order("created_at"),
     supabase.from("roles").select("*").order("name"),

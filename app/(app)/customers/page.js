@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/session";
 import Link from "next/link";
 import { pkr } from "@/lib/format";
 import { Badge, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
@@ -65,16 +65,14 @@ export default async function CustomersPage({ searchParams }) {
   const statusFilter = sp.status || "";
   const typeFilter = sp.type || "";
 
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const [{ data: customers }, { data: zones }, { data: balances }, { data: products }, { data: vehicles }, { data: riders }, { data: profile }, { data: routes }] = await Promise.all([
+  const { supabase, profile } = await getCurrentProfile();
+  const [{ data: customers }, { data: zones }, { data: balances }, { data: products }, { data: vehicles }, { data: riders }, { data: routes }] = await Promise.all([
     supabase.from("customers").select("*, zones(name)").order("created_at", { ascending: false }),
     supabase.from("zones").select("*"),
     supabase.from("v_customer_balance").select("customer_id, balance"),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
     supabase.from("vehicles").select("id, registration_no").eq("is_active", true).order("registration_no"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").eq("roles.key", "rider").eq("is_active", true).order("full_name"),
-    supabase.from("profiles").select("roles(key)").eq("id", user.id).single(),
     supabase.from("routes").select("id, name").eq("is_active", true).order("name"),
   ]);
 

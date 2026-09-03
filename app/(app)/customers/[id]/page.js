@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/session";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { pkr, fmtDate } from "@/lib/format";
@@ -34,12 +34,11 @@ function SectionTitle({ children }) {
 }
 
 export default async function CustomerProfilePage({ params }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { supabase, profile } = await getCurrentProfile();
   const [
     { data: c }, { data: invoices }, { data: payments }, { data: balanceRow }, { data: bottleBalanceRows },
     { data: deliveries }, { data: bottleTxns }, { data: ledgerEntries },
-    { data: zones }, { data: products }, { data: vehicles }, { data: riders }, { data: profile }, { data: routes },
+    { data: zones }, { data: products }, { data: vehicles }, { data: riders }, { data: routes },
   ] = await Promise.all([
     supabase.from("customers").select("*, zones(name), profiles!customers_assigned_rider_id_fkey(full_name), vehicles(registration_no)").eq("id", params.id).single(),
     supabase.from("invoices").select("*").eq("customer_id", params.id).order("invoice_date", { ascending: false }),
@@ -53,7 +52,6 @@ export default async function CustomerProfilePage({ params }) {
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
     supabase.from("vehicles").select("id, registration_no").eq("is_active", true).order("registration_no"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").eq("roles.key", "rider").eq("is_active", true).order("full_name"),
-    supabase.from("profiles").select("roles(key)").eq("id", user.id).single(),
     supabase.from("routes").select("id, name").eq("is_active", true).order("name"),
   ]);
 

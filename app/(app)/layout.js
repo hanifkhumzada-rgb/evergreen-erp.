@@ -1,18 +1,14 @@
-import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { getCurrentProfile } from "@/lib/session";
 import Sidebar, { SidebarProvider, SidebarToggleButton } from "@/components/Sidebar";
 import GlobalSearch from "@/components/GlobalSearch";
 import { Bell } from "lucide-react";
 
 export default async function AppLayout({ children }) {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  const { supabase, user, profile } = await getCurrentProfile();
   if (!user) redirect("/login");
 
-  const [{ data: profile }, unreadNotificationsRes] = await Promise.all([
-    supabase.from("profiles").select("*, roles(key, name)").eq("id", user.id).single(),
-    supabase.from("notifications").select("id", { count: "exact", head: true }).eq("is_read", false),
-  ]);
+  const unreadNotificationsRes = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("is_read", false);
   const unreadNotifications = unreadNotificationsRes.count || 0;
 
   if (!profile) {

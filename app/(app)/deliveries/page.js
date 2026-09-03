@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/session";
 import Link from "next/link";
 import { pkr, fmtDate } from "@/lib/format";
 import { Badge, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
@@ -24,9 +24,7 @@ function latestValidPrice(rows, today) {
 
 export default async function DeliveriesPage({ searchParams }) {
   const sp = (await searchParams) || {};
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const { data: profile } = await supabase.from("profiles").select("*, roles(key)").eq("id", user.id).single();
+  const { supabase, user, profile } = await getCurrentProfile();
 
   if (profile?.roles?.key === "rider") {
     const { data: deliveries } = await supabase.from("deliveries")

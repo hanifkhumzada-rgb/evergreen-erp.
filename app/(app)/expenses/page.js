@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/session";
 import { pkr, fmtDate } from "@/lib/format";
 import { ExportExcelButton, PrintButton, Th, Td, Badge } from "@/components/ui";
 import AddExpenseForm from "@/components/AddExpenseForm";
@@ -19,11 +19,9 @@ const STATUS_BADGE = {
 
 export default async function ExpensesPage({ searchParams }) {
   const sp = (await searchParams) || {};
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  const [{ data: expenses }, { data: profile }, { data: categories }] = await Promise.all([
+  const { supabase, profile } = await getCurrentProfile();
+  const [{ data: expenses }, { data: categories }] = await Promise.all([
     supabase.from("expenses").select("*, expense_categories(name), profiles!expenses_submitted_by_fkey(full_name)").order("created_at", { ascending: false }).limit(200),
-    supabase.from("profiles").select("roles(key)").eq("id", user.id).single(),
     supabase.from("expense_categories").select("id, name").order("name"),
   ]);
   const isOwner = profile?.roles?.key === "owner";
