@@ -18,7 +18,8 @@ const FREQ_DAYS = { Daily: 1, Weekly: 7, Monthly: 30, Custom: 30 };
 const BUCKET_LABEL = { overdue: "Overdue", today: "Today", week: "This Week", month: "This Month" };
 const BUCKET_TONE = { overdue: "coral", today: "amber", week: "aqua", month: "slate" };
 
-export default async function PaymentsPage() {
+export default async function PaymentsPage({ searchParams }) {
+  const sp = (await searchParams) || {};
   const supabase = await createClient();
   const [{ data: payments }, { data: balances }, { data: collectors }, { data: allPayments }, { data: customersMeta }] = await Promise.all([
     supabase.from("payments").select("*, customers(name), profiles!payments_received_by_fkey(full_name)").order("created_at", { ascending: false }).limit(200),
@@ -104,6 +105,7 @@ export default async function PaymentsPage() {
         <AddPaymentForm
           customers={(balances || []).map((b) => ({ id: b.customer_id, name: b.name, balance: b.balance }))}
           collectors={collectors || []}
+          initialCustomerId={sp.customer || ""}
         />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">

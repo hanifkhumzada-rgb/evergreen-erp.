@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Plus, X, Search } from "lucide-react";
 import { createDelivery } from "@/app/actions";
 import { pkr } from "@/lib/format";
@@ -10,7 +10,7 @@ import Toast from "@/components/Toast";
 // — all computed server-side in deliveries/page.js so this stays a plain
 // client-side filter (no round trip) matching AddSaleForm/AddPaymentForm's
 // "pass the full list as props" pattern used across the app.
-export default function DeliveryForm({ customers, products, riders = [], currentUserId }) {
+export default function DeliveryForm({ customers, products, riders = [], currentUserId, initialCustomerId }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
@@ -19,6 +19,20 @@ export default function DeliveryForm({ customers, products, riders = [], current
   const [selected, setSelected] = useState(null);
   const [productId, setProductId] = useState(products?.[0]?.id || "");
   const formRef = useRef();
+
+  // A per-row "Deliver" quick action elsewhere (e.g. the Customers workspace)
+  // links here with ?customer=<id> instead of duplicating this form's rate/
+  // bottle-balance lookups — open pre-selected the one time on mount.
+  useEffect(() => {
+    if (!initialCustomerId) return;
+    const c = customers.find((x) => x.id === initialCustomerId);
+    if (!c) return;
+    setSelected(c);
+    setQuery(c.name);
+    if (c.default_product_id) setProductId(c.default_product_id);
+    setOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCustomerId]);
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();

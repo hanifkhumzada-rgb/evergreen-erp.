@@ -17,7 +17,8 @@ export const dynamic = "force-dynamic";
 const STATUS_LABEL = { paid: "Paid", partially_paid: "Partially Paid", sent: "Pending", draft: "Draft", overdue: "Overdue", void: "Void" };
 const STATUS_TONE = { paid: "green", partially_paid: "amber", sent: "coral", draft: "slate", overdue: "coral", void: "slate" };
 
-export default async function InvoicesPage() {
+export default async function InvoicesPage({ searchParams }) {
+  const sp = (await searchParams) || {};
   const supabase = await createClient();
   const [{ data: invoices }, { data: customers }, { data: products }] = await Promise.all([
     supabase.from("invoices").select("*, customers(name), invoice_items(quantity)").order("created_at", { ascending: false }).limit(200),
@@ -45,7 +46,7 @@ export default async function InvoicesPage() {
         <ExportExcelButton rows={exportRows} filename="evergreen-invoices.xlsx" sheetName="Invoices" />
         <DownloadPdfButton href={`/api/pdf/daily-sales?date=${new Date().toISOString().slice(0, 10)}`} label="Download Today's PDF" />
         <PrintButton />
-        <AddSaleForm customers={customers || []} products={products || []} />
+        <AddSaleForm customers={customers || []} products={products || []} initialCustomerId={sp.customer || ""} />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">

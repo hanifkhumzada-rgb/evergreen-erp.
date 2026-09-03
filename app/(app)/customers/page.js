@@ -1,10 +1,11 @@
 import { getCurrentProfile } from "@/lib/session";
 import Link from "next/link";
 import { pkr } from "@/lib/format";
-import { Badge, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
+import { Badge, KPI, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import CustomerForm from "@/components/CustomerForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import { bulkImportCustomers } from "@/app/actions";
+import { Truck, Wallet, FilePlus, UserCircle2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,14 @@ export default async function CustomersPage({ searchParams }) {
   const allRows = (customers || []).map((c) => ({ ...c, balance: balanceMap[c.id] || 0 }));
   const canManageFinancial = ["owner", "admin"].includes(profile?.roles?.key);
 
+  // KPI SUMMARY — computed over the full customer set, independent of the
+  // table's active filters (same convention as the Delivery/Payment
+  // workspaces: KPIs describe the whole book, the table below is scoped).
+  const monthStartISO = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+  const newThisMonth = allRows.filter((c) => c.created_at >= monthStartISO).length;
+  const totalOutstanding = allRows.reduce((a, c) => a + Math.max(c.balance, 0), 0);
+  const customersDue = allRows.filter((c) => c.balance > 0).length;
+
   const rows = allRows.filter((c) => {
     if (zoneFilter && c.zone_id !== zoneFilter) return false;
     if (statusFilter && c.status !== statusFilter) return false;
@@ -102,7 +111,16 @@ export default async function CustomersPage({ searchParams }) {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-4">Customers</h2>
+      <h2 className="font-display text-2xl font-semibold mb-1">Customers</h2>
+      <p className="text-slate text-sm mb-4">Customer workspace — book, balances, and quick actions in one place.</p>
+
+      <div className="flex flex-wrap gap-3.5 mb-5">
+        <KPI label="TOTAL CUSTOMERS" value={allRows.length} tone="navy" />
+        <KPI label="NEW THIS MONTH" value={newThisMonth} tone="aqua" />
+        <KPI label="OUTSTANDING" value={pkr(totalOutstanding)} tone="coral" sub="total receivable across all customers" />
+        <KPI label="CUSTOMERS DUE" value={customersDue} tone="amber" sub="with an outstanding balance" />
+      </div>
+
       <form className="no-print flex flex-wrap gap-2.5 mb-4 items-center" action="/customers">
         <input
           type="text" name="q" defaultValue={sp.q || ""}
@@ -141,9 +159,9 @@ export default async function CustomersPage({ searchParams }) {
       <p className="no-print text-xs text-slate mb-2">{rows.length} of {allRows.length} customers</p>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Customer ID</Th><Th>Name</Th><Th>Phone</Th><Th>Zone</Th><Th>Type</Th><Th>Balance</Th><Th>Status</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Customer ID</Th><Th>Name</Th><Th>Phone</Th><Th>Zone</Th><Th>Type</Th><Th>Balance</Th><Th>Status</Th><Th className="no-print">Quick Actions</Th></tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-slate">No customers match.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate">No customers match.</td></tr>}
             {rows.map((c) => {
               const badge = STATUS_BADGE[c.status] || (c.is_active ? STATUS_BADGE.active : STATUS_BADGE.inactive);
               return (
@@ -155,6 +173,14 @@ export default async function CustomersPage({ searchParams }) {
                   <Td>{c.customer_type}</Td>
                   <Td><span className={c.balance > 0 ? "text-coral font-semibold" : "text-green font-semibold"}>{pkr(c.balance)}</span></Td>
                   <Td><Badge text={badge.text} tone={badge.tone} /></Td>
+                  <Td className="no-print">
+                    <div className="flex gap-1.5">
+                      <Link href={`/deliveries?customer=${c.id}`} title="Deliver" className="w-7 h-7 flex items-center justify-center rounded-lg border border-line text-aqua hover:bg-aquaSoft"><Truck size={14} /></Link>
+                      <Link href={`/payments?customer=${c.id}`} title="Collect Payment" className="w-7 h-7 flex items-center justify-center rounded-lg border border-line text-green hover:bg-greenSoft"><Wallet size={14} /></Link>
+                      <Link href={`/invoices?customer=${c.id}`} title="Create Invoice" className="w-7 h-7 flex items-center justify-center rounded-lg border border-line text-navy hover:bg-foam"><FilePlus size={14} /></Link>
+                      <Link href={`/customers/${c.id}`} title="View Profile" className="w-7 h-7 flex items-center justify-center rounded-lg border border-line text-slate hover:bg-foam"><UserCircle2 size={14} /></Link>
+                    </div>
+                  </Td>
                 </tr>
               );
             })}

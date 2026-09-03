@@ -161,7 +161,7 @@ export default async function DeliveriesPage({ searchParams }) {
         />
         <ExportExcelButton rows={exportRows} filename="evergreen-deliveries.xlsx" sheetName="Deliveries" />
         <PrintButton />
-        <DeliveryForm customers={formCustomers} products={products || []} riders={riders || []} currentUserId={user.id} />
+        <DeliveryForm customers={formCustomers} products={products || []} riders={riders || []} currentUserId={user.id} initialCustomerId={sp.customer || ""} />
       </div>
       <p className="no-print text-xs text-slate mb-2">{rows.length} of {allRows.length} deliveries</p>
       <div className="overflow-x-auto border border-line rounded-2xl">

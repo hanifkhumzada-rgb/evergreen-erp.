@@ -1,16 +1,26 @@
 "use client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Plus, X } from "lucide-react";
 import { createSale } from "@/app/actions";
 import Toast from "@/components/Toast";
 
-export default function AddSaleForm({ customers, products }) {
+export default function AddSaleForm({ customers, products, initialCustomerId }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
   const [busy, setBusy] = useState(false);
   const [productId, setProductId] = useState(products?.[0]?.id || "");
   const formRef = useRef();
+
+  // "Create Invoice" quick action elsewhere links here with ?customer=<id>
+  // — open pre-selected instead of making the caller duplicate this form.
+  useEffect(() => {
+    if (!initialCustomerId) return;
+    const c = customers.find((x) => x.id === initialCustomerId);
+    if (c?.default_product_id) setProductId(c.default_product_id);
+    setOpen(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialCustomerId]);
 
   const handleSubmit = async (formData) => {
     setError("");
@@ -46,7 +56,7 @@ export default function AddSaleForm({ customers, products }) {
             {error && <p className="text-coral text-xs mb-3">{error}</p>}
             <label className="block mb-3">
               <span className="text-xs font-semibold text-slate block mb-1">Customer</span>
-              <select name="customer_id" required className="in" onChange={(e) => handleCustomerChange(e.target.value)}>
+              <select name="customer_id" required defaultValue={initialCustomerId || undefined} className="in" onChange={(e) => handleCustomerChange(e.target.value)}>
                 {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </label>
