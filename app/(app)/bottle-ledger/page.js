@@ -15,7 +15,7 @@ export default async function BottleLedgerPage() {
   const supabase = await createClient();
   const [{ data: balances }, { data: movements }, { data: customers }, { data: reconciliation }, { data: products }, { data: reconHistory }] = await Promise.all([
     supabase.from("v_customer_bottle_balance").select("customer_id, name, bottles_with_customer"),
-    supabase.from("bottle_transactions").select("*, customers(name), products(name)").order("created_at", { ascending: false }).limit(150),
+    supabase.from("bottle_transactions").select("*, customers(name), products(name), profiles(full_name)").order("created_at", { ascending: false }).limit(150),
     supabase.from("customers").select("id, bottle_limit"),
     supabase.from("v_bottle_reconciliation").select("*").order("product_name"),
     supabase.from("products").select("id, name, size_label").eq("is_active", true).order("name"),
@@ -27,7 +27,39 @@ export default async function BottleLedgerPage() {
   const withCustomers = (balances || []).reduce((a, b) => a + Number(b.bottles_with_customer), 0);
   const full = totalOwned - withCustomers;
   const liabilityValue = withCustomers * BOTTLE_COST;
-  const exportRows = (movements || []).map((m) => ({ Date: m.txn_date, Customer: m.customers?.name, Size: m.products?.name, From: m.from_state, To: m.to_state, Qty: m.quantity }));
+  const warehouseTotal = bySize.reduce((a, s) => a + Number(s.warehouse), 0);
+  const withRiderTotal = bySize.reduce((a, s) => a + Number(s.with_rider), 0);
+  const damagedTotal = bySize.reduce((a, s) => a + Number(s.damaged), 0);
+  const lostTotal = bySize.reduce((a, s) => a + Number(s.lost), 0);
+  const exportRows = (movements || []).map((m) => ({ Date: m.txn_date, Customer: m.customers?.name, Size: m.products?.name, From: m.from_state, To: m.to_state, Qty: m.quantity, By: m.profiles?.full_name }));
+
+  // Before/after "with customer" balance per row — computed from each
+  // customer+size's full transaction history (not just the 150-row feed
+  // above), so the figures are the real running balance, not a guess
+  // bounded by whatever page of the feed happens to be visible.
+  const pairs = Array.from(new Set((movements || []).filter((m) => m.customer_id).map((m) => `${m.customer_id}|${m.product_id}`)));
+  const runningBalance = {};
+  if (pairs.length) {
+    const customerIds = Array.from(new Set(pairs.map((p) => p.split("|")[0])));
+    const { data: fullHistory } = await supabase.from("bottle_transactions")
+      .select("id, customer_id, product_id, quantity, from_state, to_state, created_at")
+      .in("customer_id", customerIds).order("created_at", { ascending: true });
+    const byPair = {};
+    (fullHistory || []).forEach((t) => {
+      const key = `${t.customer_id}|${t.product_id}`;
+      if (!pairs.includes(key)) return;
+      (byPair[key] ||= []).push(t);
+    });
+    Object.values(byPair).forEach((txns) => {
+      let bal = 0;
+      txns.forEach((t) => {
+        const before = bal;
+        if (t.to_state === "with_customer") bal += Number(t.quantity);
+        else if (t.from_state === "with_customer") bal -= Number(t.quantity);
+        runningBalance[t.id] = { before, after: bal };
+      });
+    });
+  }
 
   const expectedByProduct = {};
   bySize.forEach((s) => { expectedByProduct[s.product_id] = Number(s.warehouse); });
@@ -79,7 +111,11 @@ export default async function BottleLedgerPage() {
       <div className="flex gap-3 flex-wrap mb-6">
         <Stat label="Total owned (all sizes)" value={totalOwned} />
         <Stat label="Full (available)" value={full} />
+        <Stat label="Warehouse" value={warehouseTotal} />
+        <Stat label="With riders" value={withRiderTotal} />
         <Stat label="With customers" value={withCustomers} />
+        <Stat label="Damaged" value={damagedTotal} />
+        <Stat label="Lost" value={lostTotal} />
         <Stat label="Bottle liability value" value={pkr(liabilityValue)} sub={`@ ${pkr(BOTTLE_COST)}/bottle avg. replacement cost`} />
       </div>
 
@@ -147,10 +183,22 @@ export default async function BottleLedgerPage() {
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Size</Th><Th>From</Th><Th>To</Th><Th>Qty</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Size</Th><Th>From</Th><Th>To</Th><Th>Qty</Th><Th>Before</Th><Th>After</Th><Th>By</Th><Th>Reason</Th></tr></thead>
           <tbody>
-            {(movements || []).length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate">No movements recorded yet.</td></tr>}
-            {(movements || []).map((m) => <tr key={m.id} className="hover:bg-foam"><Td>{fmtDate(m.txn_date)}</Td><Td>{m.customers?.name || "—"}</Td><Td>{m.products?.name || "—"}</Td><Td>{m.from_state}</Td><Td>{m.to_state}</Td><Td>{m.quantity}</Td></tr>)}
+            {(movements || []).length === 0 && <tr><td colSpan={10} className="text-center py-8 text-slate">No movements recorded yet.</td></tr>}
+            {(movements || []).map((m) => {
+              const rb = runningBalance[m.id];
+              return (
+                <tr key={m.id} className="hover:bg-foam">
+                  <Td>{fmtDate(m.txn_date)}</Td><Td>{m.customers?.name || "—"}</Td><Td>{m.products?.name || "—"}</Td>
+                  <Td>{m.from_state}</Td><Td>{m.to_state}</Td><Td>{m.quantity}</Td>
+                  <Td className="text-slate">{rb ? rb.before : "—"}</Td>
+                  <Td className="font-semibold">{rb ? rb.after : "—"}</Td>
+                  <Td>{m.profiles?.full_name || "—"}</Td>
+                  <Td className="max-w-[160px] truncate">{m.remarks || "—"}</Td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

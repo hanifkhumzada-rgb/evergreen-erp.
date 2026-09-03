@@ -5,6 +5,9 @@ import { askAI } from "@/app/actions";
 import { Badge } from "@/components/ui";
 
 const SUGGESTIONS = [
+  "What is my business health score?",
+  "Give me today's business summary",
+  "Rank my delivery boys by performance",
   "What is my net profit this month?",
   "What are my total receivables?",
   "Which customers owe the most?",
@@ -42,7 +45,7 @@ export default function AiPage() {
     <div>
       <h2 className="font-display text-2xl font-semibold mb-1">Evergreen AI</h2>
       <p className="text-slate text-sm mb-2">Answers only from your live database. Never fabricates numbers, never bypasses your role's permissions.</p>
-      <Badge text="Automated Daily Business Brief & anomaly detection — Coming Soon" tone="amber" />
+      <Badge text="Business Health Score & Daily Summary are on-demand below — ask, or wire /api/cron/daily-summary to a scheduler for a pushed version" tone="aqua" />
       <div className="border border-line rounded-2xl p-5 mt-4 max-w-2xl">
         <div className="flex flex-col gap-2.5 max-h-80 overflow-y-auto mb-3">
           {log.map((m, i) => (

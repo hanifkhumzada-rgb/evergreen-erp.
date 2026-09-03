@@ -20,6 +20,14 @@ const BOTTLE_COST = 800;
 
 export const dynamic = "force-dynamic"; // always fetch fresh — this is a live multi-user dashboard
 
+function rangeFor(key, custom) {
+  const today = todayISO();
+  if (key === "7d") return { from: daysAgo(6), to: today };
+  if (key === "month") return { from: monthStartISO(), to: today };
+  if (key === "custom" && custom?.from && custom?.to) return { from: custom.from, to: custom.to };
+  return { from: today, to: today };
+}
+
 // Percent change vs. the previous period. lowerIsBetter flips which direction
 // counts as "favorable" (e.g. expenses, outstanding, payables trending down is good).
 function calcTrend(current, previous, lowerIsBetter = false) {
@@ -43,10 +51,13 @@ const QUICK_ACTIONS = [
   { label: "View Reports", href: "/reports", icon: BarChart3 },
 ];
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }) {
+  const sp = (await searchParams) || {};
   const supabase = await createClient();
   const today = todayISO();
   const yesterday = daysAgo(1);
+  const rangeKey = sp.range || "today";
+  const range = rangeFor(rangeKey, { from: sp.from, to: sp.to });
 
   const [
     { data: todayInvoices }, { data: todayDeliveries }, { data: todayExpenses }, { data: customerBalances },
@@ -58,6 +69,7 @@ export default async function DashboardPage() {
     yesterdayActiveCustomersRes,
     overdueRuleRes, { data: unpaidInvoices }, { data: monthToDateExpenses }, { data: lastMonthExpenses },
     { data: custBottleBalances }, { data: bottleLimits },
+    { data: rangeInvoices }, { data: rangeDeliveries }, { data: rangeExpenses }, { data: rangePayments }, { data: rangeRiderDeliveries },
   ] = await Promise.all([
     supabase.from("invoices").select("net_amount, invoice_items(quantity)").eq("invoice_date", today).neq("status", "void"),
     supabase.from("deliveries").select("*, delivery_items(delivered_qty, returned_qty)").eq("delivery_date", today),
@@ -96,6 +108,15 @@ export default async function DashboardPage() {
     // Ledger page's "Needs Attention" section and refresh_alerts() use.
     supabase.from("v_customer_bottle_balance").select("customer_id, name, bottles_with_customer"),
     supabase.from("customers").select("id, bottle_limit"),
+    // Date-range business summary (Today/7 Days/This Month/Custom) — a
+    // self-contained block, independent of the "today" KPIs above so it
+    // doesn't disturb their carefully-tuned yesterday-comparison logic.
+    supabase.from("invoices").select("net_amount").gte("invoice_date", range.from).lte("invoice_date", range.to).neq("status", "void"),
+    supabase.from("deliveries").select("status, delivery_items(delivered_qty, returned_qty)").gte("delivery_date", range.from).lte("delivery_date", range.to),
+    supabase.from("expenses").select("amount").in("status", ["approved", "paid"]).gte("expense_date", range.from).lte("expense_date", range.to),
+    supabase.from("payments").select("amount").gte("payment_date", range.from).lte("payment_date", range.to),
+    // Employee performance leaderboard for the same range.
+    supabase.from("deliveries").select("rider_id, status, amount_collected, profiles!deliveries_rider_id_fkey(full_name)").gte("delivery_date", range.from).lte("delivery_date", range.to),
   ]);
 
   const cashBalance = (cashBalances || []).filter((a) => a.type === "cash").reduce((a, c) => a + Number(c.current_balance), 0);
@@ -218,6 +239,26 @@ export default async function DashboardPage() {
     insights.push(`${biggestJump.cat} expenses jumped from ${pkr(biggestJump.from)} to ${pkr(biggestJump.to)} this month (+${pct}%).`);
   }
 
+  // Date-range business summary
+  const rangeSales = (rangeInvoices || []).reduce((a, i) => a + Number(i.net_amount), 0);
+  const rangeDelivered = (rangeDeliveries || []).filter((d) => d.status === "delivered").reduce((a, d) => a + (d.delivery_items || []).reduce((b, i) => b + Number(i.delivered_qty), 0), 0);
+  const rangeReturned = (rangeDeliveries || []).filter((d) => d.status === "delivered").reduce((a, d) => a + (d.delivery_items || []).reduce((b, i) => b + Number(i.returned_qty), 0), 0);
+  const rangeExpAmt = (rangeExpenses || []).reduce((a, e) => a + Number(e.amount), 0);
+  const rangePaidAmt = (rangePayments || []).reduce((a, p) => a + Number(p.amount), 0);
+  const rangeDeliveryCount = (rangeDeliveries || []).length;
+  const rangeNet = rangeSales - rangeExpAmt;
+
+  const leaderboard = Object.values(
+    (rangeRiderDeliveries || []).reduce((acc, d) => {
+      if (!d.rider_id) return acc;
+      const row = acc[d.rider_id] || { name: d.profiles?.full_name || "—", deliveries: 0, cash: 0 };
+      row.deliveries += 1;
+      row.cash += Number(d.amount_collected) || 0;
+      acc[d.rider_id] = row;
+      return acc;
+    }, {})
+  ).sort((a, b) => b.deliveries - a.deliveries).slice(0, 5);
+
   const actions = [];
   if (overdueCustomerCount > 0) actions.push({ text: `Follow up with ${overdueCustomerCount} overdue customer${overdueCustomerCount === 1 ? "" : "s"}.`, href: "/ledger" });
   if (biggestJump) actions.push({ text: `Review the rise in ${biggestJump.cat} expenses.`, href: "/expenses" });
@@ -243,6 +284,47 @@ export default async function DashboardPage() {
         })}
       </div>
 
+      <div className="no-print flex flex-wrap items-center gap-2 mb-4">
+        <span className="text-xs font-semibold text-slate">Business summary:</span>
+        {[["today", "Today"], ["7d", "Last 7 Days"], ["month", "This Month"]].map(([k, label]) => (
+          <Link key={k} href={`/dashboard?range=${k}`}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${rangeKey === k ? "bg-navy text-white border-navy" : "border-line bg-card"}`}>
+            {label}
+          </Link>
+        ))}
+        <form action="/dashboard" className="flex items-center gap-1.5">
+          <input type="hidden" name="range" value="custom" />
+          <input type="date" name="from" defaultValue={sp.from || ""} className="px-2 py-1.5 rounded-lg border border-line bg-card text-xs" />
+          <span className="text-xs text-slate">to</span>
+          <input type="date" name="to" defaultValue={sp.to || ""} className="px-2 py-1.5 rounded-lg border border-line bg-card text-xs" />
+          <button type="submit" className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${rangeKey === "custom" ? "bg-navy text-white border-navy" : "border-line bg-card"}`}>Go</button>
+        </form>
+      </div>
+      <div className="flex flex-wrap gap-3.5 mb-6">
+        <KPI label="DELIVERIES" value={rangeDeliveryCount} tone="navy" />
+        <KPI label="BOTTLES DELIVERED" value={rangeDelivered} tone="aqua" />
+        <KPI label="BOTTLES RETURNED" value={rangeReturned} tone="aqua" />
+        <KPI label="REVENUE" value={pkr(rangeSales)} tone="navy" />
+        <KPI label="PAYMENTS COLLECTED" value={pkr(rangePaidAmt)} tone="green" />
+        <KPI label="EXPENSES" value={pkr(rangeExpAmt)} tone="amber" />
+        <KPI label="NET" value={pkr(rangeNet)} tone={rangeNet >= 0 ? "green" : "coral"} />
+      </div>
+
+      {leaderboard.length > 0 && (
+        <div className="border border-line rounded-2xl p-4 mb-6">
+          <h4 className="text-sm font-bold mb-2.5">Delivery boy performance ({rangeKey === "today" ? "today" : rangeKey === "7d" ? "last 7 days" : rangeKey === "month" ? "this month" : "selected range"})</h4>
+          <div className="flex flex-col gap-1.5">
+            {leaderboard.map((r, i) => (
+              <div key={i} className="flex justify-between items-center text-xs px-3 py-2 rounded-lg bg-foam">
+                <span className="font-semibold">{i + 1}. {r.name}</span>
+                <span className="text-slate">{r.deliveries} deliveries · {pkr(r.cash)} collected</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <h4 className="text-xs font-bold tracking-wide text-slate mb-2">TODAY AT A GLANCE</h4>
       <div className="flex flex-wrap gap-3.5 mb-6">
         <KPI label="TODAY'S SALES" value={pkr(salesAmt)} tone="navy" sub={`${(todayInvoices || []).length} invoices`} trend={calcTrend(salesAmt, ySalesAmt)} href="/sales" />
         <KPI label="BOTTLES DELIVERED" value={bottlesDelivered} tone="aqua" />
@@ -295,6 +377,9 @@ export default async function DashboardPage() {
       <div className="border border-line rounded-2xl p-4">
         <h4 className="text-sm font-bold mb-2 flex items-center gap-1.5"><AlertTriangle size={15} className="text-coral" /> Alerts</h4>
         <div className="flex flex-col gap-2 max-h-52 overflow-y-auto">
+          {overdueCustomerCount > 0 && (
+            <Link href="/payments" className="text-xs flex gap-2 hover:underline"><AlertTriangle size={13} className="text-coral flex-shrink-0 mt-0.5" /><span>{overdueCustomerCount} customer{overdueCustomerCount === 1 ? "" : "s"} overdue by more than {overdueDays} days — see Payments → Recovery.</span></Link>
+          )}
           {lowStock.map((p) => (
             <div key={p.id} className="text-xs flex gap-2"><AlertTriangle size={13} className="text-coral flex-shrink-0 mt-0.5" /><span>{p.name} is below reorder level ({stockMap[p.id] || 0}/{p.low_stock_threshold}).</span></div>
           ))}
@@ -304,7 +389,7 @@ export default async function DashboardPage() {
           {overBottleLimitCustomers.map((c) => (
             <Link key={c.customer_id} href={`/customers/${c.customer_id}`} className="text-xs flex gap-2 hover:underline"><AlertTriangle size={13} className="text-amber flex-shrink-0 mt-0.5" /><span>{c.name} is holding {c.total} bottles, above their limit of {c.limit}.</span></Link>
           ))}
-          {lowStock.length + (overdueCustomers || []).length + overBottleLimitCustomers.length === 0 && <p className="text-sm text-slate">No critical alerts right now.</p>}
+          {(overdueCustomerCount || 0) + lowStock.length + (overdueCustomers || []).length + overBottleLimitCustomers.length === 0 && <p className="text-sm text-slate">No critical alerts right now.</p>}
         </div>
       </div>
     </div>

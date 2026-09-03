@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import Link from "next/link";
 import { ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export default async function BottlesPage() {
 
   const byCustomer = {};
   (rows || []).forEach((r) => {
-    const entry = byCustomer[r.customer_id] || { name: r.name, byProduct: {}, total: 0 };
+    const entry = byCustomer[r.customer_id] || { id: r.customer_id, name: r.name, byProduct: {}, total: 0 };
     entry.byProduct[r.product_id] = Number(r.bottles_with_customer);
     entry.total += Number(r.bottles_with_customer);
     byCustomer[r.customer_id] = entry;
@@ -37,7 +38,8 @@ export default async function BottlesPage() {
   return (
     <div>
       <h2 className="font-display text-2xl font-semibold mb-1">Bottle Tracking</h2>
-      <p className="text-slate text-sm mb-5">Total owned: {totalOwned} bottles across {(products || []).length} sizes · sourced live from bottle_transactions</p>
+      <p className="text-slate text-sm mb-1">Total owned: {totalOwned} bottles across {(products || []).length} sizes · sourced live from bottle_transactions</p>
+      <p className="text-slate text-xs mb-5">Opening + Delivered − Returned − Damaged/Lost ± Adjustments = Current Balance. Click a customer for the full per-size breakdown and movement history.</p>
 
       <div className="flex gap-5 flex-wrap mb-7">
         <Stat label="Full (available)" value={full} />
@@ -62,7 +64,7 @@ export default async function BottlesPage() {
             {customers.length === 0 && <tr><td colSpan={(products || []).length + 2} className="text-center py-8 text-slate">No bottle movements yet.</td></tr>}
             {customers.map((c, i) => (
               <tr key={i} className="hover:bg-foam">
-                <Td>{c.name}</Td>
+                <Td><Link href={`/customers/${c.id}`} className="font-semibold text-navy hover:text-aqua">{c.name}</Link></Td>
                 {(products || []).map((p) => <Td key={p.id}>{c.byProduct[p.id] || 0}</Td>)}
                 <Td><span className={c.total > 10 ? "text-coral font-semibold" : "font-semibold"}>{c.total}{c.total > 10 ? " ⚠" : ""}</span></Td>
               </tr>

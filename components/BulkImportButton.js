@@ -11,6 +11,7 @@ const PREVIEW_LINES = {
   deliveries: (r) => `${r.Name || r.name || r.Phone || r.phone} — Qty ${r.Qty || r.qty}`,
   customers: (r) => `${r.Name || r.name} — ${r.Mobile || r.mobile || r.Phone || r.phone || "no phone"}`,
   bottleOpening: (r) => `${r.Customer || r.customer || r["Customer ID"] || r.CustomerID}`,
+  vehicles: (r) => `${r["Registration No"] || r.RegistrationNo || r.Vehicle} — ${r["Vehicle Type"] || r.Type || "type not set"}`,
 };
 
 const norm = (s) => (s || "").toString().toLowerCase().replace(/[^a-z0-9]/g, "");

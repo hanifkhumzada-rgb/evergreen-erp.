@@ -39,7 +39,7 @@ export default async function CustomerProfilePage({ params }) {
   const [
     { data: c }, { data: invoices }, { data: payments }, { data: balanceRow }, { data: bottleBalanceRows },
     { data: deliveries }, { data: bottleTxns }, { data: ledgerEntries },
-    { data: zones }, { data: products }, { data: vehicles }, { data: riders }, { data: profile },
+    { data: zones }, { data: products }, { data: vehicles }, { data: riders }, { data: profile }, { data: routes },
   ] = await Promise.all([
     supabase.from("customers").select("*, zones(name), profiles!customers_assigned_rider_id_fkey(full_name), vehicles(registration_no)").eq("id", params.id).single(),
     supabase.from("invoices").select("*").eq("customer_id", params.id).order("invoice_date", { ascending: false }),
@@ -54,6 +54,7 @@ export default async function CustomerProfilePage({ params }) {
     supabase.from("vehicles").select("id, registration_no").eq("is_active", true).order("registration_no"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").eq("roles.key", "rider").eq("is_active", true).order("full_name"),
     supabase.from("profiles").select("roles(key)").eq("id", user.id).single(),
+    supabase.from("routes").select("id, name").eq("is_active", true).order("name"),
   ]);
 
   if (!c) {
@@ -63,6 +64,30 @@ export default async function CustomerProfilePage({ params }) {
         <p>Customer not found.</p>
       </div>
     );
+  }
+
+  // Current effective rate for this customer's default bottle size — same
+  // lookup createSale/getEffectiveRate uses (customer override first, else
+  // the standard product price), so what's shown here is what the next sale
+  // will actually charge. Past invoices keep their own stored rate regardless.
+  let currentRate = null;
+  let currentRateProductName = null;
+  if (c.default_product_id) {
+    const rateToday = new Date().toISOString().slice(0, 10);
+    const { data: custPrice } = await supabase.from("customer_prices").select("price")
+      .eq("customer_id", params.id).eq("product_id", c.default_product_id)
+      .lte("effective_from", rateToday).or(`effective_to.is.null,effective_to.gte.${rateToday}`)
+      .order("effective_from", { ascending: false }).limit(1).maybeSingle();
+    if (custPrice) {
+      currentRate = Number(custPrice.price);
+    } else {
+      const { data: prodPrice } = await supabase.from("product_prices").select("price")
+        .eq("product_id", c.default_product_id)
+        .lte("effective_from", rateToday).or(`effective_to.is.null,effective_to.gte.${rateToday}`)
+        .order("effective_from", { ascending: false }).limit(1).maybeSingle();
+      currentRate = Number(prodPrice?.price || 0);
+    }
+    currentRateProductName = (products || []).find((p) => p.id === c.default_product_id)?.name;
   }
 
   const todayISO = new Date().toISOString().slice(0, 10);
@@ -142,12 +167,14 @@ export default async function CustomerProfilePage({ params }) {
             <h2 className="font-display text-2xl font-semibold">{c.name}</h2>
             <Badge text={statusBadge.text} tone={statusBadge.tone} />
           </div>
-          <p className="text-slate text-sm mt-1">{c.customer_type} · {c.zones?.name || "No zone"} · Customer since {fmtDate(c.created_at)}</p>
+          <p className="text-slate text-sm mt-1">
+            <span className="font-mono-num">{c.code || "—"}</span> · {c.customer_type} · {c.zones?.name || "No zone"} · Customer since {fmtDate(c.created_at)}
+          </p>
         </div>
         <div className="no-print flex gap-2">
           <CustomerForm
             mode="edit" customer={c}
-            zones={zones || []} products={products || []} vehicles={vehicles || []} riders={riders || []}
+            zones={zones || []} products={products || []} vehicles={vehicles || []} riders={riders || []} routes={routes || []}
             canManageFinancial={canManageFinancial}
             trigger={<EditCustomerTrigger />}
           />
@@ -168,6 +195,8 @@ export default async function CustomerProfilePage({ params }) {
         {c.profiles?.full_name && <span>Driver: {c.profiles.full_name}</span>}
         {c.vehicles?.registration_no && <span>Vehicle: {c.vehicles.registration_no}</span>}
         {c.payment_terms && <span>Terms: {c.payment_terms}</span>}
+        <span>Payment frequency: {c.payment_frequency || "Monthly"}</span>
+        {c.alternate_phone && <span>Alt phone: {c.alternate_phone}</span>}
       </div>
       {c.delivery_instructions && <p className="text-[13px] text-slate mt-2"><span className="font-semibold">Delivery instructions:</span> {c.delivery_instructions}</p>}
       {c.notes && <p className="text-[13px] text-slate mt-1"><span className="font-semibold">Notes:</span> {c.notes}</p>}
@@ -175,9 +204,17 @@ export default async function CustomerProfilePage({ params }) {
       {/* FINANCIAL */}
       <SectionTitle>Financial</SectionTitle>
       <div className="flex flex-wrap gap-3.5 mb-4">
+        <KPI
+          label="CURRENT RATE"
+          value={currentRate != null ? pkr(currentRate) : "—"}
+          tone="navy"
+          sub={currentRateProductName ? `per ${currentRateProductName} · applies to future sales only` : "no default bottle size set"}
+        />
+        <KPI label="PAYMENT FREQUENCY" value={c.payment_frequency || "Monthly"} tone="slate" />
         <KPI label="TOTAL SALES" value={pkr(totalSales)} tone="navy" />
         <KPI label="TOTAL PAID" value={pkr(totalPaid)} tone="green" />
         <KPI label="OUTSTANDING" value={pkr(balance)} tone="coral" />
+        <KPI label="LAST PAYMENT" value={lastPayment ? pkr(lastPayment.amount) : "—"} tone="slate" sub={lastPayment ? fmtDate(lastPayment.payment_date) : "no payments yet"} />
         <KPI label="OPENING BALANCE" value={pkr(c.opening_balance)} tone="slate" />
         <KPI label="CREDIT LIMIT" value={pkr(c.credit_limit)} tone="slate" />
         <KPI label="AVAILABLE CREDIT" value={pkr(availableCredit)} tone={availableCredit < 0 ? "coral" : "aqua"} />
@@ -265,15 +302,21 @@ export default async function CustomerProfilePage({ params }) {
       <div className="mt-4">
         <h4 className="text-[13.5px] font-bold mb-2">Customer ledger</h4>
         <table className="w-full text-xs border-collapse border border-line rounded-xl overflow-hidden">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Description</Th><Th>Debit</Th><Th>Credit</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Type</Th><Th>Description</Th><Th>Reference</Th><Th>Debit</Th><Th>Credit</Th></tr></thead>
           <tbody>
-            {(ledgerEntries || []).length === 0 && <tr><td colSpan={4} className="text-center py-5 text-slate">No ledger entries yet.</td></tr>}
+            {(ledgerEntries || []).length === 0 && <tr><td colSpan={6} className="text-center py-5 text-slate">No ledger entries yet.</td></tr>}
             {(ledgerEntries || []).map((l) => (
-              <tr key={l.id}><Td>{fmtDate(l.entry_date)}</Td><Td>{l.description}</Td>
-                <Td>{Number(l.debit) > 0 ? pkr(l.debit) : "—"}</Td><Td>{Number(l.credit) > 0 ? pkr(l.credit) : "—"}</Td></tr>
+              <tr key={l.id}>
+                <Td>{fmtDate(l.entry_date)}</Td>
+                <Td className="capitalize">{l.transaction_type || l.entry_type || "—"}</Td>
+                <Td>{l.description}</Td>
+                <Td className="text-slate">{l.reference || l.reference_no || "—"}</Td>
+                <Td>{Number(l.debit) > 0 ? pkr(l.debit) : "—"}</Td><Td>{Number(l.credit) > 0 ? pkr(l.credit) : "—"}</Td>
+              </tr>
             ))}
           </tbody>
         </table>
+        <p className="text-[11px] text-slate mt-1.5">Type/Reference show only where the underlying ledger row carries them.</p>
       </div>
 
       {/* ANALYTICS */}

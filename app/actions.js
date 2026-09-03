@@ -54,14 +54,18 @@ async function resolveProductId(supabase, requested, fallbackProductId) {
 
 export async function globalSearch(query) {
   const q = (query || "").trim();
-  if (q.length < 2) return { customers: [], invoices: [] };
+  if (q.length < 2) return { customers: [], invoices: [], deliveries: [], payments: [], employees: [], vehicles: [] };
   const { supabase } = await requireUser();
   const pattern = `%${q}%`;
-  const [{ data: customers }, { data: invoices }] = await Promise.all([
-    supabase.from("customers").select("id, name, mobile").or(`name.ilike.${pattern},mobile.ilike.${pattern}`).limit(5),
+  const [{ data: customers }, { data: invoices }, { data: deliveries }, { data: payments }, { data: employees }, { data: vehicles }] = await Promise.all([
+    supabase.from("customers").select("id, name, mobile, code").or(`name.ilike.${pattern},mobile.ilike.${pattern},code.ilike.${pattern}`).limit(5),
     supabase.from("invoices").select("id, invoice_no, customers(name)").ilike("invoice_no", pattern).limit(5),
+    supabase.from("deliveries").select("id, delivery_no, delivery_date, customers(name)").ilike("delivery_no", pattern).limit(5),
+    supabase.from("payments").select("id, receipt_no, customer_id, customers(name)").ilike("receipt_no", pattern).limit(5),
+    supabase.from("profiles").select("id, full_name, roles!inner(key)").neq("roles.key", "customer").ilike("full_name", pattern).limit(5),
+    supabase.from("vehicles").select("id, registration_no").ilike("registration_no", pattern).limit(5),
   ]);
-  return { customers: customers || [], invoices: invoices || [] };
+  return { customers: customers || [], invoices: invoices || [], deliveries: deliveries || [], payments: payments || [], employees: employees || [], vehicles: vehicles || [] };
 }
 
 async function getEffectiveRate(supabase, customerId, productId) {
@@ -98,6 +102,8 @@ async function getCashAccountId(supabase, method) {
 
 export async function signOut() {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (user) await supabase.from("audit_logs").insert({ user_id: user.id, action: "LOGOUT", module: "auth" });
   await supabase.auth.signOut();
   redirect("/login");
 }
@@ -114,13 +120,14 @@ function customerBasicsFromForm(formData) {
     business_name: formData.get("business_name") || null,
     contact_person: formData.get("contact_person") || null,
     mobile: formData.get("phone"),
+    alternate_phone: formData.get("alternate_phone") || null,
     whatsapp_number: formData.get("whatsapp") || formData.get("phone"),
     email: formData.get("email") || null,
     customer_type: formData.get("customer_type"),
     address: formData.get("address") || "",
     area: formData.get("area") || null,
     zone_id: formData.get("zone_id") || null,
-    route: formData.get("route") || null,
+    route_id: formData.get("route_id") || null,
     preferred_days: preferredDays.length ? preferredDays : null,
     preferred_delivery_time: formData.get("preferred_delivery_time") || null,
     assigned_rider_id: formData.get("assigned_rider_id") || null,
@@ -129,11 +136,22 @@ function customerBasicsFromForm(formData) {
     default_product_id: formData.get("default_product_id") || null,
     regular_qty: Number(formData.get("regular_qty")) || 0,
     payment_terms: formData.get("payment_terms") || null,
+    payment_frequency: formData.get("payment_frequency") || "Monthly",
     bottle_limit: Number(formData.get("bottle_limit")) || 20,
     opening_bottles_with_customer: Number(formData.get("opening_bottles_with_customer")) || 0,
     status: formData.get("status") || "active",
     notes: formData.get("notes") || null,
   };
+}
+
+// Keeps the legacy free-text customers.route column (still read by
+// DeliveryForm's search, older reports, etc.) in sync with the new
+// structured route_id — so switching a customer to a real route doesn't
+// silently break anything still reading the text field directly.
+async function syncLegacyRouteText(supabase, payload) {
+  if (!payload.route_id) return;
+  const { data: route } = await supabase.from("routes").select("name").eq("id", payload.route_id).maybeSingle();
+  if (route?.name) payload.route = route.name;
 }
 
 function customerFinancialsFromForm(formData) {
@@ -156,6 +174,7 @@ export async function createCustomer(formData) {
     created_by: user.id,
   };
   if (canManageFinancial) Object.assign(payload, customerFinancialsFromForm(formData));
+  await syncLegacyRouteText(supabase, payload);
 
   const { data: created, error } = await supabase.from("customers").insert(payload).select("id").single();
   if (error) return { error: error.message };
@@ -175,6 +194,7 @@ export async function createCustomer(formData) {
       });
     }
   }
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "CREATE", module: "customers", record_id: created.id, new_value: { name: payload.name, mobile: payload.mobile } });
   revalidatePath("/customers");
   return { ok: true };
 }
@@ -191,11 +211,13 @@ export async function updateCustomer(customerId, formData) {
     updated_at: new Date().toISOString(),
   };
   if (canManageFinancial) Object.assign(payload, customerFinancialsFromForm(formData));
+  await syncLegacyRouteText(supabase, payload);
 
   const { error } = await supabase.from("customers").update(payload).eq("id", customerId);
   if (error) return { error: error.message };
 
   const rate = Number(formData.get("rate"));
+  let rateChanged = false;
   if (canManageFinancial && rate > 0) {
     const productId = payload.default_product_id || (await getDefaultProduct(supabase));
     if (productId) {
@@ -206,8 +228,13 @@ export async function updateCustomer(customerId, formData) {
         effective_from: new Date().toISOString().slice(0, 10),
         created_by: user.id,
       });
+      rateChanged = true;
     }
   }
+  await supabase.from("audit_logs").insert({
+    user_id: user.id, action: rateChanged ? "RATE_CHANGE" : "UPDATE", module: "customers", record_id: customerId,
+    new_value: rateChanged ? { new_rate: rate } : { name: payload.name },
+  });
   revalidatePath("/customers");
   revalidatePath(`/customers/${customerId}`);
   return { ok: true };
@@ -284,12 +311,90 @@ export async function createPayment(formData) {
     method,
     cash_account_id: await getCashAccountId(supabase, method),
     received_by: formData.get("collector_id") || user.id,
+    notes: formData.get("notes") || null,
   });
   if (error) return { error: error.message };
+  await supabase.from("audit_logs").insert({
+    user_id: user.id, action: "CREATE", module: "payments",
+    new_value: { customer_id: formData.get("customer_id"), amount: Number(formData.get("amount")), method, collected_by: formData.get("collector_id") || user.id },
+  });
   revalidatePath("/payments");
   revalidatePath("/dashboard");
   revalidatePath("/customers");
   revalidatePath("/ledger");
+  return { ok: true };
+}
+
+// Phase 2 — the interactive counterpart to bulkImportDeliveries: same
+// insert shape (delivery -> delivery_items -> bottle_transactions ->
+// optional cash_transactions), one row at a time from a form instead of a
+// spreadsheet. Unlike the bulk path this always records rider_id — a
+// manually-entered delivery always has a known responsible delivery boy.
+export async function createDelivery(formData) {
+  const { supabase, user } = await requireUser();
+  const customerId = formData.get("customer_id");
+  const productId = formData.get("product_id");
+  const deliveredQty = Number(formData.get("delivered_qty"));
+  const returnedQty = Number(formData.get("returned_qty")) || 0;
+  const deliveryDate = formData.get("delivery_date") || new Date().toISOString().slice(0, 10);
+  const riderId = formData.get("rider_id") || user.id;
+  if (!customerId || !productId || !deliveredQty || deliveredQty <= 0) {
+    return { error: "Pick a customer, bottle size, and a delivered quantity greater than zero." };
+  }
+
+  const { data: cashAccount } = await supabase.from("cash_accounts").select("id").eq("is_active", true).limit(1).maybeSingle();
+  const rate = await getEffectiveRate(supabase, customerId, productId);
+  const amount = deliveredQty * rate;
+  const cashRaw = formData.get("cash_collected");
+  const cashCollected = cashRaw != null && cashRaw !== "" ? Number(cashRaw) : 0;
+
+  const { data: delivery, error } = await supabase.from("deliveries").insert({
+    delivery_no: genCode("DEL"),
+    customer_id: customerId,
+    rider_id: riderId,
+    delivery_date: deliveryDate,
+    status: "delivered",
+    amount,
+    amount_collected: cashCollected,
+    payment_method: "cash",
+    delivered_at: new Date().toISOString(),
+    created_by: user.id,
+  }).select("id").single();
+  if (error) return { error: error.message };
+
+  await supabase.from("delivery_items").insert({
+    delivery_id: delivery.id, product_id: productId, expected_qty: deliveredQty, delivered_qty: deliveredQty, returned_qty: returnedQty, unit_price: rate,
+  });
+  await supabase.from("bottle_transactions").insert({
+    txn_date: deliveryDate, product_id: productId, quantity: deliveredQty,
+    from_state: "with_rider", to_state: "with_customer", customer_id: customerId,
+    reference_type: "delivery", reference_id: delivery.id, created_by: user.id,
+  });
+  if (returnedQty > 0) {
+    await supabase.from("bottle_transactions").insert({
+      txn_date: deliveryDate, product_id: productId, quantity: returnedQty,
+      from_state: "with_customer", to_state: "with_rider", customer_id: customerId,
+      reference_type: "delivery_return", reference_id: delivery.id, created_by: user.id,
+    });
+  }
+  if (cashCollected > 0 && cashAccount) {
+    await supabase.from("cash_transactions").insert({
+      account_id: cashAccount.id, txn_date: deliveryDate, type: "receipt",
+      amount: cashCollected, reference_type: "delivery", reference_id: delivery.id,
+      description: "Delivery collection", created_by: user.id,
+    });
+  }
+  await supabase.from("audit_logs").insert({
+    user_id: user.id, action: "CREATE", module: "deliveries", record_id: delivery.id,
+    new_value: { customer_id: customerId, product_id: productId, delivered_qty: deliveredQty, returned_qty: returnedQty, rate, amount, cash_collected: cashCollected, rider_id: riderId },
+  });
+
+  revalidatePath("/deliveries");
+  revalidatePath("/bottles");
+  revalidatePath("/bottle-ledger");
+  revalidatePath("/dashboard");
+  revalidatePath("/customers");
+  revalidatePath(`/customers/${customerId}`);
   return { ok: true };
 }
 
@@ -325,10 +430,48 @@ export async function createExpense(formData) {
     created_by: user.id,
     approved_by: status === "approved" ? user.id : null,
     approved_at: status === "approved" ? new Date().toISOString() : null,
+    receipt_reference: formData.get("receipt_reference") || null,
   });
   if (error) return { error: error.message };
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+// Phase 5 — Production & Filling. A standalone cost record, deliberately
+// not folded into the expenses table (different shape, different owner —
+// a filling run has quantity/cost-per-bottle math the generic expense form
+// has no fields for). total_filling_cost is a generated column on the
+// table itself, so it's never out of sync with quantity * cost_per_bottle.
+export async function createProductionBatch(formData) {
+  const { supabase, user } = await requireUser();
+  const productId = formData.get("product_id");
+  const quantityFilled = Number(formData.get("quantity_filled"));
+  const costPerBottle = Number(formData.get("cost_per_bottle"));
+  if (!productId || !quantityFilled || quantityFilled <= 0 || costPerBottle < 0) {
+    return { error: "Pick a bottle size and enter a valid quantity and cost per bottle." };
+  }
+  const { data: batch, error } = await supabase.from("production_batches").insert({
+    batch_no: genCode("PRD"),
+    batch_date: formData.get("batch_date") || new Date().toISOString().slice(0, 10),
+    product_id: productId,
+    quantity_filled: quantityFilled,
+    cost_per_bottle: costPerBottle,
+    caps_quantity: Number(formData.get("caps_quantity")) || null,
+    cap_cost: Number(formData.get("cap_cost")) || null,
+    other_material_cost: Number(formData.get("other_material_cost")) || 0,
+    supplier: formData.get("supplier") || null,
+    notes: formData.get("notes") || null,
+    created_by: user.id,
+  }).select("id").single();
+  if (error) return { error: error.message };
+  await supabase.from("audit_logs").insert({
+    user_id: user.id, action: "CREATE", module: "production_batches", record_id: batch.id,
+    new_value: { product_id: productId, quantity_filled: quantityFilled, cost_per_bottle: costPerBottle },
+  });
+  revalidatePath("/production");
+  revalidatePath("/dashboard");
+  revalidatePath("/reports");
   return { ok: true };
 }
 
@@ -406,13 +549,16 @@ export async function updateDeliveryStatus(deliveryId, status, note) {
 // succeeding.
 export async function updateAutomationRule(ruleId, formData) {
   const { supabase, user } = await requireUser();
+  const enabled = formData.get("enabled") === "on";
+  const thresholdValue = Number(formData.get("threshold_value")) || 0;
   const { error } = await supabase.from("automation_rules").update({
-    enabled: formData.get("enabled") === "on",
-    threshold_value: Number(formData.get("threshold_value")) || 0,
+    enabled,
+    threshold_value: thresholdValue,
     updated_by: user.id,
     updated_at: new Date().toISOString(),
   }).eq("id", ruleId);
   if (error) return { error: error.message };
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "SETTINGS_CHANGE", module: "automation_rules", record_id: ruleId, new_value: { enabled, threshold_value: thresholdValue } });
   revalidatePath("/settings");
   return { ok: true };
 }
@@ -470,6 +616,32 @@ export async function addVehicle(formData) {
   if (error) return { error: error.message };
   revalidatePath("/fleet");
   return { ok: true };
+}
+
+// Phase 9 — Fleet had no bulk import, unlike every other list module.
+// Employees deliberately don't get one: creating a login-capable profile
+// needs a real auth invite flow, not a plain table insert, and doing that
+// wrong risks orphaned/broken accounts.
+export async function bulkImportVehicles(rows) {
+  const { supabase, user } = await requireUser();
+  const { data: riders } = await supabase.from("profiles").select("id, full_name, roles!inner(key)").eq("roles.key", "rider");
+  let imported = 0, failed = 0;
+  for (const r of rows) {
+    const regNo = String(r["Registration No"] || r.RegistrationNo || r.Vehicle || "").trim();
+    if (!regNo) { failed++; continue; }
+    const driverName = String(r.Driver || r.driver || "").trim();
+    const rider = driverName ? (riders || []).find((p) => p.full_name?.toLowerCase() === driverName.toLowerCase()) : null;
+    const { error } = await supabase.from("vehicles").insert({
+      registration_no: regNo,
+      vehicle_type: r["Vehicle Type"] || r.Type || null,
+      assigned_rider_id: rider?.id || null,
+      is_active: true,
+    });
+    if (error) { failed++; continue; }
+    imported++;
+  }
+  revalidatePath("/fleet");
+  return { ok: true, imported, failed };
 }
 
 export async function addVehicleExpense(formData) {
@@ -625,6 +797,14 @@ export async function askAI(question) {
     if (!sorted.length) return { text: "No vehicle expenses recorded yet." };
     return { text: `Highest-cost vehicle: ${sorted[0][0]} (${pkrFmt(sorted[0][1])} total).` };
   }
+  if (ql.includes("driver") && (ql.includes("rank") || ql.includes("performance") || ql.includes("all"))) {
+    const { data: deliveries } = await supabase.from("deliveries").select("status, amount_collected, profiles!deliveries_rider_id_fkey(full_name)");
+    const m = {};
+    (deliveries || []).forEach((d) => { const n = d.profiles?.full_name; if (!n) return; m[n] = m[n] || { done: 0, total: 0, cash: 0 }; m[n].total++; m[n].cash += Number(d.amount_collected) || 0; if (d.status === "delivered") m[n].done++; });
+    const sorted = Object.entries(m).sort((a, b) => b[1].done - a[1].done);
+    if (!sorted.length) return { text: "Insufficient data to answer accurately." };
+    return { text: `Delivery boy ranking: ${sorted.map(([name, s], i) => `${i + 1}. ${name} (${s.done}/${s.total} completed, ${pkrFmt(s.cash)} collected)`).join("; ")}.` };
+  }
   if (ql.includes("driver") && ql.includes("best")) {
     const { data: deliveries } = await supabase.from("deliveries").select("status, profiles!deliveries_rider_id_fkey(full_name)");
     const m = {};
@@ -729,7 +909,59 @@ export async function askAI(question) {
     const projection = Math.max(0, trailingAvg * (1 + avgGrowth));
     return { text: `Estimate based on the last 3 months' trend — actual results may vary: projected sales next month ≈ ${pkrFmt(projection)} (trailing 3-month average ${pkrFmt(trailingAvg)}, avg. month-over-month growth ${(avgGrowth * 100).toFixed(1)}%).` };
   }
+  if (ql.includes("health") || ql.includes("business summary") || ql.includes("daily summary") || ql.includes("daily brief")) {
+    return { text: (await computeBusinessHealthSummary(supabase)).text };
+  }
   return { text: "Insufficient data to answer accurately. Try asking about receivables, inventory value, today's collections, bottle liability, overdue customers, or a sales forecast." };
+}
+
+// Phase 10 — Business Health Score + Daily Summary. A composite score
+// (0-100) built entirely from signals already computed elsewhere in this
+// file (revenue trend, receivables ratio, bottle reconciliation, churn,
+// expense ratio) — not a separate model, so it can't drift from what the
+// rest of the app already shows. On-demand (asked from the AI page), not
+// pushed — see /api/cron/daily-summary for the scheduled variant, which
+// still needs an external scheduler wired up outside this sandbox.
+export async function computeBusinessHealthSummary(supabase) {
+  const from = monthStartISO(); const to = todayISO2();
+  const last = monthRange(1);
+  const [
+    { data: thisMonthInv }, { data: lastMonthInv }, { data: receivables },
+    { data: bottleRecon }, activeCountRes, inactiveCountRes,
+  ] = await Promise.all([
+    supabase.from("invoices").select("net_amount").neq("status", "void").gte("invoice_date", from).lte("invoice_date", to),
+    supabase.from("invoices").select("net_amount").neq("status", "void").gte("invoice_date", last.from).lte("invoice_date", last.to),
+    supabase.from("v_customer_balance").select("balance"),
+    supabase.from("bottle_reconciliations").select("difference").order("recon_date", { ascending: false }).limit(5),
+    supabase.from("customers").select("id", { count: "exact", head: true }).eq("is_active", true),
+    supabase.from("customers").select("id", { count: "exact", head: true }).eq("is_active", false),
+  ]);
+  const thisRev = (thisMonthInv || []).reduce((a, i) => a + Number(i.net_amount), 0);
+  const lastRev = (lastMonthInv || []).reduce((a, i) => a + Number(i.net_amount), 0);
+  const revenueGrowth = lastRev > 0 ? (thisRev - lastRev) / lastRev : (thisRev > 0 ? 1 : 0);
+  const totalReceivable = (receivables || []).reduce((a, c) => a + Number(c.balance), 0);
+  const receivableRatio = thisRev > 0 ? totalReceivable / thisRev : 0;
+  const reconDiffs = (bottleRecon || []).reduce((a, r) => a + Math.abs(Number(r.difference)), 0);
+  const totalActive = activeCountRes.count || 0;
+  const totalInactive = inactiveCountRes.count || 0;
+  const churnRatio = (totalActive + totalInactive) > 0 ? totalInactive / (totalActive + totalInactive) : 0;
+
+  let score = 100;
+  score -= receivableRatio > 1 ? 25 : receivableRatio > 0.5 ? 15 : receivableRatio > 0.2 ? 5 : 0;
+  score -= revenueGrowth < -0.2 ? 25 : revenueGrowth < 0 ? 10 : 0;
+  score -= churnRatio > 0.3 ? 20 : churnRatio > 0.15 ? 10 : 0;
+  score -= reconDiffs > 20 ? 15 : reconDiffs > 5 ? 5 : 0;
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  const band = score >= 80 ? "Healthy" : score >= 55 ? "Stable, watch a few areas" : "Needs attention";
+
+  const parts = [
+    `Business Health Score: ${score}/100 (${band}).`,
+    `Revenue this month ${pkrFmt(thisRev)} vs last month ${pkrFmt(lastRev)} (${revenueGrowth >= 0 ? "+" : ""}${Math.round(revenueGrowth * 100)}%).`,
+    `Outstanding receivables are ${Math.round(receivableRatio * 100)}% of this month's revenue.`,
+    `${totalActive} active customers, ${totalInactive} inactive (${Math.round(churnRatio * 100)}% churn).`,
+  ];
+  if (reconDiffs > 0) parts.push(`Recent bottle reconciliations show ${reconDiffs} bottles of net difference across the last 5 checks.`);
+  return { text: parts.join(" ") };
 }
 function pkrFmt(n) { return "PKR " + Math.round(Number(n) || 0).toLocaleString("en-PK"); }
 
@@ -777,6 +1009,7 @@ export async function bulkImportCustomers(rows) {
       business_name: r.Company || r.company || r["Business Name"] || null,
       contact_person: r["Contact Person"] || r.ContactPerson || null,
       mobile,
+      alternate_phone: r["Alternate Phone"] || r.AlternatePhone || null,
       whatsapp_number: r.WhatsApp || r.whatsapp || mobile,
       email: r.Email || r.email || null,
       customer_type: r["Customer Type"] || r.Type || "Home",
@@ -790,6 +1023,8 @@ export async function bulkImportCustomers(rows) {
       default_product_id: productId,
       regular_qty: Number(r.Quantity || r.quantity || r.Qty || r.qty) || 0,
       payment_terms: r["Payment Terms"] || r.PaymentTerms || null,
+      payment_frequency: ["Daily", "Weekly", "Monthly", "Custom"].includes(r["Payment Frequency"] || r.PaymentFrequency)
+        ? (r["Payment Frequency"] || r.PaymentFrequency) : "Monthly",
       bottle_limit: Number(r["Bottle Limit"] || r.BottleLimit) || 20,
       opening_bottles_with_customer: Number(r["Opening Bottle Balance"] || r.OpeningBottleBalance) || 0,
       status,
@@ -911,6 +1146,10 @@ export async function recordBottleReconciliation(formData) {
   });
   if (error) return { error: error.message };
 
+  await supabase.from("audit_logs").insert({
+    user_id: user.id, action: "BOTTLE_ADJUSTMENT", module: "bottle_reconciliations",
+    new_value: { product_id: productId, expected_qty: expectedQty, physical_qty: physicalQty, difference, reason },
+  });
   revalidatePath("/bottle-ledger");
   revalidatePath("/bottles");
   revalidatePath("/notifications");
@@ -1151,27 +1390,99 @@ export async function createZone(formData) {
   return { ok: true };
 }
 
+// Phase 7 — Routes as a real entity (previously a free-text column on
+// customers with no management page, no assignment, no reporting).
+export async function createRoute(formData) {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.from("routes").insert({
+    name: formData.get("name"),
+    zone_id: formData.get("zone_id") || null,
+    assigned_rider_id: formData.get("assigned_rider_id") || null,
+    description: formData.get("description") || null,
+  });
+  if (error) return { error: error.message };
+  revalidatePath("/zones");
+  revalidatePath("/customers");
+  return { ok: true };
+}
+
+export async function recordEmployeeAdvance(formData) {
+  const { supabase, user } = await requireUser();
+  const employeeId = formData.get("employee_id");
+  const amount = Number(formData.get("amount"));
+  if (!employeeId || !amount || amount <= 0) return { error: "Pick an employee and enter a valid advance amount." };
+  const { error } = await supabase.from("employee_advances").insert({
+    employee_id: employeeId,
+    amount,
+    advance_date: formData.get("advance_date") || new Date().toISOString().slice(0, 10),
+    reason: formData.get("reason") || null,
+    created_by: user.id,
+  });
+  if (error) return { error: error.message };
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "CREATE", module: "employee_advances", new_value: { employee_id: employeeId, amount } });
+  revalidatePath("/employees");
+  return { ok: true };
+}
+
+export async function markAttendance(formData) {
+  const { supabase, user } = await requireUser();
+  const employeeId = formData.get("employee_id");
+  const status = formData.get("status") || "present";
+  if (!employeeId) return { error: "Pick an employee." };
+  const attendanceDate = formData.get("attendance_date") || new Date().toISOString().slice(0, 10);
+  const { error } = await supabase.from("employee_attendance")
+    .upsert({ employee_id: employeeId, attendance_date: attendanceDate, status, marked_by: user.id }, { onConflict: "employee_id,attendance_date" });
+  if (error) return { error: error.message };
+  revalidatePath("/employees");
+  return { ok: true };
+}
+
+export async function updateEmployeeProfile(employeeId, formData) {
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("profiles").update({
+    employee_code: formData.get("employee_code") || null,
+    joining_date: formData.get("joining_date") || null,
+    salary: formData.get("salary") ? Number(formData.get("salary")) : null,
+    zone_id: formData.get("zone_id") || null,
+    assigned_vehicle_id: formData.get("assigned_vehicle_id") || null,
+  }).eq("id", employeeId);
+  if (error) return { error: error.message };
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "UPDATE", module: "employees", record_id: employeeId });
+  revalidatePath("/employees");
+  return { ok: true };
+}
+
 // ============================================================
 // OWNER CONTROL: user management
 // ============================================================
-export async function updateUserRole(userId, roleKey) {  const { supabase } = await requireUser();
+export async function updateUserRole(userId, roleKey) {  const { supabase, user } = await requireUser();
   const { data: role } = await supabase.from("roles").select("id").eq("key", roleKey).single();
   if (!role) return { error: "Unknown role" };
   const { error } = await supabase.from("profiles").update({ role_id: role.id }).eq("id", userId);
+  if (!error) await supabase.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "profiles", record_id: userId, new_value: { role: roleKey } });
   revalidatePath("/user-management");
   revalidatePath("/employees");
   return { ok: !error, error: error?.message };
 }
 
 export async function toggleUserActive(userId, isActive) {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
   const { error } = await supabase.from("profiles").update({ is_active: isActive }).eq("id", userId);
+  if (!error) await supabase.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "profiles", record_id: userId, new_value: { is_active: isActive } });
   revalidatePath("/user-management");
   revalidatePath("/employees");
   return { ok: !error, error: error?.message };
 }
 
+// SECURITY: this had no auth check at all before — any caller, authenticated
+// or not, could invite an arbitrary user at an arbitrary role (including
+// owner) since it goes straight to the admin client. Gated the same way
+// deleteUser already gates account deletion.
 export async function inviteUser(formData) {
+  const { supabase, user } = await requireUser();
+  const { data: allowed } = await supabase.rpc("fn_has_permission", { perm_key: "users.manage" });
+  if (!allowed) return { error: "You don't have permission to invite users." };
+
   const admin = createAdminClient();
   const email = formData.get("email");
   const fullName = formData.get("full_name");
@@ -1192,6 +1503,7 @@ export async function inviteUser(formData) {
   });
   if (profileError) return { error: profileError.message };
 
+  await admin.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "profiles", record_id: authData.user.id, new_value: { action: "invited", role: roleKey } });
   revalidatePath("/user-management");
   return { ok: true, email, tempPassword };
 }
@@ -1225,6 +1537,7 @@ export async function deleteUser(userId) {
   const { error: profileError } = await admin.from("profiles").delete().eq("id", userId);
   if (profileError) return { error: profileError.message };
 
+  await admin.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "profiles", new_value: { action: "deleted", target_user_id: userId } });
   revalidatePath("/user-management");
   revalidatePath("/employees");
   return { ok: true };

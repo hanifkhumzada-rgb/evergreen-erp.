@@ -7,9 +7,12 @@ import Toast from "@/components/Toast";
 export default function AddPaymentForm({ customers, collectors = [] }) {
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState(null);
+  const [busy, setBusy] = useState(false);
   const formRef = useRef();
   const handleSubmit = async (formData) => {
+    setBusy(true);
     const res = await createPayment(formData);
+    setBusy(false);
     if (res?.error) { setToast({ type: "error", message: res.error }); return; }
     setOpen(false);
     formRef.current?.reset();
@@ -29,13 +32,16 @@ export default function AddPaymentForm({ customers, collectors = [] }) {
             <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Method</span>
               <select name="method" className="in"><option>Cash</option><option>Bank Transfer</option><option>JazzCash</option><option>Easypaisa</option></select>
             </label>
-            <label className="block mb-4"><span className="text-xs font-semibold text-slate block mb-1">Collector (who collected the cash)</span>
+            <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Collector (who collected the cash)</span>
               <select name="collector_id" className="in">
                 <option value="">Me</option>
                 {collectors.map((c) => <option key={c.id} value={c.id}>{c.full_name}</option>)}
               </select>
             </label>
-            <button type="submit" className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm">Save Payment</button>
+            <label className="block mb-4"><span className="text-xs font-semibold text-slate block mb-1">Notes (optional)</span>
+              <input name="notes" className="in" placeholder="Reference / receipt no. / remarks" />
+            </label>
+            <button type="submit" disabled={busy} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">{busy ? "Saving…" : "Save Payment"}</button>
           </form>
         </div>
       )}
