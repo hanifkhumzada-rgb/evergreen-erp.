@@ -28,13 +28,17 @@ export default async function ExpensesPage({ searchParams }) {
   const isOwner = profile?.roles?.key === "owner";
   const pendingExpenses = (expenses || []).filter((e) => e.status === "submitted");
 
-  // KPIs + category tiles — counted spend is submitted/approved/paid
-  // (rejected never happened, draft isn't committed yet). Production &
+  // KPIs + category tiles — counted spend is approved/paid only, matching
+  // the Dashboard's TODAY'S EXPENSES figure (both filter to the same
+  // ["approved","paid"] set) so the same calendar day reads the same
+  // total on both pages. Submitted (pending-approval) amounts are real
+  // but not yet confirmed spend — they show up only in the PENDING
+  // APPROVAL count, never folded into a spend total. Production &
   // Filling has its own workspace against production_batches; nothing
   // here overlaps it since no expense_categories row represents filling.
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = today.slice(0, 7) + "-01";
-  const spendRows = (expenses || []).filter((e) => ["submitted", "approved", "paid"].includes(e.status));
+  const spendRows = (expenses || []).filter((e) => ["approved", "paid"].includes(e.status));
   const todayTotal = spendRows.filter((e) => e.expense_date === today).reduce((a, e) => a + Number(e.amount), 0);
   const monthRows = spendRows.filter((e) => e.expense_date >= monthStart);
   const monthTotal = monthRows.reduce((a, e) => a + Number(e.amount), 0);
