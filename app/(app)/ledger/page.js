@@ -55,15 +55,19 @@ export default async function LedgerPage({ searchParams }) {
         <KPI label="TOTAL CUSTOMERS" value={allRows.length} tone="navy" />
       </div>
 
-      <form className="no-print flex flex-wrap gap-2.5 mb-4 items-center" action="/ledger">
+      <form className="no-print flex flex-wrap gap-2.5 mb-2 items-center" action="/ledger">
         <input type="text" name="q" defaultValue={sp.q || ""} placeholder="Search name, ID, phone…" className="px-3 py-2 rounded-xl border border-line bg-card text-xs w-56" />
         <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
         {q && <Link href="/ledger" className="text-xs text-slate hover:text-aqua">Clear</Link>}
+      </form>
+      {/* Sibling <div>, not inside the search <form> above — same
+          missing-type="button" issue that broke /customers' "New Customer". */}
+      <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <ExportExcelButton rows={exportRows} filename="evergreen-ledger.xlsx" sheetName="Ledger" />
         <DownloadPdfButton href="/api/pdf/outstanding" label="Download Outstanding PDF" />
         <PrintButton />
-      </form>
+      </div>
 
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">

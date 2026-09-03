@@ -226,9 +226,15 @@ export default async function DeliveriesPage({ searchParams }) {
         </select>
         <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Filter</button>
         {hasTodayFilters && <Link href="/deliveries" className="text-xs text-slate hover:text-aqua">Clear</Link>}
+      </form>
+      {/* Sibling <div>, not inside the filter <form> above — DeliveryForm's
+          trigger button has no type="button" set, so nesting it in a form
+          makes clicking "New Delivery" also submit that form (same bug
+          class fixed on /customers). */}
+      <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <DeliveryForm customers={formCustomers} products={products || []} riders={riders || []} currentUserId={user.id} initialCustomerId={sp.customer || ""} />
-      </form>
+      </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-8">
         {todayCustomers.length === 0 && <p className="text-sm text-slate col-span-full text-center py-8 border border-line rounded-2xl">No customers due today match these filters.</p>}

@@ -72,6 +72,12 @@ export default async function InvoicesPage({ searchParams }) {
         </select>
         <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
         {hasFilters && <a href="/invoices" className="text-xs text-slate hover:text-aqua">Clear</a>}
+      </form>
+      {/* Sibling <div>, not inside the filter <form> above — AddSaleForm's
+          trigger button has no type="button" set, so nesting it in a form
+          makes clicking "New Sale" also submit that form (same bug class
+          fixed on /customers). */}
+      <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <BulkImportButton
           label="Bulk Import"
@@ -84,7 +90,7 @@ export default async function InvoicesPage({ searchParams }) {
         <DownloadPdfButton href={`/api/pdf/daily-sales?date=${today}`} label="Download Today's PDF" />
         <PrintButton />
         <AddSaleForm customers={customers || []} products={products || []} initialCustomerId={sp.customer || ""} />
-      </form>
+      </div>
       <p className="no-print text-xs text-slate mb-2">{rows.length} of {allRows.length} invoices</p>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">

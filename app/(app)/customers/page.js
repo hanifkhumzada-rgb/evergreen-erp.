@@ -141,6 +141,15 @@ export default async function CustomersPage({ searchParams }) {
         </select>
         <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Filter</button>
         {hasFilters && <Link href="/customers" className="text-xs text-slate hover:text-aqua">Clear</Link>}
+      </form>
+      {/* Deliberately a sibling <div>, not inside the filter <form> above —
+          every trigger button here (BulkImportButton/ExportExcelButton/
+          PrintButton/CustomerForm's "New Customer") is a plain <button>
+          without type="button" set at the component level, so nesting it
+          inside a <form> makes clicking it ALSO submit that form (a real
+          navigation to /customers), racing and killing the just-opened
+          modal. That was the cause of "New Customer opens then crashes". */}
+      <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <BulkImportButton
           label="Bulk Import"
@@ -155,7 +164,7 @@ export default async function CustomersPage({ searchParams }) {
         <ExportExcelButton rows={exportRows} filename="evergreen-customers.xlsx" sheetName="Customers" />
         <PrintButton />
         <CustomerForm mode="create" {...formProps} />
-      </form>
+      </div>
       <p className="no-print text-xs text-slate mb-2">{rows.length} of {allRows.length} customers</p>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
