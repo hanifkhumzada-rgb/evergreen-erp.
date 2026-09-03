@@ -1,16 +1,16 @@
-import { Bar } from "@/components/Skeletons";
+import { Bar, SkeletonShell } from "@/components/Skeletons";
 
 export default function Loading() {
   return (
-    <div>
+    <SkeletonShell>
       <Bar w="w-28" h="h-4" />
       <div className="border border-line rounded-2xl p-8 max-w-lg mt-4">
         <div className="flex justify-between items-center mb-5">
           <div className="flex items-center gap-2">
-            <div className="animate-pulse bg-line/70 rounded-lg w-8 h-8" />
+            <div className="skeleton-shimmer rounded-lg w-8 h-8" />
             <Bar w="w-40" h="h-4" />
           </div>
-          <div className="animate-pulse bg-line/70 rounded-full w-20 h-6" />
+          <div className="skeleton-shimmer rounded-full w-20 h-6" />
         </div>
         <div className="flex justify-between mb-4">
           <div className="flex flex-col gap-1.5">
@@ -30,6 +30,6 @@ export default function Loading() {
           <Bar w="w-2/3" h="h-3.5" />
         </div>
       </div>
-    </div>
+    </SkeletonShell>
   );
 }

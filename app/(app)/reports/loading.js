@@ -1,8 +1,8 @@
-import { Bar, TableSkeleton } from "@/components/Skeletons";
+import { Bar, TableSkeleton, SkeletonShell } from "@/components/Skeletons";
 
 export default function Loading() {
   return (
-    <div>
+    <SkeletonShell>
       <Bar w="w-32" h="h-6" />
       <div className="mt-2 mb-5"><Bar w="w-72" h="h-3.5" /></div>
       <div className="flex flex-col lg:flex-row gap-5">
@@ -16,6 +16,6 @@ export default function Loading() {
         </div>
         <div className="flex-1"><TableSkeleton rows={9} cols={5} /></div>
       </div>
-    </div>
+    </SkeletonShell>
   );
 }

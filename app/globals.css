@@ -73,3 +73,28 @@ table tr.hover\:bg-foam:hover {
 @media print {
   .no-print { display: none !important; }
 }
+
+/* Route loading.js shimmer skeletons — a moving highlight sweep (not just
+   opacity pulsing) across the app's own line/aquaSoft colors, so a slow
+   navigation reads as "the brand is working," not a generic gray placeholder. */
+@keyframes skeleton-shimmer {
+  0% { background-position: 150% 0; }
+  100% { background-position: -50% 0; }
+}
+.skeleton-shimmer {
+  background-image: linear-gradient(100deg, var(--line) 30%, var(--aquaSoft) 50%, var(--line) 70%);
+  background-size: 250% 100%;
+  animation: skeleton-shimmer 1.8s ease-in-out infinite;
+}
+
+@keyframes skeleton-mark-pulse {
+  0%, 100% { opacity: 0.45; transform: scale(0.94); }
+  50% { opacity: 1; transform: scale(1); }
+}
+.skeleton-mark-pulse {
+  animation: skeleton-mark-pulse 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-shimmer, .skeleton-mark-pulse { animation: none; }
+}
