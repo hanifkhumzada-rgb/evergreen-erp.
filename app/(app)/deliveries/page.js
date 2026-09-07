@@ -9,6 +9,7 @@ import DeliveryForm from "@/components/DeliveryForm";
 import DeliverSheet from "@/components/DeliverSheet";
 import OneTapDeliverButton, { SkipDeliveryButton } from "@/components/OneTapDeliverButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
+import WhatsAppButton from "@/components/WhatsAppButton";
 import { bulkImportDeliveries, voidDelivery } from "@/app/actions";
 import { Phone, MessageCircle } from "lucide-react";
 
@@ -168,7 +169,7 @@ export default async function DeliveriesPage({ searchParams }) {
     const todayRow = todayStatusMap[c.id];
     const status = CARD_STATUS[todayRow?.status] || CARD_STATUS.pending;
     return {
-      id: c.id, code: c.code, name: c.name, zoneName: c.zones?.name, routeName: c.routes?.name || c.route,
+      id: c.id, code: c.code, name: c.name, mobile: c.mobile, zoneName: c.zones?.name, routeName: c.routes?.name || c.route,
       rate: rateMap[c.id] || 0, regularQty: Number(c.regular_qty) || 0, defaultProductId: c.default_product_id,
       bottleBalance: bottleBalanceMap[c.id] || 0, outstanding: balanceMap[c.id] || 0,
       status, deliveredToday: todayRow, lastDelivery: lastDeliveryMap[c.id],
@@ -275,6 +276,8 @@ export default async function DeliveriesPage({ searchParams }) {
                   />
                 )}
                 <SkipDeliveryButton customerId={c.id} />
+                <WhatsAppButton phone={c.mobile} label="Notify"
+                  message={`Hi ${c.name}, your Evergreen Plus Water delivery is scheduled for today. We'll be with you shortly!`} />
               </div>
             ) : (
               <p className="text-[11.5px] text-slate mt-1">

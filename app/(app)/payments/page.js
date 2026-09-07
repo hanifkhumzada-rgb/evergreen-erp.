@@ -2,6 +2,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
 import { Badge, KPI, ExportExcelButton, PrintButton, Th, Td, DownloadPdfButton } from "@/components/ui";
+import WhatsAppButton from "@/components/WhatsAppButton";
 import AddPaymentForm from "@/components/AddPaymentForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
@@ -27,7 +28,7 @@ export default async function PaymentsPage({ searchParams }) {
     supabase.from("v_customer_balance").select("customer_id, name, balance"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").neq("roles.key", "customer").eq("is_active", true).order("full_name"),
     supabase.from("payments").select("customer_id, payment_date, amount").eq("voided", false).order("payment_date", { ascending: false }),
-    supabase.from("customers").select("id, payment_frequency"),
+    supabase.from("customers").select("id, payment_frequency, mobile"),
     supabase.rpc("fn_has_permission", { perm_key: "payments.delete" }),
   ]);
   const exportRows = (payments || []).map((p) => ({ Date: p.payment_date, Customer: p.customers?.name, Amount: p.amount, Method: p.method, Collector: p.profiles?.full_name, Reference: p.reference }));
@@ -35,7 +36,8 @@ export default async function PaymentsPage({ searchParams }) {
   const lastPaymentMap = {};
   (allPayments || []).forEach((p) => { if (!lastPaymentMap[p.customer_id]) lastPaymentMap[p.customer_id] = p.payment_date; });
   const freqMap = {};
-  (customersMeta || []).forEach((c) => { freqMap[c.id] = c.payment_frequency || "Monthly"; });
+  const mobileMap = {};
+  (customersMeta || []).forEach((c) => { freqMap[c.id] = c.payment_frequency || "Monthly"; mobileMap[c.id] = c.mobile; });
 
   const today = new Date(); today.setHours(0, 0, 0, 0);
   const dueList = (balances || [])
@@ -50,7 +52,7 @@ export default async function PaymentsPage({ searchParams }) {
       else if (daysUntilDue === 0) bucket = "today";
       else if (daysUntilDue <= 7) bucket = "week";
       else if (daysUntilDue <= 30) bucket = "month";
-      return { customerId: b.customer_id, name: b.name, balance: Number(b.balance), freq, lastPayment: last, dueDate, bucket };
+      return { customerId: b.customer_id, name: b.name, mobile: mobileMap[b.customer_id], balance: Number(b.balance), freq, lastPayment: last, dueDate, bucket };
     });
 
   const buckets = { overdue: [], today: [], week: [], month: [] };
@@ -89,7 +91,7 @@ export default async function PaymentsPage({ searchParams }) {
       {actionable.length > 0 && (
         <div className="overflow-x-auto border border-line rounded-2xl mb-6">
           <table className="w-full text-[13.5px] border-collapse">
-            <thead><tr className="bg-foam"><Th>Customer</Th><Th>Amount Due</Th><Th>Due Date</Th><Th>Frequency</Th><Th>Last Payment</Th><Th>Status</Th></tr></thead>
+            <thead><tr className="bg-foam"><Th>Customer</Th><Th>Amount Due</Th><Th>Due Date</Th><Th>Frequency</Th><Th>Last Payment</Th><Th>Status</Th><Th className="no-print">&nbsp;</Th></tr></thead>
             <tbody>
               {actionable.map((d) => (
                 <tr key={d.customerId} className="hover:bg-foam">
@@ -99,6 +101,10 @@ export default async function PaymentsPage({ searchParams }) {
                   <Td>{d.freq}</Td>
                   <Td>{d.lastPayment ? fmtDate(d.lastPayment) : "never"}</Td>
                   <Td><Badge text={BUCKET_LABEL[d.bucket]} tone={BUCKET_TONE[d.bucket]} /></Td>
+                  <Td className="no-print">
+                    <WhatsAppButton phone={d.mobile}
+                      message={`Hi ${d.name}, this is a friendly reminder from Evergreen Plus Water — your current outstanding balance is Rs ${Math.round(d.balance).toLocaleString("en-PK")}. Please arrange payment at your earliest convenience. Thank you!`} />
+                  </Td>
                 </tr>
               ))}
             </tbody>

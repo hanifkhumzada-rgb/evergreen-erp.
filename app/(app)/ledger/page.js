@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { pkr, fmtDate } from "@/lib/format";
 import { Badge, KPI, ExportExcelButton, PrintButton, DownloadPdfButton, Th, Td } from "@/components/ui";
+import WhatsAppButton from "@/components/WhatsAppButton";
 
 export const dynamic = "force-dynamic";
 
@@ -71,15 +72,21 @@ export default async function LedgerPage({ searchParams }) {
 
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Customer</Th><Th>Opening</Th><Th>Current Balance</Th><Th>Credit Limit</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Customer</Th><Th>Opening</Th><Th>Current Balance</Th><Th>Credit Limit</Th><Th className="no-print">&nbsp;</Th></tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={4} className="text-center py-8 text-slate">No customers match.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate">No customers match.</td></tr>}
             {rows.map((c) => (
               <tr key={c.id} className="hover:bg-foam cursor-pointer">
                 <Td><Link href={`/ledger?customer=${c.id}`} className="font-semibold text-navy hover:text-aqua">{c.name}</Link></Td>
                 <Td>{pkr(c.opening_balance)}</Td>
                 <Td><span className={c.balance > 0 ? "text-coral font-semibold" : "text-green font-semibold"}>{pkr(c.balance)}</span></Td>
                 <Td>{pkr(c.credit_limit)}</Td>
+                <Td className="no-print">
+                  {c.balance > 0 && (
+                    <WhatsAppButton phone={c.mobile}
+                      message={`Hi ${c.name}, this is a friendly reminder from Evergreen Plus Water — your current outstanding balance is Rs ${Math.round(c.balance).toLocaleString("en-PK")}. Please arrange payment at your earliest convenience. Thank you!`} />
+                  )}
+                </Td>
               </tr>
             ))}
           </tbody>
@@ -130,6 +137,10 @@ async function CustomerTimeline({ supabase, customerId }) {
           <p className="text-slate text-sm mt-1"><span className="font-mono-num">{c.code || "—"}</span> · {c.mobile}</p>
         </div>
         <div className="no-print flex gap-2">
+          {currentBalance > 0 && (
+            <WhatsAppButton phone={c.mobile}
+              message={`Hi ${c.name}, this is a friendly reminder from Evergreen Plus Water — your current outstanding balance is Rs ${Math.round(currentBalance).toLocaleString("en-PK")}. Please arrange payment at your earliest convenience. Thank you!`} />
+          )}
           <DownloadPdfButton href={`/api/pdf/customer-statement/${c.id}`} label="Download Statement" />
           <PrintButton />
           <Link href={`/customers/${c.id}`} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold">Full Profile</Link>
