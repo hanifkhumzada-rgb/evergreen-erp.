@@ -5,7 +5,7 @@ import { AddVehicleForm, AddVehicleExpenseForm, EditVehicleDatesForm } from "@/c
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { bulkImportVehicles, deleteVehicle } from "@/app/actions";
-import { AlertTriangle, Trash2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -113,7 +113,7 @@ export default async function FleetPage() {
                 <Td className="no-print flex items-center gap-1.5">
                   <EditVehicleDatesForm vehicle={v} />
                   {canDelete && (
-                    <ReasonConfirmButton action={deleteVehicle} id={v.id} label="Delete" icon={Trash2}
+                    <ReasonConfirmButton action={deleteVehicle} id={v.id} label="Delete" icon="trash"
                       confirmText={`Permanently delete vehicle ${v.registration_no}?`}
                       detailText="This can't be undone. Blocked automatically if the vehicle is still assigned to a customer, driver, or has delivery/expense history."
                       confirmLabel="Confirm Delete" busyLabel="Deleting…" />

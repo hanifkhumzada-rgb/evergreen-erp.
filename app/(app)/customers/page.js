@@ -6,7 +6,7 @@ import CustomerForm from "@/components/CustomerForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { bulkImportCustomers, deleteCustomer } from "@/app/actions";
-import { Truck, Wallet, FilePlus, UserCircle2, Trash2 } from "lucide-react";
+import { Truck, Wallet, FilePlus, UserCircle2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -192,7 +192,7 @@ export default async function CustomersPage({ searchParams }) {
                       <Link href={`/invoices?customer=${c.id}`} title="Create Invoice" className="w-9 h-9 flex items-center justify-center rounded-lg border border-line text-navy hover:bg-foam"><FilePlus size={15} /></Link>
                       <Link href={`/customers/${c.id}`} title="View Profile" className="w-9 h-9 flex items-center justify-center rounded-lg border border-line text-slate hover:bg-foam"><UserCircle2 size={15} /></Link>
                       {canDelete && (
-                        <ReasonConfirmButton action={deleteCustomer} id={c.id} label="" icon={Trash2}
+                        <ReasonConfirmButton action={deleteCustomer} id={c.id} label="" icon="trash"
                           confirmText={`Permanently delete ${c.name}?`}
                           detailText="This can't be undone. Blocked automatically if this customer has any delivery, invoice, payment, or ledger history — archive instead in that case."
                           confirmLabel="Confirm Delete" busyLabel="Deleting…" />

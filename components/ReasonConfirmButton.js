@@ -1,17 +1,30 @@
 "use client";
 import { useState } from "react";
-import { Ban, Trash2 } from "lucide-react";
+import { Ban, Trash2, Archive } from "lucide-react";
 
 // Shared confirmation-dialog-with-mandatory-reason flow for any destructive
 // action that requires a reason — void (voidExpense/voidPayment/
 // voidInvoice) or hard delete (deleteVehicle/deleteZone/deleteRoute).
 // Every one of those actions also re-validates the reason server-side —
 // this is just the UI half of that requirement.
+//
+// `icon` is a string key, not a component reference: every caller here is a
+// Server Component (page.js), and passing a plain function (a lucide-react
+// icon component) as a prop across the server/client boundary is not
+// serializable — React's RSC renderer throws "Functions cannot be passed
+// directly to Client Components" for it, unconditionally, on every render.
+// That crashed /customers, /customers/[id], /zones (both its Delete Zone
+// and Delete Route buttons), and /fleet with the exact same production
+// error every time, for any user with delete/archive permission — a string
+// key resolved to a locally-imported icon avoids the whole class of bug.
+const ICONS = { ban: Ban, trash: Trash2, archive: Archive };
+
 export default function ReasonConfirmButton({
   action, id, label = "Void", confirmText = "Void this record?",
   detailText = "This can't be undone. The original record stays for the audit trail, and its financial effect is reversed.",
-  confirmLabel = "Confirm Void", busyLabel = "Voiding…", icon: Icon = Ban,
+  confirmLabel = "Confirm Void", busyLabel = "Voiding…", icon = "ban",
 }) {
+  const Icon = ICONS[icon] || Ban;
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);

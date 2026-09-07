@@ -5,7 +5,6 @@ import AddZoneForm from "@/components/AddZoneForm";
 import AddRouteForm from "@/components/AddRouteForm";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { deleteZone, deleteRoute } from "@/app/actions";
-import { Trash2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -57,7 +56,7 @@ export default async function ZonesPage() {
                 <Td>{pkr(revByZone[z.id] || 0)}</Td>
                 <Td className="no-print">
                   {canDeleteZone && (
-                    <ReasonConfirmButton action={deleteZone} id={z.id} label="Delete" icon={Trash2}
+                    <ReasonConfirmButton action={deleteZone} id={z.id} label="Delete" icon="trash"
                       confirmText={`Permanently delete zone "${z.name}"?`}
                       detailText="This can't be undone. Blocked automatically if the zone still has customers, routes, or other records assigned to it."
                       confirmLabel="Confirm Delete" busyLabel="Deleting…" />
@@ -88,7 +87,7 @@ export default async function ZonesPage() {
                 <Td><Badge text={r.is_active ? "Active" : "Inactive"} tone={r.is_active ? "green" : "slate"} /></Td>
                 <Td className="no-print">
                   {canDeleteRoute && (
-                    <ReasonConfirmButton action={deleteRoute} id={r.id} label="Delete" icon={Trash2}
+                    <ReasonConfirmButton action={deleteRoute} id={r.id} label="Delete" icon="trash"
                       confirmText={`Permanently delete route "${r.name}"?`}
                       detailText="This can't be undone. Blocked automatically if the route still has customers assigned to it."
                       confirmLabel="Confirm Delete" busyLabel="Deleting…" />

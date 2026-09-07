@@ -7,7 +7,6 @@ import CustomerForm, { EditCustomerTrigger } from "@/components/CustomerForm";
 import { SalesTrendChart } from "@/components/LazyCharts";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { archiveCustomer, deleteCustomer, voidDelivery } from "@/app/actions";
-import { Archive, Trash2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -186,13 +185,13 @@ export default async function CustomerProfilePage({ params }) {
           <DownloadPdfButton href={`/api/pdf/customer-statement/${c.id}`} label="Download Statement" />
           <PrintButton />
           {canDelete && c.status !== "archived" && (
-            <ReasonConfirmButton action={archiveCustomer} id={c.id} label="Archive" icon={Archive}
+            <ReasonConfirmButton action={archiveCustomer} id={c.id} label="Archive" icon="archive"
               confirmText={`Archive ${c.name}?`}
               detailText="Their record and full history stay intact and searchable — they just stop showing up for new deliveries. Can be reversed by editing their status back."
               confirmLabel="Confirm Archive" busyLabel="Archiving…" />
           )}
           {canDelete && (
-            <ReasonConfirmButton action={deleteCustomer} id={c.id} label="Delete" icon={Trash2}
+            <ReasonConfirmButton action={deleteCustomer} id={c.id} label="Delete" icon="trash"
               confirmText={`Permanently delete ${c.name}?`}
               detailText="This can't be undone. Blocked automatically if this customer has any delivery, invoice, payment, or ledger history — archive instead in that case."
               confirmLabel="Confirm Delete" busyLabel="Deleting…" />
