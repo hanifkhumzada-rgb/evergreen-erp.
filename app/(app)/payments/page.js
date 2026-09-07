@@ -142,6 +142,7 @@ export default async function PaymentsPage({ searchParams }) {
                 <Td>
                   <div className="flex items-center gap-1.5">
                     <DownloadPdfButton href={`/api/pdf/payment-receipt/${p.id}`} label="Voucher" />
+                    {p.method === "bank" && <DownloadPdfButton href={`/api/pdf/bank-payment-voucher/payments/${p.id}`} label="BPV" />}
                     {canVoid && !p.voided && <ReasonConfirmButton action={voidPayment} id={p.id} confirmText={`Void payment of ${pkr(p.amount)} from ${p.customers?.name}?`} />}
                   </div>
                 </Td>

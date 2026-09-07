@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getCurrentProfile } from "@/lib/session";
 import { pkr, fmtDate } from "@/lib/format";
-import { KPI, ExportExcelButton, PrintButton, Th, Td, Badge } from "@/components/ui";
+import { KPI, ExportExcelButton, PrintButton, Th, Td, Badge, DownloadPdfButton } from "@/components/ui";
 import AddExpenseForm from "@/components/AddExpenseForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import PendingApprovals from "@/components/PendingApprovals";
@@ -141,7 +141,14 @@ export default async function ExpensesPage({ searchParams }) {
                   <Td>{fmtDate(e.expense_date)}</Td><Td>{e.expense_categories?.name}</Td><Td>{e.description}</Td><Td>{pkr(e.amount)}</Td><Td>{e.payment_method}</Td>
                   <Td>{e.profiles?.full_name || "—"}</Td><Td className="text-xs text-slate max-w-[140px] truncate">{e.receipt_reference || "—"}</Td>
                   <Td><Badge text={badge.text} tone={badge.tone} />{e.voided && e.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{e.void_reason}</div>}</Td>
-                  <Td>{canVoid && !e.voided && <ReasonConfirmButton action={voidExpense} id={e.id} confirmText={`Void expense "${e.description || e.expense_categories?.name}"?`} />}</Td>
+                  <Td>
+                    <div className="flex items-center gap-1.5">
+                      {e.payment_method === "bank" && ["approved", "paid"].includes(e.status) && (
+                        <DownloadPdfButton href={`/api/pdf/bank-payment-voucher/expenses/${e.id}`} label="BPV" />
+                      )}
+                      {canVoid && !e.voided && <ReasonConfirmButton action={voidExpense} id={e.id} confirmText={`Void expense "${e.description || e.expense_categories?.name}"?`} />}
+                    </div>
+                  </Td>
                 </tr>
               );
             })}
