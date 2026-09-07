@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { Th, Td, Badge } from "@/components/ui";
+import { Th, Td, Badge, DownloadPdfButton } from "@/components/ui";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { voidJournalEntry } from "@/app/actions";
 
@@ -51,6 +51,7 @@ export default async function JournalPage() {
                 </div>
                 <div className="flex items-center gap-2.5">
                   <span className="font-mono-num text-xs text-slate">{pkr(total)}</span>
+                  <DownloadPdfButton href={`/api/pdf/journal-voucher/${je.id}`} label="Voucher" />
                   {canVoidThis && (
                     <ReasonConfirmButton action={voidJournalEntry} id={je.id} label="Void"
                       confirmText={`Void journal entry ${je.entry_no}?`}
