@@ -36,9 +36,14 @@ export default function AiPage() {
     setLog((l) => [...l, { from: "user", text: question }]);
     setQ("");
     setBusy(true);
-    const res = await askAI(question);
-    setBusy(false);
-    setLog((l) => [...l, { from: "ai", text: res.text }]);
+    try {
+      const res = await askAI(question);
+      setBusy(false);
+      setLog((l) => [...l, { from: "ai", text: res.text }]);
+    } catch {
+      setBusy(false);
+      setLog((l) => [...l, { from: "ai", text: "Network error — please check your connection and try again." }]);
+    }
   };
 
   return (
