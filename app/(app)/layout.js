@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import { getCurrentProfile } from "@/lib/session";
 import Sidebar, { SidebarProvider, SidebarToggleButton } from "@/components/Sidebar";
 import GlobalSearch from "@/components/GlobalSearch";
@@ -39,7 +40,12 @@ export default async function AppLayout({ children }) {
           </div>
           <div className="flex items-center gap-4">
             <GlobalSearch />
-            <Bell size={17} className="text-slate" />
+            <Link href="/notifications" className="relative p-1.5 -m-1.5 rounded-lg hover:bg-foam" aria-label="Notifications">
+              <Bell size={17} className="text-slate" />
+              {unreadNotifications > 0 && (
+                <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-coral" />
+              )}
+            </Link>
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-full bg-aqua text-white flex items-center justify-center text-xs font-bold">
                 {profile.full_name?.[0]?.toUpperCase()}

@@ -98,3 +98,23 @@ table tr.hover\:bg-foam:hover {
 @media (prefers-reduced-motion: reduce) {
   .skeleton-shimmer, .skeleton-mark-pulse { animation: none; }
 }
+
+/* Login card entrance — a soft rise-and-fade so the page feels alive on
+   load instead of just snapping into place. */
+@keyframes login-card-in {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.login-card-in {
+  animation: login-card-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.login-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+}
+.login-btn:not(:disabled):active {
+  transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-card-in { animation: none; }
+}

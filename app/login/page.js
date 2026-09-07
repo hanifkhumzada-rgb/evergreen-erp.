@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { REMEMBER_ME_COOKIE, REMEMBER_ME_MAX_AGE } from "@/lib/rememberMe";
-import { User, Lock, Eye, EyeOff, Check, Mail } from "lucide-react";
+import { User, Lock, Eye, EyeOff, Check, Mail, Droplet, MessageCircleHeart, BarChart3, ShieldCheck } from "lucide-react";
+import ThemeToggle from "@/components/ThemeToggle";
 
 // Supabase Auth already rate-limits sign-in attempts server-side (per
 // project, not configurable from app code) — this is an additional
@@ -15,6 +16,13 @@ const LOCKOUT_SECONDS = 30;
 function BrandMark({ size = 40 }) {
   return <img src="/icon-192.png" alt="Evergreen Plus Water" style={{ width: size, height: size }} className="rounded-xl shadow-lg flex-shrink-0" />;
 }
+
+const HERO_FEATURES = [
+  { icon: BarChart3, text: "Live sales & profit, updated the moment they happen" },
+  { icon: Droplet, text: "Every bottle tracked — out, back, and outstanding" },
+  { icon: MessageCircleHeart, text: "One-tap WhatsApp reminders for customers" },
+  { icon: ShieldCheck, text: "Your data, backed up and role-protected" },
+];
 
 export default function LoginPage() {
   const router = useRouter();
@@ -107,20 +115,44 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-navy to-[#052625] p-5">
-      <div className="flex bg-card rounded-[28px] overflow-hidden max-w-4xl w-full shadow-2xl">
+    <div className="min-h-screen relative flex items-center justify-center bg-gradient-to-br from-navy to-[#052625] p-5 overflow-hidden">
+      {/* Soft ambient glows behind the card — purely decorative, gives the
+          page some life without competing with the form. */}
+      <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-aqua/10 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-32 -right-16 w-[28rem] h-[28rem] rounded-full bg-aqua/10 blur-3xl pointer-events-none" />
+      <div className="absolute top-5 right-5 z-10"><ThemeToggle className="text-white/80 hover:bg-white/10" /></div>
+
+      <div className="login-card-in flex bg-card rounded-[28px] overflow-hidden max-w-4xl w-full shadow-2xl relative">
         {/* Hero panel */}
-        <div className="flex-1 relative bg-gradient-to-br from-navy via-navy to-navyLight text-white p-10 hidden md:flex flex-col justify-between min-w-[280px] overflow-hidden">
+        <div className="flex-1 relative bg-gradient-to-br from-navy via-navy to-navyLight text-white p-10 hidden md:flex flex-col justify-between min-w-[300px] overflow-hidden">
           <div className="absolute -right-14 -top-14 w-64 h-64 rounded-full bg-aqua/10 blur-2xl pointer-events-none" />
           <div className="absolute -left-10 bottom-16 w-44 h-44 rounded-full bg-aqua/10 blur-2xl pointer-events-none" />
+          {/* Gentle wave motif along the bottom — nods to the "water" brand
+              without being a literal illustration. */}
+          <svg className="absolute left-0 right-0 bottom-0 w-full h-24 opacity-[0.08] pointer-events-none" viewBox="0 0 400 100" preserveAspectRatio="none">
+            <path d="M0,50 C60,90 140,10 200,50 C260,90 340,10 400,50 L400,100 L0,100 Z" fill="#FFFFFF" />
+          </svg>
           <div className="relative">
             <div className="flex items-center gap-2.5">
               <BrandMark size={44} />
               <span className="font-display text-xl font-semibold leading-tight">Evergreen<br />Plus Water</span>
             </div>
-            <p className="text-[#AFD3D0] text-sm leading-relaxed mt-8 max-w-[250px]">
-              Real login, real database. Every sale, payment, and delivery here is stored in Postgres and visible to your whole team instantly.
+            <h1 className="font-display text-[1.7rem] leading-tight font-semibold mt-8 max-w-[280px]">
+              Your whole business, in one friendly place.
+            </h1>
+            <p className="text-[#AFD3D0] text-sm leading-relaxed mt-3 max-w-[270px]">
+              Real login, real database — every sale, payment, and delivery is stored instantly and visible to your whole team.
             </p>
+            <div className="flex flex-col gap-3 mt-8">
+              {HERO_FEATURES.map(({ icon: Icon, text }) => (
+                <div key={text} className="flex items-center gap-2.5">
+                  <span className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
+                    <Icon size={14} className="text-aqua" />
+                  </span>
+                  <span className="text-[#D8ECE9] text-xs leading-snug">{text}</span>
+                </div>
+              ))}
+            </div>
           </div>
           <div className="relative font-mono-num text-xs text-[#7FA6A2]">Karachi · Pakistan</div>
         </div>
@@ -134,7 +166,7 @@ export default function LoginPage() {
 
           {mode === "signin" ? (
             <>
-              <h2 className="font-display text-2xl font-semibold mb-1">Welcome back</h2>
+              <h2 className="font-display text-2xl font-semibold mb-1">Welcome back 👋</h2>
               <p className="text-sm text-slate mb-7">Use the email and password your admin created for you.</p>
               {resetSuccess && <p className="text-green text-xs mb-4 bg-greenSoft px-3 py-2 rounded-lg">Password updated — sign in with your new password.</p>}
               <form onSubmit={handleLogin}>
@@ -144,7 +176,7 @@ export default function LoginPage() {
                     <User size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate pointer-events-none" />
                     <input
                       type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
-                      className="w-full pl-10 pr-3.5 py-3 rounded-xl border border-line bg-card text-sm outline-none focus:border-aqua focus:ring-2 focus:ring-aqua/20 transition-shadow"
+                      className="w-full pl-10 pr-3.5 py-3 rounded-2xl border border-line bg-card text-sm outline-none focus:border-aqua focus:ring-4 focus:ring-aqua/15 transition-all"
                       placeholder="owner@evergreenplus.pk"
                     />
                   </div>
@@ -155,7 +187,7 @@ export default function LoginPage() {
                     <Lock size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate pointer-events-none" />
                     <input
                       type={showPassword ? "text" : "password"} required value={password} onChange={(e) => setPassword(e.target.value)}
-                      className="w-full pl-10 pr-10 py-3 rounded-xl border border-line bg-card text-sm outline-none focus:border-aqua focus:ring-2 focus:ring-aqua/20 transition-shadow"
+                      className="w-full pl-10 pr-10 py-3 rounded-2xl border border-line bg-card text-sm outline-none focus:border-aqua focus:ring-4 focus:ring-aqua/15 transition-all"
                       placeholder="••••••••"
                     />
                     <button
@@ -181,10 +213,10 @@ export default function LoginPage() {
                   </button>
                 </div>
 
-                {error && <p className="text-coral text-xs mb-3">{isLocked ? `Too many failed attempts. Try again in ${lockCountdown}s.` : error}</p>}
+                {error && <p className="text-coral text-xs mb-3 bg-coralSoft px-3 py-2 rounded-lg">{isLocked ? `Too many failed attempts. Try again in ${lockCountdown}s.` : error}</p>}
                 <button
                   disabled={loading || isLocked} type="submit"
-                  className="w-full py-3 rounded-full bg-navy hover:bg-navyLight text-white font-bold text-sm disabled:opacity-60 shadow-lg shadow-navy/25 transition-colors"
+                  className="login-btn w-full py-3 rounded-full bg-gradient-to-r from-navy to-navyLight hover:shadow-xl hover:shadow-navy/30 text-white font-bold text-sm disabled:opacity-60 shadow-lg shadow-navy/25 transition-all"
                 >
                   {isLocked ? `Try again in ${lockCountdown}s` : loading ? "Signing in…" : "Sign In"}
                 </button>
@@ -208,15 +240,15 @@ export default function LoginPage() {
                       <Mail size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate pointer-events-none" />
                       <input
                         type="email" required value={resetEmail} onChange={(e) => setResetEmail(e.target.value)}
-                        className="w-full pl-10 pr-3.5 py-3 rounded-xl border border-line bg-card text-sm outline-none focus:border-aqua focus:ring-2 focus:ring-aqua/20 transition-shadow"
+                        className="w-full pl-10 pr-3.5 py-3 rounded-2xl border border-line bg-card text-sm outline-none focus:border-aqua focus:ring-4 focus:ring-aqua/15 transition-all"
                         placeholder="owner@evergreenplus.pk"
                       />
                     </div>
                   </label>
-                  {error && <p className="text-coral text-xs mb-3">{error}</p>}
+                  {error && <p className="text-coral text-xs mb-3 bg-coralSoft px-3 py-2 rounded-lg">{error}</p>}
                   <button
                     disabled={loading} type="submit"
-                    className="w-full py-3 rounded-full bg-navy hover:bg-navyLight text-white font-bold text-sm disabled:opacity-60 shadow-lg shadow-navy/25 transition-colors"
+                    className="login-btn w-full py-3 rounded-full bg-gradient-to-r from-navy to-navyLight hover:shadow-xl hover:shadow-navy/30 text-white font-bold text-sm disabled:opacity-60 shadow-lg shadow-navy/25 transition-all"
                   >
                     {loading ? "Sending…" : "Send reset link"}
                   </button>

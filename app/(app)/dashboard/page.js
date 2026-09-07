@@ -1,11 +1,22 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/session";
 import { pkr } from "@/lib/format";
 import { KPI } from "@/components/ui";
-import { SalesTrendChart, ExpensePie } from "@/components/LazyCharts";
+import { SalesTrendChart, ExpensePie, DeliveriesTrendChart, ZoneRevenueChart } from "@/components/LazyCharts";
 import {
-  AlertTriangle, UserPlus, Truck, ShoppingCart, Receipt, Wallet, Upload, BarChart3, Bot,
+  AlertTriangle, UserPlus, Truck, ShoppingCart, Receipt, Wallet, Upload, BarChart3, Sparkles,
 } from "lucide-react";
+
+// Rendered server-side (often UTC on Vercel, not the business's own
+// timezone) — reads the hour in Karachi explicitly so "Good morning"
+// actually matches when the Owner is looking at it.
+function greeting() {
+  const h = Number(new Intl.DateTimeFormat("en-US", { hour: "numeric", hour12: false, timeZone: "Asia/Karachi" }).format(new Date()));
+  if (h < 12) return "Good morning";
+  if (h < 17) return "Good afternoon";
+  return "Good evening";
+}
 
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
@@ -42,18 +53,21 @@ function calcTrend(current, previous, lowerIsBetter = false) {
 }
 
 const QUICK_ACTIONS = [
-  { label: "New Customer", href: "/customers", icon: UserPlus },
-  { label: "New Delivery", href: "/deliveries", icon: Truck },
-  { label: "New Sale", href: "/sales", icon: ShoppingCart },
-  { label: "Receive Payment", href: "/payments", icon: Receipt },
-  { label: "Add Expense", href: "/expenses", icon: Wallet },
-  { label: "Import Excel", href: "/sales", icon: Upload },
-  { label: "View Reports", href: "/reports", icon: BarChart3 },
+  { label: "New Customer", href: "/customers", icon: UserPlus, tone: "aqua" },
+  { label: "New Delivery", href: "/deliveries", icon: Truck, tone: "navy" },
+  { label: "New Sale", href: "/sales", icon: ShoppingCart, tone: "green" },
+  { label: "Receive Payment", href: "/payments", icon: Receipt, tone: "amber" },
+  { label: "Add Expense", href: "/expenses", icon: Wallet, tone: "coral" },
+  { label: "Import Excel", href: "/sales", icon: Upload, tone: "aqua" },
+  { label: "View Reports", href: "/reports", icon: BarChart3, tone: "navy" },
 ];
+const TONE_BG = { aqua: "bg-aquaSoft text-aqua", navy: "bg-navy/10 text-navy", green: "bg-greenSoft text-green", amber: "bg-amberSoft text-amber", coral: "bg-coralSoft text-coral" };
 
 export default async function DashboardPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const supabase = await createClient();
+  const { profile } = await getCurrentProfile(); // cached — layout.js already paid for this round trip
+  const firstName = profile?.full_name?.split(" ")[0] || "there";
   const today = todayISO();
   const yesterday = daysAgo(1);
   const rangeKey = sp.range || "today";
@@ -70,6 +84,7 @@ export default async function DashboardPage({ searchParams }) {
     overdueRuleRes, { data: unpaidInvoices }, { data: monthToDateExpenses }, { data: lastMonthExpenses },
     { data: custBottleBalances }, { data: bottleLimits },
     { data: rangeInvoices }, { data: rangeDeliveries }, { data: rangeExpenses }, { data: rangePayments }, { data: rangeRiderDeliveries },
+    { data: weekDeliveries },
   ] = await Promise.all([
     supabase.from("invoices").select("net_amount, invoice_items(quantity)").eq("invoice_date", today).neq("status", "void"),
     supabase.from("deliveries").select("*, delivery_items(delivered_qty, returned_qty)").eq("delivery_date", today),
@@ -117,6 +132,10 @@ export default async function DashboardPage({ searchParams }) {
     supabase.from("payments").select("amount").gte("payment_date", range.from).lte("payment_date", range.to).eq("voided", false),
     // Employee performance leaderboard for the same range.
     supabase.from("deliveries").select("rider_id, status, amount_collected, profiles!deliveries_rider_id_fkey(full_name)").gte("delivery_date", range.from).lte("delivery_date", range.to),
+    // Deliveries trend chart — always a fixed last-7-days window (like the
+    // sales trend above), independent of the Today/7 Days/Month toggle so
+    // there's always a meaningful multi-day shape to plot.
+    supabase.from("deliveries").select("delivery_date, status, delivery_items(delivered_qty)").gte("delivery_date", daysAgo(6)).lte("delivery_date", today),
   ]);
 
   const cashBalance = (cashBalances || []).filter((a) => a.type === "cash").reduce((a, c) => a + Number(c.current_balance), 0);
@@ -202,6 +221,14 @@ export default async function DashboardPage({ searchParams }) {
     zoneRevThisWeek[z] = (zoneRevThisWeek[z] || 0) + Number(s.net_amount);
   });
   const topZone = Object.entries(zoneRevThisWeek).sort((a, b) => b[1] - a[1])[0];
+  const zoneChartData = Object.entries(zoneRevThisWeek).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value).slice(0, 6);
+
+  const deliveryTrend = Array.from({ length: 7 }).map((_, i) => {
+    const day = daysAgo(6 - i);
+    const bottles = (weekDeliveries || []).filter((d) => d.delivery_date === day && d.status === "delivered")
+      .reduce((a, d) => a + (d.delivery_items || []).reduce((b, it) => b + Number(it.delivered_qty), 0), 0);
+    return { day: day.slice(5), bottles };
+  });
 
   const overdueDays = overdueRuleRes.data?.enabled === false ? null : (Number(overdueRuleRes.data?.threshold_value) || 30);
   const overdueCutoff = overdueDays != null ? daysAgo(overdueDays) : null;
@@ -266,17 +293,17 @@ export default async function DashboardPage({ searchParams }) {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-0.5">How is the business doing today?</h2>
-      <p className="text-slate text-sm mb-5">{new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })} · live from Postgres</p>
+      <h2 className="font-display text-2xl font-semibold mb-0.5">{greeting()}, {firstName} 👋</h2>
+      <p className="text-slate text-sm mb-5">{new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })} · here's how the business looks right now</p>
 
-      <div className="no-print grid grid-cols-2 gap-2.5 mb-6 max-w-md">
+      <div className="no-print grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 mb-6 max-w-2xl">
         {QUICK_ACTIONS.map((a) => {
           const Icon = a.icon;
           return (
             <Link key={a.label} href={a.href}
-              className="card-lift flex flex-col items-center justify-center gap-1.5 py-4 px-2 rounded-xl border border-line bg-card text-center hover:bg-foam transition-colors">
-              <div className="w-9 h-9 rounded-full bg-aquaSoft flex items-center justify-center">
-                <Icon size={16} className="text-aqua" />
+              className="card-lift flex flex-col items-center justify-center gap-1.5 py-4 px-2 rounded-2xl border border-line bg-card text-center hover:bg-foam transition-colors">
+              <div className={`w-9 h-9 rounded-full flex items-center justify-center ${TONE_BG[a.tone]}`}>
+                <Icon size={16} />
               </div>
               <span className="text-xs font-semibold leading-tight">{a.label}</span>
             </Link>
@@ -325,7 +352,7 @@ export default async function DashboardPage({ searchParams }) {
         </div>
       )}
 
-      <h4 className="text-xs font-bold tracking-wide text-slate mb-2">TODAY AT A GLANCE</h4>
+      <h4 className="text-xs font-bold tracking-wide text-slate mb-2 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-aqua" />TODAY AT A GLANCE</h4>
       <div className="flex flex-wrap gap-3.5 mb-6">
         <KPI label="TODAY'S SALES" value={pkr(salesAmt)} tone="navy" sub={`${(todayInvoices || []).length} invoices`} trend={calcTrend(salesAmt, ySalesAmt)} href="/sales" />
         <KPI label="BOTTLES DELIVERED" value={bottlesDelivered} tone="aqua" />
@@ -335,7 +362,7 @@ export default async function DashboardPage({ searchParams }) {
         <KPI label="ACTIVE CUSTOMERS" value={activeCustomers} tone="aqua" trend={calcTrend(activeCustomers, yActiveCustomers)} href="/customers" />
       </div>
 
-      <h4 className="text-xs font-bold tracking-wide text-slate mb-2">ACCOUNTING SNAPSHOT</h4>
+      <h4 className="text-xs font-bold tracking-wide text-slate mb-2 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-navy" />ACCOUNTING SNAPSHOT</h4>
       <div className="flex flex-wrap gap-3.5 mb-6">
         <KPI label="CASH" value={pkr(cashBalance)} tone="green" trend={calcTrend(cashBalance, yCashBalance)} href="/accounting/chart-of-accounts" />
         <KPI label="BANK" value={pkr(bankBalance)} tone="green" trend={calcTrend(bankBalance, yBankBalance)} href="/accounting/chart-of-accounts" />
@@ -345,8 +372,11 @@ export default async function DashboardPage({ searchParams }) {
         <KPI label="BOTTLE LIABILITY" value={pkr(bottleLiability)} tone="navy" sub={`${withCustomersBottles} bottles with customers`} trend={calcTrend(bottleLiability, yBottleLiability, true)} href="/bottle-ledger" />
       </div>
 
-      <div className="border border-line rounded-2xl p-4 mb-4">
-        <h4 className="text-sm font-bold mb-2.5 flex items-center gap-1.5"><Bot size={15} className="text-aqua" /> AI Business Insights</h4>
+      <div className="border border-aqua/20 bg-gradient-to-br from-aquaSoft/70 to-card rounded-2xl p-4 mb-4">
+        <h4 className="text-sm font-bold mb-2.5 flex items-center gap-1.5">
+          <span className="w-6 h-6 rounded-lg bg-aqua text-white flex items-center justify-center flex-shrink-0"><Sparkles size={13} /></span>
+          AI Business Insights
+        </h4>
         <ul className="flex flex-col gap-1.5 mb-3">
           {insights.map((text, i) => (
             <li key={i} className="text-xs flex gap-2"><span className="text-aqua flex-shrink-0">•</span><span>{text}</span></li>
@@ -364,14 +394,22 @@ export default async function DashboardPage({ searchParams }) {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-4 mb-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         <div className="border border-line rounded-2xl p-4">
           <h4 className="text-sm font-bold mb-2">Sales trend — last 7 days</h4>
           <SalesTrendChart data={trend} />
         </div>
         <div className="border border-line rounded-2xl p-4">
+          <h4 className="text-sm font-bold mb-2">Bottles delivered — last 7 days</h4>
+          <DeliveriesTrendChart data={deliveryTrend} />
+        </div>
+        <div className="border border-line rounded-2xl p-4">
           <h4 className="text-sm font-bold mb-2">Expense breakdown</h4>
           {expenseBreak.length ? <ExpensePie data={expenseBreak} /> : <p className="text-sm text-slate py-10 text-center">No expenses recorded yet.</p>}
+        </div>
+        <div className="border border-line rounded-2xl p-4">
+          <h4 className="text-sm font-bold mb-2">Top zones by revenue — this week</h4>
+          {zoneChartData.length ? <ZoneRevenueChart data={zoneChartData} /> : <p className="text-sm text-slate py-10 text-center">No sales recorded this week yet.</p>}
         </div>
       </div>
 

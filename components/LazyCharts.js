@@ -19,3 +19,13 @@ export const ExpensePie = dynamic(() => import("./DashboardCharts").then((m) => 
   ssr: false,
   loading: ChartSkeleton,
 });
+
+export const DeliveriesTrendChart = dynamic(() => import("./DashboardCharts").then((m) => m.DeliveriesTrendChart), {
+  ssr: false,
+  loading: ChartSkeleton,
+});
+
+export const ZoneRevenueChart = dynamic(() => import("./DashboardCharts").then((m) => m.ZoneRevenueChart), {
+  ssr: false,
+  loading: ChartSkeleton,
+});
