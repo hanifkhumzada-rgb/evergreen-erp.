@@ -1329,15 +1329,29 @@ export async function bulkImportCustomers(rows) {
   const usedCodes = new Set((existingCodesData || []).map((c) => c.code));
 
   for (const r of rows) {
+    // Only Name is a hard floor here — the bulk import template's other
+    // required columns (Address, Area, Zone, Route, Rate, Payment
+    // Frequency) are enforced client-side in the import preview before a
+    // row ever reaches this action, matching what's actually mandatory for
+    // the Owner's bulk upload rather than the fuller regular Customer
+    // Master form. Mobile in particular is deliberately NOT required here
+    // even though it still is on the New/Edit Customer form.
     const name = String(r.Name || r.name || r["Customer Name"] || "").trim();
     const mobile = String(r.Mobile || r.mobile || r.Phone || r.phone || "").trim();
-    if (!name || !mobile) { failed++; continue; }
+    if (!name) { failed++; continue; }
 
     const zoneId = await resolveByName(supabase, "zones", "name", r.Zone || r.zone);
+    const routeId = await resolveByName(supabase, "routes", "name", r.Route || r.route);
     const vehicleId = await resolveByName(supabase, "vehicles", "registration_no", r.Vehicle || r.vehicle);
     const riderId = await resolveRiderByName(supabase, r.Driver || r.driver);
+    // Always resolves (never guarded on the value being present) — with no
+    // Product column in this row, resolveProductId's own fallback chain
+    // still lands on the standard 19L bottle, the same default every other
+    // caller gets. Skipping the call entirely here (as before) meant a row
+    // with only Rate filled in and no Product had nowhere to attach that
+    // rate, silently dropping it below.
     const productValue = r.Product || r.product || r["Bottle Size"] || r.Size || r.size;
-    const productId = productValue ? await resolveProductId(supabase, productValue, null) : null;
+    const productId = await resolveProductId(supabase, productValue, null);
     const preferredDays = String(r["Delivery Days"] || r.DeliveryDays || "").split(",").map((d) => d.trim()).filter(Boolean);
     const status = String(r.Status || r.status || "active").trim().toLowerCase().replace(/\s+/g, "_") || "active";
 
@@ -1362,6 +1376,7 @@ export async function bulkImportCustomers(rows) {
       address: r.Address || r.address || "",
       area: r.Area || r.area || null,
       zone_id: zoneId,
+      route_id: routeId,
       route: r.Route || r.route || null,
       preferred_days: preferredDays.length ? preferredDays : null,
       assigned_rider_id: riderId,

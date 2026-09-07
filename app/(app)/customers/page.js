@@ -21,41 +21,55 @@ const STATUS_BADGE = {
 // Same field set as the Customer Master form — the template's columns line
 // up 1:1 with CustomerForm.js's sections so a filled-in template needs no
 // extra translation on either side.
+//
+// Required set kept deliberately small for bulk import (unlike the regular
+// New/Edit Customer form, where phone etc. stay required) — the Owner is
+// importing ~200+ real customers at once and most rows won't have every
+// field filled in yet. Only what's needed to place a customer on a route
+// and bill them blocks a row: Name, Address, Area, Zone, Route, Rate, and
+// Payment Frequency. Area and Zone are genuinely different columns here
+// (area is a free-text locality like "Gulberg"; zone_id is the formal
+// operational zone) so both are listed and required separately.
 const CUSTOMER_IMPORT_FIELDS = [
   { key: "Customer Code", label: "Customer Code", required: false },
   { key: "Name", label: "Customer Name", required: true },
   { key: "Company", label: "Company", required: false },
   { key: "Contact Person", label: "Contact Person", required: false },
-  { key: "Mobile", label: "Mobile", required: true },
+  { key: "Mobile", label: "Mobile", required: false },
   { key: "Alternate Phone", label: "Alternate Phone", required: false },
   { key: "WhatsApp", label: "WhatsApp", required: false },
   { key: "Email", label: "Email", required: false },
   { key: "Customer Type", label: "Customer Type", required: false },
-  { key: "Address", label: "Address", required: false },
-  { key: "Area", label: "Area", required: false },
-  { key: "Zone", label: "Zone", required: false },
-  { key: "Route", label: "Route", required: false },
+  { key: "Address", label: "Address", required: true },
+  { key: "Area", label: "Area", required: true },
+  { key: "Zone", label: "Zone", required: true },
+  { key: "Route", label: "Route", required: true },
   { key: "Delivery Days", label: "Delivery Days", required: false },
   { key: "Driver", label: "Driver", required: false },
   { key: "Vehicle", label: "Vehicle", required: false },
   { key: "Product", label: "Product / Bottle Size", required: false },
   { key: "Quantity", label: "Quantity", required: false },
-  { key: "Rate", label: "Rate", required: false },
+  { key: "Rate", label: "Rate", required: true },
   { key: "Discount", label: "Discount", required: false },
   { key: "Payment Terms", label: "Payment Terms", required: false },
-  { key: "Payment Frequency", label: "Payment Frequency (Daily/Weekly/Monthly/Custom)", required: false },
+  { key: "Payment Frequency", label: "Payment Frequency (Daily/Weekly/Monthly/Custom)", required: true },
   { key: "Credit Limit", label: "Credit Limit", required: false },
   { key: "Opening Balance", label: "Opening Balance", required: false },
   { key: "Opening Bottle Balance", label: "Opening Bottle Balance", required: false },
   { key: "Status", label: "Status", required: false },
   { key: "Notes", label: "Notes", required: false },
 ];
+// Required columns are marked with a trailing "*" in the header itself —
+// same no-space convention BulkImportButton's columnsHint below already
+// used for Name*/Mobile*. The "*" is stripped out by the column-matching
+// logic's normalize step, so a downloaded-then-reuploaded template still
+// auto-maps correctly.
 const CUSTOMER_SAMPLE_ROW = {
-  "Customer Code": "", Name: "Ali Traders", Company: "Ali Traders", "Contact Person": "Ali Khan",
+  "Customer Code": "", "Name*": "Ali Traders", Company: "Ali Traders", "Contact Person": "Ali Khan",
   Mobile: "03001234567", "Alternate Phone": "", WhatsApp: "03001234567", Email: "", "Customer Type": "Shop",
-  Address: "Shop 4, Main Bazaar", Area: "Gulberg", Zone: "North Zone", Route: "Route 3",
+  "Address*": "Shop 4, Main Bazaar", "Area*": "Gulberg", "Zone*": "North Zone", "Route*": "Route 3",
   "Delivery Days": "Mon, Wed, Fri", Driver: "", Vehicle: "", Product: "19L", Quantity: 5,
-  Rate: "", Discount: "", "Payment Terms": "Cash on Delivery", "Payment Frequency": "Monthly", "Credit Limit": "",
+  "Rate*": "", Discount: "", "Payment Terms": "Cash on Delivery", "Payment Frequency*": "Monthly", "Credit Limit": "",
   "Opening Balance": "", "Opening Bottle Balance": 0, Status: "Active", Notes: "",
 };
 
@@ -156,7 +170,7 @@ export default async function CustomersPage({ searchParams }) {
         <div className="flex-1" />
         <BulkImportButton
           label="Bulk Import"
-          columnsHint="Customer Code, Name*, Company, Contact Person, Mobile*, Alternate Phone, WhatsApp, Email, Customer Type, Address, Area, Zone, Route, Delivery Days, Driver, Vehicle, Product, Quantity, Rate, Discount, Payment Terms, Payment Frequency, Credit Limit, Opening Balance, Opening Bottle Balance, Status, Notes"
+          columnsHint="Customer Code, Name*, Company, Contact Person, Mobile, Alternate Phone, WhatsApp, Email, Customer Type, Address*, Area*, Zone*, Route*, Delivery Days, Driver, Vehicle, Product, Quantity, Rate*, Discount, Payment Terms, Payment Frequency*, Credit Limit, Opening Balance, Opening Bottle Balance, Status, Notes"
           action={bulkImportCustomers}
           sampleRow={CUSTOMER_SAMPLE_ROW}
           previewType="customers"
