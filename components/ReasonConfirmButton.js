@@ -22,11 +22,16 @@ export default function ReasonConfirmButton({
     if (!trimmed) { setError("A reason is required."); return; }
     setBusy(true);
     setError("");
-    const res = await action(id, trimmed);
-    setBusy(false);
-    if (res?.error) { setError(res.error); return; }
-    setOpen(false);
-    setReason("");
+    try {
+      const res = await action(id, trimmed);
+      setBusy(false);
+      if (res?.error) { setError(res.error); return; }
+      setOpen(false);
+      setReason("");
+    } catch {
+      setBusy(false);
+      setError("Network error — please check your connection and try again.");
+    }
   };
 
   if (!open) {

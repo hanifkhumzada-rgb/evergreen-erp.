@@ -52,22 +52,32 @@ export default function PermissionMatrix({ userId, rows }) {
   const save = async () => {
     setBusy(true); setError(""); setSavedMsg("");
     const updates = rows.filter((r) => staged.get(r.key) !== r.override).map((r) => ({ permissionKey: r.key, allow: staged.get(r.key) }));
-    const res = await bulkSetUserPermissionOverrides(userId, updates);
-    setBusy(false);
-    if (res?.error) setError(res.error);
-    else { setSavedMsg(`Saved ${updates.length} change${updates.length === 1 ? "" : "s"}.`); rows.forEach((r) => { r.override = staged.get(r.key); }); }
+    try {
+      const res = await bulkSetUserPermissionOverrides(userId, updates);
+      setBusy(false);
+      if (res?.error) setError(res.error);
+      else { setSavedMsg(`Saved ${updates.length} change${updates.length === 1 ? "" : "s"}.`); rows.forEach((r) => { r.override = staged.get(r.key); }); }
+    } catch {
+      setBusy(false);
+      setError("Network error — please check your connection and try again.");
+    }
   };
 
   const resetToDefaults = async () => {
     if (!window.confirm("Clear every override for this user? Their access will go back to exactly their role's defaults.")) return;
     setBusy(true); setError(""); setSavedMsg("");
-    const res = await resetUserPermissionOverrides(userId);
-    setBusy(false);
-    if (res?.error) setError(res.error);
-    else {
-      rows.forEach((r) => { r.override = null; });
-      setStaged(new Map(rows.map((r) => [r.key, null])));
-      setSavedMsg("Reset to role defaults.");
+    try {
+      const res = await resetUserPermissionOverrides(userId);
+      setBusy(false);
+      if (res?.error) setError(res.error);
+      else {
+        rows.forEach((r) => { r.override = null; });
+        setStaged(new Map(rows.map((r) => [r.key, null])));
+        setSavedMsg("Reset to role defaults.");
+      }
+    } catch {
+      setBusy(false);
+      setError("Network error — please check your connection and try again.");
     }
   };
 

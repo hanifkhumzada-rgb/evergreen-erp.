@@ -12,8 +12,12 @@ export default function UserActiveToggle({ userId, isActive }) {
     setBusy(true);
     setError("");
     const next = !active;
-    const res = await toggleUserActive(userId, next);
-    if (res?.error) setError(res.error); else setActive(next);
+    try {
+      const res = await toggleUserActive(userId, next);
+      if (res?.error) setError(res.error); else setActive(next);
+    } catch {
+      setError("Network error — please check your connection and try again.");
+    }
     setBusy(false);
   };
 

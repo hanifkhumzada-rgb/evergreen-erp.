@@ -12,11 +12,16 @@ export default function InviteUserForm({ roles }) {
 
   const handleSubmit = async (formData) => {
     setError(""); setBusy(true);
-    const res = await inviteUser(formData);
-    setBusy(false);
-    if (res?.error) { setError(res.error); return; }
-    setResult(res);
-    formRef.current?.reset();
+    try {
+      const res = await inviteUser(formData);
+      setBusy(false);
+      if (res?.error) { setError(res.error); return; }
+      setResult(res);
+      formRef.current?.reset();
+    } catch {
+      setBusy(false);
+      setError("Network error — please check your connection and try again.");
+    }
   };
 
   return (

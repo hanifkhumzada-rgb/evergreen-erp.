@@ -21,12 +21,17 @@ export default function AddPaymentForm({ customers, collectors = [], initialCust
 
   const handleSubmit = async (formData) => {
     setBusy(true);
-    const res = await createPayment(formData);
-    setBusy(false);
-    if (res?.error) { setToast({ type: "error", message: res.error }); return; }
-    setOpen(false);
-    formRef.current?.reset();
-    setToast({ type: "success", message: "Payment recorded." });
+    try {
+      const res = await createPayment(formData);
+      setBusy(false);
+      if (res?.error) { setToast({ type: "error", message: res.error }); return; }
+      setOpen(false);
+      formRef.current?.reset();
+      setToast({ type: "success", message: "Payment recorded." });
+    } catch {
+      setBusy(false);
+      setToast({ type: "error", message: "Network error — please check your connection and try again." });
+    }
   };
   return (
     <>

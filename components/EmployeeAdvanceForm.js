@@ -14,12 +14,17 @@ export default function EmployeeAdvanceForm({ employees }) {
   const handleSubmit = async (formData) => {
     setError("");
     setBusy(true);
-    const res = await recordEmployeeAdvance(formData);
-    setBusy(false);
-    if (res?.error) { setError(res.error); return; }
-    setOpen(false);
-    formRef.current?.reset();
-    setToast({ type: "success", message: "Advance recorded." });
+    try {
+      const res = await recordEmployeeAdvance(formData);
+      setBusy(false);
+      if (res?.error) { setError(res.error); return; }
+      setOpen(false);
+      formRef.current?.reset();
+      setToast({ type: "success", message: "Advance recorded." });
+    } catch {
+      setBusy(false);
+      setError("Network error — please check your connection and try again.");
+    }
   };
 
   return (

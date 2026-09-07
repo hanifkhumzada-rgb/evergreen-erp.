@@ -25,13 +25,18 @@ export default function AddSaleForm({ customers, products, initialCustomerId }) 
   const handleSubmit = async (formData) => {
     setError("");
     setBusy(true);
-    const res = await createSale(formData);
-    setBusy(false);
-    if (res?.error) { setError(res.error); return; }
-    setOpen(false);
-    formRef.current?.reset();
-    setProductId(products?.[0]?.id || "");
-    setToast({ type: "success", message: "Sale saved & invoice generated." });
+    try {
+      const res = await createSale(formData);
+      setBusy(false);
+      if (res?.error) { setError(res.error); return; }
+      setOpen(false);
+      formRef.current?.reset();
+      setProductId(products?.[0]?.id || "");
+      setToast({ type: "success", message: "Sale saved & invoice generated." });
+    } catch {
+      setBusy(false);
+      setError("Network error — please check your connection and try again.");
+    }
   };
 
   // Picking a customer defaults the bottle size to whatever they're usually

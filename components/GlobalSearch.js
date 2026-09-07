@@ -77,9 +77,14 @@ export default function GlobalSearch() {
     }
     timeoutRef.current = setTimeout(() => {
       startTransition(async () => {
-        const res = await globalSearch(value.trim());
-        setResults(res);
-        setOpen(true);
+        try {
+          const res = await globalSearch(value.trim());
+          setResults(res);
+          setOpen(true);
+        } catch {
+          setResults(null);
+          setOpen(false);
+        }
       });
     }, 300);
   };

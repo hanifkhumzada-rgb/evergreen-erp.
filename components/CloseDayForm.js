@@ -10,10 +10,15 @@ export default function CloseDayForm({ today, defaultOpeningCash }) {
 
   const handleSubmit = async (formData) => {
     setBusy(true); setError("");
-    const res = await closeDay(formData);
-    setBusy(false);
-    if (res?.error) { setError(res.error); return; }
-    setResult(res);
+    try {
+      const res = await closeDay(formData);
+      setBusy(false);
+      if (res?.error) { setError(res.error); return; }
+      setResult(res);
+    } catch {
+      setBusy(false);
+      setError("Network error — please check your connection and try again.");
+    }
   };
 
   return (

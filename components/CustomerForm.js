@@ -30,24 +30,42 @@ export default function CustomerForm({ mode = "create", customer, zones, product
   const formRef = useRef();
   const c = customer || {};
 
+  // Any server action call here can throw instead of resolving (a dropped
+  // connection, or requireUser() rejecting on a momentary session hiccup) —
+  // unwrapped, that exception propagates past this component to the
+  // nearest error boundary (app/error.js), crashing the whole page instead
+  // of just showing an error in this modal. Every path below goes through
+  // try/catch so a flaky connection always ends up as setError, never a
+  // crash.
   const saveCustomer = async (formData) => {
     setBusy(true);
-    const res = mode === "edit" ? await updateCustomer(c.id, formData) : await createCustomer(formData);
-    setBusy(false);
-    if (res?.error) { setError(res.error); return; }
-    setOpen(false);
-    setDuplicates(null);
-    if (mode === "create") formRef.current?.reset();
-    setToast({ type: "success", message: mode === "edit" ? "Customer updated." : "Customer added." });
+    try {
+      const res = mode === "edit" ? await updateCustomer(c.id, formData) : await createCustomer(formData);
+      setBusy(false);
+      if (res?.error) { setError(res.error); return; }
+      setOpen(false);
+      setDuplicates(null);
+      if (mode === "create") formRef.current?.reset();
+      setToast({ type: "success", message: mode === "edit" ? "Customer updated." : "Customer added." });
+    } catch {
+      setBusy(false);
+      setError("Network error — please check your connection and try again.");
+    }
   };
 
   const handleSubmit = async (formData) => {
     setError("");
     if (mode === "create") {
       setBusy(true);
-      const { matches } = await checkDuplicateCustomer(formData.get("phone"), formData.get("name"));
-      setBusy(false);
-      if (matches?.length) { setDuplicates({ matches, formData }); return; }
+      try {
+        const { matches } = await checkDuplicateCustomer(formData.get("phone"), formData.get("name"));
+        setBusy(false);
+        if (matches?.length) { setDuplicates({ matches, formData }); return; }
+      } catch {
+        setBusy(false);
+        setError("Network error — please check your connection and try again.");
+        return;
+      }
     }
     await saveCustomer(formData);
   };

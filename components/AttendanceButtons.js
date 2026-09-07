@@ -12,6 +12,7 @@ const OPTIONS = [
 // used for delivery-boy actions elsewhere in the app.
 export default function AttendanceButtons({ employeeId, today, initialStatus }) {
   const [marked, setMarked] = useState(initialStatus || null);
+  const [error, setError] = useState("");
   const [isPending, startTransition] = useTransition();
 
   const mark = (status) => {
@@ -19,26 +20,34 @@ export default function AttendanceButtons({ employeeId, today, initialStatus }) 
     fd.set("employee_id", employeeId);
     fd.set("status", status);
     fd.set("attendance_date", today);
+    setError("");
     startTransition(async () => {
-      const res = await markAttendance(fd);
-      if (!res?.error) setMarked(status);
+      try {
+        const res = await markAttendance(fd);
+        if (!res?.error) setMarked(status); else setError(res.error);
+      } catch {
+        setError("Network error — please try again.");
+      }
     });
   };
 
   return (
-    <div className="flex gap-1">
-      {OPTIONS.map((o) => (
-        <button
-          key={o.status}
-          type="button"
-          disabled={isPending}
-          onClick={() => mark(o.status)}
-          className={`w-6 h-6 rounded-md border text-[10px] font-bold ${marked === o.status ? `${o.tone} bg-foam` : "border-line text-slate"} disabled:opacity-50`}
-          title={o.label === "P" ? "Present" : o.label === "A" ? "Absent" : "Leave"}
-        >
-          {o.label}
-        </button>
-      ))}
+    <div className="flex flex-col items-start gap-1">
+      <div className="flex gap-1">
+        {OPTIONS.map((o) => (
+          <button
+            key={o.status}
+            type="button"
+            disabled={isPending}
+            onClick={() => mark(o.status)}
+            className={`w-6 h-6 rounded-md border text-[10px] font-bold ${marked === o.status ? `${o.tone} bg-foam` : "border-line text-slate"} disabled:opacity-50`}
+            title={o.label === "P" ? "Present" : o.label === "A" ? "Absent" : "Leave"}
+          >
+            {o.label}
+          </button>
+        ))}
+      </div>
+      {error && <span className="text-[10px] text-coral">{error}</span>}
     </div>
   );
 }

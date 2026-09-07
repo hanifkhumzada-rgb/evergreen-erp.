@@ -13,8 +13,13 @@ export default function UserRoleSelect({ userId, currentRole, roles }) {
     setValue(newRole);
     setBusy(true);
     setError("");
-    const res = await updateUserRole(userId, newRole);
-    if (res?.error) { setValue(previous); setError(res.error); }
+    try {
+      const res = await updateUserRole(userId, newRole);
+      if (res?.error) { setValue(previous); setError(res.error); }
+    } catch {
+      setValue(previous);
+      setError("Network error — please check your connection and try again.");
+    }
     setBusy(false);
   };
 

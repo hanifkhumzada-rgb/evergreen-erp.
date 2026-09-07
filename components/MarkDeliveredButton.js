@@ -8,6 +8,7 @@ export default function MarkDeliveredButton({ deliveryId, emptyExpected }) {
   const [deliveredQty, setDeliveredQty] = useState(emptyExpected);
   const [emptyReceived, setEmptyReceived] = useState(emptyExpected);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
 
   if (!open) {
     return (
@@ -40,12 +41,18 @@ export default function MarkDeliveredButton({ deliveryId, emptyExpected }) {
           />
         </label>
       </div>
+      {error && <p className="text-coral text-[11px]">{error}</p>}
       <div className="flex gap-2">
         <button type="button"
           disabled={busy}
           onClick={async () => {
             setBusy(true);
-            await markDelivered(deliveryId, deliveredQty, emptyReceived);
+            setError("");
+            try {
+              await markDelivered(deliveryId, deliveredQty, emptyReceived);
+            } catch {
+              setError("Network error — please check your connection and try again.");
+            }
             setBusy(false);
           }}
           className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-aqua text-white text-xs font-semibold disabled:opacity-60"

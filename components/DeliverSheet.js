@@ -27,16 +27,21 @@ export default function DeliverSheet({ customer, riders = [], currentUserId }) {
   const handleSubmit = async (formData) => {
     setError("");
     setBusy(true);
-    const res = await createDelivery(formData);
-    setBusy(false);
-    if (res?.error) { setError(res.error); return; }
-    setOpen(false);
-    if (res?.duplicate) {
-      setToast({ type: "success", message: "Already recorded — skipped duplicate submission." });
-    } else {
-      setToast({ type: "success", message: "Delivery recorded." });
+    try {
+      const res = await createDelivery(formData);
+      setBusy(false);
+      if (res?.error) { setError(res.error); return; }
+      setOpen(false);
+      if (res?.duplicate) {
+        setToast({ type: "success", message: "Already recorded — skipped duplicate submission." });
+      } else {
+        setToast({ type: "success", message: "Delivery recorded." });
+      }
+      router.refresh();
+    } catch {
+      setBusy(false);
+      setError("Network error — please check your connection and try again.");
     }
-    router.refresh();
   };
 
   return (

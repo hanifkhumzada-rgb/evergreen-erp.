@@ -23,10 +23,15 @@ function RuleRow({ rule }) {
 
   const handleSubmit = async (formData) => {
     setBusy(true);
-    const res = await updateAutomationRule(rule.id, formData);
-    setBusy(false);
-    if (res?.error) { setToast({ type: "error", message: res.error }); return; }
-    setToast({ type: "success", message: `${rule.label} updated.` });
+    try {
+      const res = await updateAutomationRule(rule.id, formData);
+      setBusy(false);
+      if (res?.error) { setToast({ type: "error", message: res.error }); return; }
+      setToast({ type: "success", message: `${rule.label} updated.` });
+    } catch {
+      setBusy(false);
+      setToast({ type: "error", message: "Network error — please check your connection and try again." });
+    }
   };
 
   return (

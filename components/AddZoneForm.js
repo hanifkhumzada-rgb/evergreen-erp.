@@ -14,12 +14,17 @@ export default function AddZoneForm() {
   const handleSubmit = async (formData) => {
     setError("");
     setBusy(true);
-    const res = await createZone(formData);
-    setBusy(false);
-    if (res?.error) { setError(res.error); return; }
-    setOpen(false);
-    formRef.current?.reset();
-    setToast({ type: "success", message: "Zone created." });
+    try {
+      const res = await createZone(formData);
+      setBusy(false);
+      if (res?.error) { setError(res.error); return; }
+      setOpen(false);
+      formRef.current?.reset();
+      setToast({ type: "success", message: "Zone created." });
+    } catch {
+      setBusy(false);
+      setError("Network error — please check your connection and try again.");
+    }
   };
 
   return (

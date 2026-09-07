@@ -34,11 +34,16 @@ export default function DeliveryStatusButton({ deliveryId, status, label, tone =
         disabled={busy}
         onClick={async () => {
           setBusy(true);
-          const res = await updateDeliveryStatus(deliveryId, status, note);
-          setBusy(false);
-          if (res?.error) { setToast({ type: "error", message: res.error }); return; }
-          setOpen(false);
-          setToast({ type: "success", message: `Delivery marked ${label.toLowerCase()}.` });
+          try {
+            const res = await updateDeliveryStatus(deliveryId, status, note);
+            setBusy(false);
+            if (res?.error) { setToast({ type: "error", message: res.error }); return; }
+            setOpen(false);
+            setToast({ type: "success", message: `Delivery marked ${label.toLowerCase()}.` });
+          } catch {
+            setBusy(false);
+            setToast({ type: "error", message: "Network error — please check your connection and try again." });
+          }
         }}
         className="px-3 py-2 rounded-xl bg-navy text-white text-xs font-semibold disabled:opacity-60"
       >

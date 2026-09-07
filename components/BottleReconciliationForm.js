@@ -23,16 +23,21 @@ export default function BottleReconciliationForm({ products, expectedByProduct }
   const handleSubmit = async (formData) => {
     setError("");
     setBusy(true);
-    const res = await recordBottleReconciliation(formData);
-    setBusy(false);
-    if (res?.error) { setError(res.error); return; }
-    setOpen(false);
-    formRef.current?.reset();
-    setPhysicalQty("");
-    setToast({
-      type: res.difference === 0 ? "success" : "error",
-      message: res.difference === 0 ? "Reconciled — physical count matches expected." : `Recorded — ${res.difference > 0 ? "excess" : "shortage"} of ${Math.abs(res.difference)} bottles adjusted.`,
-    });
+    try {
+      const res = await recordBottleReconciliation(formData);
+      setBusy(false);
+      if (res?.error) { setError(res.error); return; }
+      setOpen(false);
+      formRef.current?.reset();
+      setPhysicalQty("");
+      setToast({
+        type: res.difference === 0 ? "success" : "error",
+        message: res.difference === 0 ? "Reconciled — physical count matches expected." : `Recorded — ${res.difference > 0 ? "excess" : "shortage"} of ${Math.abs(res.difference)} bottles adjusted.`,
+      });
+    } catch {
+      setBusy(false);
+      setError("Network error — please check your connection and try again.");
+    }
   };
 
   return (

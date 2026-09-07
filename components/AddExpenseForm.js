@@ -13,12 +13,17 @@ export default function AddExpenseForm() {
   const formRef = useRef();
   const handleSubmit = async (formData) => {
     setBusy(true);
-    const res = await createExpense(formData);
-    setBusy(false);
-    if (res?.error) { setToast({ type: "error", message: res.error }); return; }
-    setOpen(false);
-    formRef.current?.reset();
-    setToast({ type: "success", message: "Expense added." });
+    try {
+      const res = await createExpense(formData);
+      setBusy(false);
+      if (res?.error) { setToast({ type: "error", message: res.error }); return; }
+      setOpen(false);
+      formRef.current?.reset();
+      setToast({ type: "success", message: "Expense added." });
+    } catch {
+      setBusy(false);
+      setToast({ type: "error", message: "Network error — please check your connection and try again." });
+    }
   };
   return (
     <>

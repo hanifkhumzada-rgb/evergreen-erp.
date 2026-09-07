@@ -11,9 +11,13 @@ function ApprovalRow({ expense }) {
 
   const act = async (action, fn) => {
     setBusy(action);
-    const res = await fn(expense.id);
+    try {
+      const res = await fn(expense.id);
+      if (res?.error) setToast({ type: "error", message: res.error });
+    } catch {
+      setToast({ type: "error", message: "Network error — please check your connection and try again." });
+    }
     setBusy(null);
-    if (res?.error) setToast({ type: "error", message: res.error });
   };
 
   return (

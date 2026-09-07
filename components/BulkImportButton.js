@@ -103,12 +103,17 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
   const confirmImport = async () => {
     setBusy(true);
     const rowsToImport = preview.rows.filter((r) => r.missing.length === 0 && !r.duplicate).map((r) => r.data);
-    const res = await action(rowsToImport);
-    setBusy(false);
     const skippedInvalid = preview.rows.filter((r) => r.missing.length > 0).length;
     const skippedDuplicate = preview.rows.filter((r) => r.duplicate).length;
-    setResult({ ...res, skippedInvalid, skippedDuplicate });
-    setPreview(null);
+    try {
+      const res = await action(rowsToImport);
+      setBusy(false);
+      setResult({ ...res, skippedInvalid, skippedDuplicate });
+      setPreview(null);
+    } catch {
+      setBusy(false);
+      setResult({ error: "Network error — please check your connection and try again.", skippedInvalid, skippedDuplicate });
+    }
   };
 
   const validCount = preview ? preview.rows.filter((r) => r.missing.length === 0 && !r.duplicate).length : 0;
@@ -187,7 +192,11 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
 
       {result && (
         <div className="fixed bottom-6 right-6 bg-card border border-line rounded-xl p-4 shadow-lg z-50 text-sm max-w-xs">
-          <p><strong className="text-green">{result.imported}</strong> imported, <strong className="text-coral">{result.failed}</strong> failed.</p>
+          {result.error ? (
+            <p className="text-coral">{result.error}</p>
+          ) : (
+            <p><strong className="text-green">{result.imported}</strong> imported, <strong className="text-coral">{result.failed}</strong> failed.</p>
+          )}
           {(result.skippedInvalid > 0 || result.skippedDuplicate > 0 || result.duplicateCodesReassigned > 0) && (
             <p className="text-xs text-slate mt-1">
               {result.skippedInvalid > 0 && <>{result.skippedInvalid} skipped (missing required fields). </>}

@@ -27,11 +27,16 @@ export default function OneTapDeliverButton({ variant, label, customer, delivere
     fd.set("cash_collected", String(cashCollected));
     fd.set("delivery_date", new Date().toISOString().slice(0, 10));
     fd.set("rider_id", currentUserId);
-    const res = await createDelivery(fd);
-    setBusy(false);
-    if (res?.error) { setToast({ type: "error", message: res.error }); return; }
-    setToast({ type: "success", message: res?.duplicate ? "Already recorded — skipped duplicate submission." : "Delivery recorded." });
-    router.refresh();
+    try {
+      const res = await createDelivery(fd);
+      setBusy(false);
+      if (res?.error) { setToast({ type: "error", message: res.error }); return; }
+      setToast({ type: "success", message: res?.duplicate ? "Already recorded — skipped duplicate submission." : "Delivery recorded." });
+      router.refresh();
+    } catch {
+      setBusy(false);
+      setToast({ type: "error", message: "Network error — please check your connection and try again." });
+    }
   };
 
   return (
@@ -51,11 +56,16 @@ export function SkipDeliveryButton({ customerId }) {
 
   const handleClick = async () => {
     setBusy(true);
-    const res = await skipTodayDelivery(customerId, "");
-    setBusy(false);
-    if (res?.error) { setToast({ type: "error", message: res.error }); return; }
-    setToast({ type: "success", message: "Marked skipped." });
-    router.refresh();
+    try {
+      const res = await skipTodayDelivery(customerId, "");
+      setBusy(false);
+      if (res?.error) { setToast({ type: "error", message: res.error }); return; }
+      setToast({ type: "success", message: "Marked skipped." });
+      router.refresh();
+    } catch {
+      setBusy(false);
+      setToast({ type: "error", message: "Network error — please check your connection and try again." });
+    }
   };
 
   return (
