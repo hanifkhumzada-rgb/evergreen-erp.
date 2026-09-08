@@ -8,13 +8,16 @@
 // already fetched — `hidden print:flex` means it renders nothing during
 // normal browsing (the app already has its own header/nav) and only
 // appears in the printable output, right above the page's own content.
-export default function DocumentPrintHeader({ branding, title, meta }) {
+// Pages that ARE a document in their own right (the invoice view) rather
+// than a dashboard with a print preview bolted on pass `printOnly={false}`
+// so the same branded header shows on screen too, not just when printed.
+export default function DocumentPrintHeader({ branding, title, meta, printOnly = true }) {
   const b = branding || {};
   const phones = [b.phone, b.phone2 || b.phone_2].filter(Boolean).join(" / ");
   const contact = [b.address, phones, b.email].filter(Boolean).join("   ·   ");
 
   return (
-    <div className="hidden print:flex items-start justify-between gap-4 pb-3 mb-4 border-b-2 border-navy">
+    <div className={`${printOnly ? "hidden print:flex" : "flex"} items-start justify-between gap-4 pb-3 mb-4 border-b-2 border-navy`}>
       <div className="w-12 flex-shrink-0">
         {(b.logoUrl || b.logo_url) && <img src={b.logoUrl || b.logo_url} alt="" className="w-11 h-11 rounded-lg object-contain" />}
       </div>

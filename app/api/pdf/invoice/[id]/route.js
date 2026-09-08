@@ -10,7 +10,7 @@ export async function GET(request, { params }) {
   if (!user) return new NextResponse("Unauthorized", { status: 401 });
 
   const branding = await getBusinessBranding(supabase);
-  const { data: invoice } = await supabase.from("invoices").select("*, customers(*), invoice_items(*)").eq("id", params.id).single();
+  const { data: invoice } = await supabase.from("invoices").select("*, customers(*, zones(name)), invoice_items(*, products(name, size_label))").eq("id", params.id).single();
   if (!invoice) return new NextResponse("Invoice not found", { status: 404 });
   const customer = invoice.customers;
 
