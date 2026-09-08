@@ -1,12 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
-import { pkr } from "@/lib/format";
+import { pkr, fmtDate } from "@/lib/format";
 import { PrintButton, ExportExcelButton, Th, Td } from "@/components/ui";
+import { getBrandingLite } from "@/lib/pdf/business";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 
 export const dynamic = "force-dynamic";
 
 export default async function TrialBalancePage() {
   const supabase = await createClient();
-  const { data: rows } = await supabase.from("v_trial_balance").select("*").order("code");
+  const [branding, { data: rows }] = await Promise.all([
+    getBrandingLite(supabase),
+    supabase.from("v_trial_balance").select("*").order("code"),
+  ]);
 
   const totalDebit = (rows || []).reduce((a, r) => a + Number(r.total_debit), 0);
   const totalCredit = (rows || []).reduce((a, r) => a + Number(r.total_credit), 0);
@@ -14,8 +19,9 @@ export default async function TrialBalancePage() {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-1">Trial Balance</h2>
-      <p className="text-slate text-sm mb-5">Every account&apos;s total debits and credits, calculated live from posted journal entries.</p>
+      <DocumentPrintHeader branding={branding} title="Trial Balance" meta={`Generated ${fmtDate(new Date().toISOString())}`} />
+      <h2 className="no-print font-display text-2xl font-semibold mb-1">Trial Balance</h2>
+      <p className="no-print text-slate text-sm mb-5">Every account&apos;s total debits and credits, calculated live from posted journal entries.</p>
 
       <div className="no-print flex gap-2.5 mb-3">
         <ExportExcelButton rows={exportRows} filename="trial-balance.xlsx" sheetName="Trial Balance" />
@@ -52,6 +58,7 @@ export default async function TrialBalancePage() {
           ? "✓ Balanced — total debits equal total credits."
           : `⚠ Out of balance by ${pkr(Math.abs(totalDebit - totalCredit))} — this should not happen; check recent journal entries.`}
       </p>
+      <DocumentPrintFooter />
     </div>
   );
 }

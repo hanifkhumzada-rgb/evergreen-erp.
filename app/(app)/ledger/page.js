@@ -1,23 +1,13 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { pkr, fmtDate } from "@/lib/format";
-import { Badge, KPI, ExportExcelButton, PrintButton, DownloadPdfButton, Th, Td } from "@/components/ui";
+import { pkr, fmtDate, refNoFromDescription } from "@/lib/format";
+import { KPI, ExportExcelButton, PrintButton, DownloadPdfButton, Th, Td } from "@/components/ui";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
+import { getBrandingLite } from "@/lib/pdf/business";
 
 export const dynamic = "force-dynamic";
-
-// customer_ledger_entries.reference_type, as posted by the DB triggers
-// (fn_post_opening_balance / fn_post_invoice_to_ledger / record_delivery_completion
-// / fn_post_payment_to_ledger) — this is the same table v_customer_balance
-// sums, so the running balance here always agrees with the balance shown
-// everywhere else (Customers, customer profile, dashboard).
-const TYPE_BADGE = {
-  opening: { text: "Opening", tone: "slate" },
-  invoice: { text: "Sale", tone: "coral" },
-  delivery: { text: "Delivery", tone: "coral" },
-  payment: { text: "Payment", tone: "green" },
-};
 
 export default async function LedgerPage({ searchParams }) {
   const sp = (await searchParams) || {};
@@ -28,7 +18,8 @@ export default async function LedgerPage({ searchParams }) {
   }
 
   const q = (sp.q || "").trim().toLowerCase();
-  const [{ data: customers }, { data: balances }] = await Promise.all([
+  const [branding, { data: customers }, { data: balances }] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("customers").select("*").order("name"),
     supabase.from("v_customer_balance").select("customer_id, balance"),
   ]);
@@ -46,10 +37,11 @@ export default async function LedgerPage({ searchParams }) {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-1">Customer Ledger</h2>
-      <p className="text-slate text-sm mb-4">Pick a customer to see their ledger as a running timeline.</p>
+      <DocumentPrintHeader branding={branding} title="Customer Ledger" meta={`${rows.length} of ${allRows.length} customers\nGenerated ${fmtDate(new Date().toISOString())}`} />
+      <h2 className="no-print font-display text-2xl font-semibold mb-1">Customer Ledger</h2>
+      <p className="no-print text-slate text-sm mb-4">Pick a customer to see their ledger as a running timeline.</p>
 
-      <div className="flex flex-wrap gap-3.5 mb-5">
+      <div className="no-print flex flex-wrap gap-3.5 mb-5">
         <KPI label="TOTAL RECEIVABLE" value={pkr(totalOutstanding)} tone="coral" />
         <KPI label="CUSTOMERS WITH BALANCE" value={customersWithBalance} tone="amber" />
         <KPI label="CREDIT BALANCES" value={pkr(totalCredit)} tone="green" sub="customers who have overpaid" />
@@ -92,13 +84,15 @@ export default async function LedgerPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      <DocumentPrintFooter />
     </div>
   );
 }
 
 async function CustomerTimeline({ supabase, customerId }) {
-  const [{ data: c }, { data: entries }] = await Promise.all([
-    supabase.from("customers").select("*").eq("id", customerId).maybeSingle(),
+  const [branding, { data: c }, { data: entries }] = await Promise.all([
+    getBrandingLite(supabase),
+    supabase.from("customers").select("*, zones(name)").eq("id", customerId).maybeSingle(),
     supabase.from("customer_ledger_entries").select("*").eq("customer_id", customerId).order("entry_date", { ascending: true }).order("created_at", { ascending: true }),
   ]);
 
@@ -111,35 +105,41 @@ async function CustomerTimeline({ supabase, customerId }) {
     );
   }
 
-  // Running balance walks the same rows v_customer_balance sums, oldest
-  // first, so the final running balance always matches the customer's
-  // balance shown on Customers/the profile page/the dashboard.
-  let running = 0;
-  const chronological = (entries || []).map((e) => {
-    running += Number(e.debit) - Number(e.credit);
+  // Opening balance is its own statement line (below), so the ledger's own
+  // 'opening' entry — posted automatically at registration for the exact
+  // same amount (fn_post_opening_balance) — is excluded from the
+  // transaction rows, or it would be counted twice. Running balance then
+  // walks oldest-first from that seed, same as the PDF statement
+  // (CustomerStatementDocument) so the two always agree.
+  const openingBalance = Number(c.opening_balance) || 0;
+  let running = openingBalance;
+  let totalDebit = 0;
+  let totalCredit = 0;
+  const chronological = (entries || []).filter((e) => e.reference_type !== "opening").map((e) => {
+    const debit = Number(e.debit) || 0;
+    const credit = Number(e.credit) || 0;
+    running += debit - credit;
+    totalDebit += debit;
+    totalCredit += credit;
     return { ...e, runningBalance: running };
   });
-  const currentBalance = running;
-  const timeline = [...chronological].reverse();
-
-  const totalSales = chronological.filter((e) => e.reference_type === "invoice" || e.reference_type === "delivery").reduce((a, e) => a + Number(e.debit), 0);
-  const totalPayments = chronological.filter((e) => e.reference_type === "payment").reduce((a, e) => a + Number(e.credit), 0);
-  const totalAdjustments = chronological
-    .filter((e) => !["invoice", "delivery", "payment", "opening"].includes(e.reference_type))
-    .reduce((a, e) => a + Number(e.debit) - Number(e.credit), 0);
+  const closingBalance = running;
 
   return (
     <div>
+      <DocumentPrintHeader printOnly={false} branding={branding} title="Client Account Statement"
+        meta={`Period: All activity to date\nGenerated: ${fmtDate(new Date().toISOString())}`} />
       <Link href="/ledger" className="no-print flex items-center gap-2 text-aqua font-semibold text-sm mb-4"><ArrowLeft size={18} /> Back to Customer Ledger</Link>
       <div className="flex justify-between items-start mb-5">
         <div>
+          <div className="text-[10px] font-bold text-slate uppercase tracking-wide mb-1">Statement For</div>
           <h2 className="font-display text-2xl font-semibold">{c.name}</h2>
-          <p className="text-slate text-sm mt-1"><span className="font-mono-num">{c.code || "—"}</span> · {c.mobile}</p>
+          <p className="text-slate text-sm mt-1">Client ID: <span className="font-mono-num">{c.code || "—"}</span> · {[c.mobile, c.address, c.zones?.name].filter(Boolean).join("  ·  ")}</p>
         </div>
         <div className="no-print flex gap-2">
-          {currentBalance > 0 && (
+          {closingBalance > 0 && (
             <WhatsAppButton phone={c.mobile}
-              message={`Hi ${c.name}, this is a friendly reminder from Evergreen Water — your current outstanding balance is Rs ${Math.round(currentBalance).toLocaleString("en-PK")}. Please arrange payment at your earliest convenience. Thank you!`} />
+              message={`Hi ${c.name}, this is a friendly reminder from Evergreen Water — your current outstanding balance is Rs ${Math.round(closingBalance).toLocaleString("en-PK")}. Please arrange payment at your earliest convenience. Thank you!`} />
           )}
           <DownloadPdfButton href={`/api/pdf/customer-statement/${c.id}`} label="Download Statement" />
           <PrintButton />
@@ -147,34 +147,46 @@ async function CustomerTimeline({ supabase, customerId }) {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3.5 mb-6">
-        <KPI label="OPENING BALANCE" value={pkr(c.opening_balance)} tone="slate" />
-        <KPI label="SALES" value={pkr(totalSales)} tone="navy" sub="invoices + deliveries" />
-        <KPI label="PAYMENTS" value={pkr(totalPayments)} tone="green" />
-        {totalAdjustments !== 0 && <KPI label="ADJUSTMENTS" value={pkr(totalAdjustments)} tone="amber" />}
-        <KPI label="CURRENT BALANCE" value={pkr(currentBalance)} tone={currentBalance > 0 ? "coral" : "green"} />
+      <div className="overflow-x-auto border border-line rounded-2xl mb-4">
+        <table className="w-full text-[13px] border-collapse">
+          <thead>
+            <tr className="bg-foam">
+              <Th>Date</Th><Th>Reference No.</Th><Th>Description</Th>
+              <Th className="text-right">Debit</Th><Th className="text-right">Credit</Th><Th className="text-right">Balance</Th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="bg-foam font-semibold">
+              <Td>—</Td><Td>—</Td><Td>Opening Balance</Td>
+              <Td className="text-right">—</Td><Td className="text-right">—</Td><Td className="text-right">{pkr(openingBalance)}</Td>
+            </tr>
+            {chronological.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate">No ledger activity recorded yet.</td></tr>}
+            {chronological.map((e) => (
+              <tr key={e.id} className="hover:bg-foam">
+                <Td>{fmtDate(e.entry_date)}</Td>
+                <Td className="text-slate">{refNoFromDescription(e.description)}</Td>
+                <Td>{e.description}</Td>
+                <Td className="text-right text-slate">{e.debit ? pkr(e.debit) : "—"}</Td>
+                <Td className="text-right text-slate">{e.credit ? pkr(e.credit) : "—"}</Td>
+                <Td className="text-right font-semibold">{pkr(e.runningBalance)}</Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      <h3 className="font-display text-base font-semibold mb-3">Timeline</h3>
-      {timeline.length === 0 && <p className="text-sm text-slate py-8 text-center border border-line rounded-2xl">No ledger entries yet.</p>}
-      <div className="flex flex-col">
-        {timeline.map((e, i) => {
-          const badge = TYPE_BADGE[e.reference_type] || { text: e.reference_type || "Adjustment", tone: "amber" };
-          const signedAmount = Number(e.debit) > 0 ? Number(e.debit) : -Number(e.credit);
-          return (
-            <div key={e.id} className={`flex items-center gap-4 py-3.5 px-1 ${i !== timeline.length - 1 ? "border-b border-line" : ""}`}>
-              <div className="w-24 flex-shrink-0 text-xs text-slate">{fmtDate(e.entry_date)}</div>
-              <div className="w-24 flex-shrink-0"><Badge text={badge.text} tone={badge.tone} /></div>
-              <div className="flex-1 min-w-0 text-[13.5px] truncate">{e.description}</div>
-              <div className={`w-28 flex-shrink-0 text-right font-mono-num text-[13.5px] font-semibold ${signedAmount >= 0 ? "text-coral" : "text-green"}`}>
-                {signedAmount >= 0 ? "+" : "−"}{pkr(Math.abs(signedAmount))}
-              </div>
-              <div className="w-32 flex-shrink-0 text-right font-mono-num text-[13.5px] text-slate">{pkr(e.runningBalance)}</div>
-            </div>
-          );
-        })}
+      <div className="flex justify-end mb-4">
+        <div className="w-full sm:w-72 text-[13px]">
+          <div className="flex justify-between py-1"><span className="text-slate">Total Debit</span><span>{pkr(totalDebit)}</span></div>
+          <div className="flex justify-between py-1"><span className="text-slate">Total Credit</span><span className="text-green">{pkr(totalCredit)}</span></div>
+          <div className={`flex justify-between items-center py-2.5 px-3 mt-2 rounded-lg text-white ${closingBalance > 0 ? "bg-navy" : "bg-green"}`}>
+            <span className="text-sm font-bold">Closing Balance / Outstanding</span>
+            <span className="text-lg font-bold">{pkr(closingBalance)}</span>
+          </div>
+        </div>
       </div>
-      <p className="text-[11px] text-slate mt-3">Amount: + increases what the customer owes (sales/deliveries), − reduces it (payments). Running balance reads top-to-bottom as most recent first.</p>
+      <p className="no-print text-[11px] text-slate">Debit increases what the customer owes (sales/deliveries), credit reduces it (payments). Rows read oldest to newest, matching the downloadable statement.</p>
+      <DocumentPrintFooter />
     </div>
   );
 }
