@@ -84,7 +84,7 @@ export default async function LedgerPage({ searchParams }) {
                 <Td className="no-print">
                   {c.balance > 0 && (
                     <WhatsAppButton phone={c.mobile}
-                      message={`Hi ${c.name}, this is a friendly reminder from Evergreen Plus Water — your current outstanding balance is Rs ${Math.round(c.balance).toLocaleString("en-PK")}. Please arrange payment at your earliest convenience. Thank you!`} />
+                      message={`Hi ${c.name}, this is a friendly reminder from Evergreen Water — your current outstanding balance is Rs ${Math.round(c.balance).toLocaleString("en-PK")}. Please arrange payment at your earliest convenience. Thank you!`} />
                   )}
                 </Td>
               </tr>
@@ -139,7 +139,7 @@ async function CustomerTimeline({ supabase, customerId }) {
         <div className="no-print flex gap-2">
           {currentBalance > 0 && (
             <WhatsAppButton phone={c.mobile}
-              message={`Hi ${c.name}, this is a friendly reminder from Evergreen Plus Water — your current outstanding balance is Rs ${Math.round(currentBalance).toLocaleString("en-PK")}. Please arrange payment at your earliest convenience. Thank you!`} />
+              message={`Hi ${c.name}, this is a friendly reminder from Evergreen Water — your current outstanding balance is Rs ${Math.round(currentBalance).toLocaleString("en-PK")}. Please arrange payment at your earliest convenience. Thank you!`} />
           )}
           <DownloadPdfButton href={`/api/pdf/customer-statement/${c.id}`} label="Download Statement" />
           <PrintButton />

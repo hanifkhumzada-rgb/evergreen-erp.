@@ -103,7 +103,7 @@ export default async function PaymentsPage({ searchParams }) {
                   <Td><Badge text={BUCKET_LABEL[d.bucket]} tone={BUCKET_TONE[d.bucket]} /></Td>
                   <Td className="no-print">
                     <WhatsAppButton phone={d.mobile}
-                      message={`Hi ${d.name}, this is a friendly reminder from Evergreen Plus Water — your current outstanding balance is Rs ${Math.round(d.balance).toLocaleString("en-PK")}. Please arrange payment at your earliest convenience. Thank you!`} />
+                      message={`Hi ${d.name}, this is a friendly reminder from Evergreen Water — your current outstanding balance is Rs ${Math.round(d.balance).toLocaleString("en-PK")}. Please arrange payment at your earliest convenience. Thank you!`} />
                   </Td>
                 </tr>
               ))}

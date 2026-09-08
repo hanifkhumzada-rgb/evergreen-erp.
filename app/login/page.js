@@ -14,7 +14,7 @@ const MAX_ATTEMPTS = 5;
 const LOCKOUT_SECONDS = 30;
 
 function BrandMark({ size = 40 }) {
-  return <img src="/icon-192.png" alt="Evergreen Plus Water" style={{ width: size, height: size }} className="rounded-xl shadow-lg flex-shrink-0" />;
+  return <img src="/icon-192.png" alt="Evergreen Water" style={{ width: size, height: size }} className="rounded-xl shadow-lg flex-shrink-0" />;
 }
 
 const HERO_FEATURES = [
@@ -135,7 +135,7 @@ export default function LoginPage() {
           <div className="relative">
             <div className="flex items-center gap-2.5">
               <BrandMark size={44} />
-              <span className="font-display text-xl font-semibold leading-tight">Evergreen<br />Plus Water</span>
+              <span className="font-display text-xl font-semibold leading-tight">Evergreen Water</span>
             </div>
             <h1 className="font-display text-[1.7rem] leading-tight font-semibold mt-8 max-w-[280px]">
               Your whole business, in one friendly place.
@@ -161,7 +161,7 @@ export default function LoginPage() {
         <div className="flex-[1.15] p-8 sm:p-12 flex flex-col justify-center">
           <div className="flex md:hidden items-center gap-2.5 mb-7">
             <BrandMark size={32} />
-            <span className="font-display text-base font-semibold">Evergreen Plus Water</span>
+            <span className="font-display text-base font-semibold">Evergreen Water</span>
           </div>
 
           {mode === "signin" ? (
@@ -222,7 +222,7 @@ export default function LoginPage() {
                 </button>
               </form>
               <p className="text-xs text-slate mt-5">No account yet? Run <code>npm run seed</code> from the project to create the first Owner login.</p>
-              <p className="text-center text-[11px] text-slate mt-9">Powered by <span className="font-semibold text-ink">Evergreen Plus Water</span></p>
+              <p className="text-center text-[11px] text-slate mt-9">Powered by <span className="font-semibold text-ink">Evergreen Water</span></p>
             </>
           ) : (
             <>
@@ -257,7 +257,7 @@ export default function LoginPage() {
               <button type="button" onClick={() => { setMode("signin"); setError(""); }} className="text-xs text-aqua font-semibold mt-4 inline-block">
                 ← Back to sign in
               </button>
-              <p className="text-center text-[11px] text-slate mt-9">Powered by <span className="font-semibold text-ink">Evergreen Plus Water</span></p>
+              <p className="text-center text-[11px] text-slate mt-9">Powered by <span className="font-semibold text-ink">Evergreen Water</span></p>
             </>
           )}
         </div>

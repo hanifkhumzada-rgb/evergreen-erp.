@@ -33,7 +33,7 @@ async function upsertUser({ email, password, full_name, role }) {
 }
 
 async function main() {
-  console.log("Seeding Evergreen Plus Water logins...\n");
+  console.log("Seeding Evergreen Water logins...\n");
   await upsertUser({ email: "owner@evergreenplus.pk", password: "Evergreen@123", full_name: "Hanif (Owner)", role: "owner" });
   await upsertUser({ email: "manager@evergreenplus.pk", password: "Evergreen@123", full_name: "Operations Manager", role: "manager" });
   await upsertUser({ email: "accountant@evergreenplus.pk", password: "Evergreen@123", full_name: "Accountant", role: "accountant" });

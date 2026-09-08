@@ -1,7 +1,7 @@
 {
-  "name": "Evergreen Plus Water",
-  "short_name": "Evergreen",
-  "description": "Evergreen Plus Water's digital headquarters",
+  "name": "Evergreen Water",
+  "short_name": "EW",
+  "description": "Evergreen Water's digital headquarters",
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",

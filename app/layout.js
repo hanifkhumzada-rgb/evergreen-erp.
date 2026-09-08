@@ -2,8 +2,8 @@ import "./globals.css";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
 export const metadata = {
-  title: "Evergreen Plus Water — ERP",
-  description: "Evergreen Plus Water's digital headquarters",
+  title: "Evergreen Water — ERP",
+  description: "Evergreen Water's digital headquarters",
   manifest: "/manifest.json",
   icons: {
     icon: [

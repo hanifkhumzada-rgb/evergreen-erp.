@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { ArrowLeft, Droplet } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { pkr, fmtDate } from "@/lib/format";
 import { Badge, PrintButton, DownloadPdfButton } from "@/components/ui";
 
@@ -42,8 +42,8 @@ export default async function InvoicePage({ params }) {
       <div className="border border-line rounded-2xl p-8 max-w-lg">
         <div className="flex justify-between items-center mb-5">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-aqua flex items-center justify-center"><Droplet size={16} className="text-white" /></div>
-            <span className="font-display font-bold text-base">Evergreen Plus Water</span>
+            <img src="/icon-192.png" alt="Evergreen Water" className="w-8 h-8 rounded-lg shadow-sm flex-shrink-0" />
+            <span className="font-display font-bold text-base">Evergreen Water</span>
           </div>
           <Badge text={STATUS_LABEL[s.status] || s.status} tone={s.status === "paid" ? "green" : "amber"} />
         </div>
@@ -69,7 +69,7 @@ export default async function InvoicePage({ params }) {
           <PrintButton />
           <DownloadPdfButton href={`/api/pdf/invoice/${s.id}`} label="Download PDF" />
           {c?.whatsapp_number && (
-            <a href={`https://wa.me/${c.whatsapp_number.replace(/^0/, "92")}?text=${encodeURIComponent(`Invoice ${s.invoice_no} — Total ${pkr(s.net_amount)}, Balance ${pkr(balance)}. Evergreen Plus Water.`)}`} target="_blank"
+            <a href={`https://wa.me/${c.whatsapp_number.replace(/^0/, "92")}?text=${encodeURIComponent(`Invoice ${s.invoice_no} — Total ${pkr(s.net_amount)}, Balance ${pkr(balance)}. Evergreen Water.`)}`} target="_blank"
               className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold">Share on WhatsApp</a>
           )}
         </div>

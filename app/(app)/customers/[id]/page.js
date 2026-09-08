@@ -179,8 +179,8 @@ export default async function CustomerProfilePage({ params }) {
         <div className="no-print flex gap-2">
           <WhatsAppButton phone={c.mobile}
             message={balance > 0
-              ? `Hi ${c.name}, this is a friendly reminder from Evergreen Plus Water — your current outstanding balance is Rs ${Math.round(balance).toLocaleString("en-PK")}. Please arrange payment at your earliest convenience. Thank you!`
-              : `Hi ${c.name}, this is Evergreen Plus Water reaching out. Let us know if you need anything!`} />
+              ? `Hi ${c.name}, this is a friendly reminder from Evergreen Water — your current outstanding balance is Rs ${Math.round(balance).toLocaleString("en-PK")}. Please arrange payment at your earliest convenience. Thank you!`
+              : `Hi ${c.name}, this is Evergreen Water reaching out. Let us know if you need anything!`} />
           <CustomerForm
             mode="edit" customer={c}
             zones={zones || []} products={products || []} vehicles={vehicles || []} riders={riders || []} routes={routes || []}

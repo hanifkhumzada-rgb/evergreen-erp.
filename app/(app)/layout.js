@@ -36,23 +36,23 @@ export default async function AppLayout({ children }) {
         <div className="no-print flex items-center justify-between px-6 py-3.5 border-b border-line bg-card">
           <div className="flex items-center gap-3">
             <SidebarToggleButton />
-            <div className="text-sm text-slate hidden sm:block">Live data — Evergreen Plus Water</div>
+            <div className="text-sm text-slate hidden sm:block">Live data — Evergreen Water</div>
           </div>
           <div className="flex items-center gap-4">
             <GlobalSearch />
-            <Link href="/notifications" className="relative p-1.5 -m-1.5 rounded-lg hover:bg-foam" aria-label="Notifications">
+            <Link href="/notifications" className="relative p-1.5 -m-1.5 rounded-lg hover:bg-foam transition-colors" aria-label="Notifications">
               <Bell size={17} className="text-slate" />
               {unreadNotifications > 0 && (
-                <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-coral" />
+                <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-coral ring-2 ring-card" />
               )}
             </Link>
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-full bg-aqua text-white flex items-center justify-center text-xs font-bold">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-aqua to-navyLight text-white flex items-center justify-center text-xs font-bold shadow-sm ring-2 ring-card flex-shrink-0">
                 {profile.full_name?.[0]?.toUpperCase()}
               </div>
-              <div className="text-xs">
-                <div className="font-semibold">{profile.full_name}</div>
-                <div className="text-slate">{roleLabel}</div>
+              <div className="text-xs hidden sm:block">
+                <div className="font-semibold leading-tight">{profile.full_name}</div>
+                <div className="text-slate leading-tight">{roleLabel}</div>
               </div>
             </div>
           </div>

@@ -277,7 +277,7 @@ export default async function DeliveriesPage({ searchParams }) {
                 )}
                 <SkipDeliveryButton customerId={c.id} />
                 <WhatsAppButton phone={c.mobile} label="Notify"
-                  message={`Hi ${c.name}, your Evergreen Plus Water delivery is scheduled for today. We'll be with you shortly!`} />
+                  message={`Hi ${c.name}, your Evergreen Water delivery is scheduled for today. We'll be with you shortly!`} />
               </div>
             ) : (
               <p className="text-[11.5px] text-slate mt-1">

@@ -339,8 +339,8 @@ export default async function DashboardPage({ searchParams }) {
       </div>
 
       {leaderboard.length > 0 && (
-        <div className="border border-line rounded-2xl p-4 mb-6">
-          <h4 className="text-sm font-bold mb-2.5">Delivery boy performance ({rangeKey === "today" ? "today" : rangeKey === "7d" ? "last 7 days" : rangeKey === "month" ? "this month" : "selected range"})</h4>
+        <div className="border border-line rounded-2xl p-4 mb-6 bg-card">
+          <h4 className="text-sm font-bold mb-2.5 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-aqua flex-shrink-0" />Delivery boy performance ({rangeKey === "today" ? "today" : rangeKey === "7d" ? "last 7 days" : rangeKey === "month" ? "this month" : "selected range"})</h4>
           <div className="flex flex-col gap-1.5">
             {leaderboard.map((r, i) => (
               <div key={i} className="flex justify-between items-center text-xs px-3 py-2 rounded-lg bg-foam">
@@ -395,25 +395,25 @@ export default async function DashboardPage({ searchParams }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <div className="border border-line rounded-2xl p-4">
-          <h4 className="text-sm font-bold mb-2">Sales trend — last 7 days</h4>
+        <div className="border border-line rounded-2xl p-4 bg-card">
+          <h4 className="text-sm font-bold mb-3 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-aqua flex-shrink-0" />Sales trend — last 7 days</h4>
           <SalesTrendChart data={trend} />
         </div>
-        <div className="border border-line rounded-2xl p-4">
-          <h4 className="text-sm font-bold mb-2">Bottles delivered — last 7 days</h4>
+        <div className="border border-line rounded-2xl p-4 bg-card">
+          <h4 className="text-sm font-bold mb-3 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-green flex-shrink-0" />Bottles delivered — last 7 days</h4>
           <DeliveriesTrendChart data={deliveryTrend} />
         </div>
-        <div className="border border-line rounded-2xl p-4">
-          <h4 className="text-sm font-bold mb-2">Expense breakdown</h4>
+        <div className="border border-line rounded-2xl p-4 bg-card">
+          <h4 className="text-sm font-bold mb-3 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-amber flex-shrink-0" />Expense breakdown</h4>
           {expenseBreak.length ? <ExpensePie data={expenseBreak} /> : <p className="text-sm text-slate py-10 text-center">No expenses recorded yet.</p>}
         </div>
-        <div className="border border-line rounded-2xl p-4">
-          <h4 className="text-sm font-bold mb-2">Top zones by revenue — this week</h4>
+        <div className="border border-line rounded-2xl p-4 bg-card">
+          <h4 className="text-sm font-bold mb-3 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-navy flex-shrink-0" />Top zones by revenue — this week</h4>
           {zoneChartData.length ? <ZoneRevenueChart data={zoneChartData} /> : <p className="text-sm text-slate py-10 text-center">No sales recorded this week yet.</p>}
         </div>
       </div>
 
-      <div className="border border-line rounded-2xl p-4">
+      <div className="border border-line rounded-2xl p-4 bg-card">
         <h4 className="text-sm font-bold mb-2 flex items-center gap-1.5"><AlertTriangle size={15} className="text-coral" /> Alerts</h4>
         <div className="flex flex-col gap-2 max-h-52 overflow-y-auto">
           {overdueCustomerCount > 0 && (

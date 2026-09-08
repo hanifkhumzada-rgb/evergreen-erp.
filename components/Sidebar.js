@@ -241,8 +241,8 @@ export default function Sidebar({ role, unreadNotifications = 0 }) {
       {open && <div className="no-print fixed inset-0 bg-navy/40 z-40 md:hidden" onClick={() => setOpen(false)} />}
       <div className={`no-print md:hidden w-[230px] flex-shrink-0 bg-navy text-white flex flex-col p-3 fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 ease-in-out ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center gap-2 px-1.5 pb-4">
-          <img src="/icon-192.png" alt="Evergreen Plus Water" className="w-8 h-8 rounded-lg flex-shrink-0" />
-          <span className="font-display font-semibold text-sm leading-tight flex-1">Evergreen<br />Plus Water</span>
+          <img src="/icon-192.png" alt="Evergreen Water" className="w-8 h-8 rounded-lg flex-shrink-0" />
+          <span className="font-display font-semibold text-sm leading-tight flex-1">Evergreen Water</span>
           <ThemeToggle className="text-[#C7DEDC] hover:bg-white/10" />
         </div>
         <NavList entries={entries} pathname={pathname} unreadNotifications={unreadNotifications} onNavigate={() => setOpen(false)} />
@@ -258,8 +258,8 @@ export default function Sidebar({ role, unreadNotifications = 0 }) {
       {expanded ? (
         <div className="no-print hidden md:flex md:flex-col w-[230px] flex-shrink-0 bg-navy text-white p-3">
           <div className="flex items-center gap-2 px-1.5 pb-4">
-            <img src="/icon-192.png" alt="Evergreen Plus Water" className="w-8 h-8 rounded-lg flex-shrink-0" />
-            <span className="font-display font-semibold text-sm leading-tight flex-1">Evergreen<br />Plus Water</span>
+            <img src="/icon-192.png" alt="Evergreen Water" className="w-8 h-8 rounded-lg flex-shrink-0" />
+            <span className="font-display font-semibold text-sm leading-tight flex-1">Evergreen Water</span>
             <ThemeToggle className="text-[#C7DEDC] hover:bg-white/10" />
             <button type="button" onClick={togglePinned} title="Collapse sidebar" className="w-7 h-7 flex items-center justify-center rounded-lg text-[#C7DEDC] hover:bg-white/10 flex-shrink-0">
               <ChevronLeft size={16} />
@@ -274,7 +274,7 @@ export default function Sidebar({ role, unreadNotifications = 0 }) {
         </div>
       ) : (
         <div className="no-print hidden md:flex md:flex-col items-center w-16 flex-shrink-0 bg-navy text-white py-3">
-          <img src="/icon-192.png" alt="Evergreen Plus Water" className="w-8 h-8 rounded-lg flex-shrink-0 mb-1.5" />
+          <img src="/icon-192.png" alt="Evergreen Water" className="w-8 h-8 rounded-lg flex-shrink-0 mb-1.5" />
           <button type="button" onClick={togglePinned} title="Pin sidebar open" className="w-8 h-8 flex items-center justify-center rounded-lg text-[#C7DEDC] hover:bg-white/10 mb-3 flex-shrink-0">
             <ChevronRight size={16} />
           </button>

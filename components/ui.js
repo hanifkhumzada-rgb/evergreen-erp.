@@ -8,7 +8,7 @@ export function Badge({ text, tone = "slate" }) {
     green: "bg-greenSoft text-green", amber: "bg-amberSoft text-amber",
     coral: "bg-coralSoft text-coral", aqua: "bg-aquaSoft text-aqua", slate: "bg-[#EEF2F2] text-slate",
   };
-  return <span className={`${map[tone] || map.slate} text-[11.5px] font-semibold px-2.5 py-1 rounded-full`}>{text}</span>;
+  return <span className={`${map[tone] || map.slate} text-[11.5px] font-semibold px-2.5 py-1 rounded-full border border-black/[0.03]`}>{text}</span>;
 }
 
 export function KPI({ label, value, sub, tone = "navy", trend, href }) {
@@ -24,7 +24,7 @@ export function KPI({ label, value, sub, tone = "navy", trend, href }) {
   const trendColor = trend?.favorable === null || trend?.favorable === undefined ? "text-slate" : trend.favorable ? "text-green" : "text-coral";
   const card = (
     <div className={`card-lift rounded-2xl p-5 flex-1 min-w-[180px] ${style} ${href ? "cursor-pointer" : ""}`}>
-      <div className={`text-xs font-semibold tracking-wide ${tone === "navy" ? "text-[#BFE3E0]" : "text-slate"}`}>{label}</div>
+      <div className={`text-[11px] font-semibold uppercase tracking-wide ${tone === "navy" ? "text-[#BFE3E0]" : "text-slate"}`}>{label}</div>
       <div className="font-mono-num text-2xl font-semibold mt-2">{value}</div>
       {sub && <div className={`text-xs mt-1 ${tone === "navy" ? "text-[#9CC9C5]" : "text-slate"}`}>{sub}</div>}
       {trend && (
@@ -37,6 +37,11 @@ export function KPI({ label, value, sub, tone = "navy", trend, href }) {
   return href ? <Link href={href}>{card}</Link> : card;
 }
 
+// Shared toolbar-button treatment (Export Excel / Download PDF / Print) —
+// one class string so all three stay visually identical and any future
+// hover/focus tweak only needs to happen here.
+const TOOLBAR_BTN = "no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold text-ink transition-colors hover:border-aqua/40 hover:bg-aquaSoft/60 hover:text-aqua focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aqua/40";
+
 export function ExportExcelButton({ rows, filename, sheetName = "Sheet1" }) {
   return (
     <button type="button"
@@ -47,7 +52,7 @@ export function ExportExcelButton({ rows, filename, sheetName = "Sheet1" }) {
         XLSX.utils.book_append_sheet(wb, ws, sheetName);
         XLSX.writeFile(wb, filename.endsWith(".xlsx") ? filename : filename + ".xlsx");
       }}
-      className="no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold"
+      className={TOOLBAR_BTN}
     >
       <FileSpreadsheet size={14} /> Export Excel
     </button>
@@ -60,7 +65,7 @@ export function ExportExcelButton({ rows, filename, sheetName = "Sheet1" }) {
 // existing PrintButton untouched.
 export function DownloadPdfButton({ href, label = "Download PDF" }) {
   return (
-    <a href={href} className="no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold">
+    <a href={href} className={TOOLBAR_BTN}>
       <FileDown size={14} /> {label}
     </a>
   );
@@ -68,14 +73,14 @@ export function DownloadPdfButton({ href, label = "Download PDF" }) {
 
 export function PrintButton() {
   return (
-    <button type="button" onClick={() => window.print()} className="no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold">
+    <button type="button" onClick={() => window.print()} className={TOOLBAR_BTN}>
       <Printer size={14} /> Export PDF
     </button>
   );
 }
 
 export function Th({ children, ...props }) {
-  return <th {...props} className={`text-left px-3.5 py-2.5 text-slate font-semibold text-[11.5px] border-b border-line whitespace-nowrap ${props.className || ""}`}>{children}</th>;
+  return <th {...props} className={`text-left px-3.5 py-2.5 text-slate font-semibold text-[10.5px] uppercase tracking-wide border-b border-line whitespace-nowrap ${props.className || ""}`}>{children}</th>;
 }
 export function Td({ children, ...props }) {
   return <td {...props} className={`px-3.5 py-2.5 whitespace-nowrap border-b border-line ${props.className || ""}`}>{children}</td>;
