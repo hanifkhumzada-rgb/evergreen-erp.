@@ -20,7 +20,7 @@ export async function GET(request) {
   const rows = (invoices || []).map((s) => ({ ...s, qty: (s.invoice_items || []).reduce((a, i) => a + Number(i.quantity), 0) }));
   const totalAmount = rows.reduce((a, s) => a + Number(s.net_amount), 0);
 
-  const buffer = await renderToBuffer(<DailySalesDocument date={date} rows={rows} totalAmount={totalAmount} businessName={branding.businessName} address={branding.address} />);
+  const buffer = await renderToBuffer(<DailySalesDocument date={date} rows={rows} totalAmount={totalAmount} branding={branding} />);
 
   return new NextResponse(buffer, {
     headers: {

@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { FileSpreadsheet } from "lucide-react";
 
 // Groups the same reports the Reports page has always computed — this only
@@ -21,17 +22,21 @@ function fmtCell(v) {
   return String(v);
 }
 
-export default function ReportsBrowser({ reports }) {
+export default function ReportsBrowser({ reports, branding }) {
   const byName = {};
   reports.forEach((r) => { byName[r.name] = r; });
   const [selected, setSelected] = useState(REPORT_GROUPS[0].reports[0]);
   const report = byName[selected];
   const rows = report?.rows || [];
   const columns = rows.length ? Object.keys(rows[0]) : [];
+  const numericCols = columns.filter((c) => rows.length > 0 && rows.every((r) => typeof r[c] === "number"));
+  const totals = {};
+  numericCols.forEach((c) => { totals[c] = rows.reduce((a, r) => a + (Number(r[c]) || 0), 0); });
+  const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 
   return (
     <div className="flex flex-col lg:flex-row gap-5">
-      <div className="lg:w-64 flex-shrink-0 border border-line rounded-2xl p-3 h-fit">
+      <div className="lg:w-64 flex-shrink-0 border border-line rounded-2xl p-3 h-fit no-print">
         {REPORT_GROUPS.map((g) => {
           const groupReports = g.reports.filter((name) => byName[name]);
           if (!groupReports.length) return null;
@@ -53,10 +58,11 @@ export default function ReportsBrowser({ reports }) {
       </div>
 
       <div className="flex-1 min-w-0">
+        <DocumentPrintHeader branding={branding} title={selected} meta={`Generated ${today}`} />
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <h3 className="font-display text-lg font-semibold">{selected}</h3>
           <div className="no-print flex gap-2">
-            <ExportExcelButton rows={rows} filename={`${selected.replace(/\s+/g, "-").toLowerCase()}.xlsx`} sheetName={selected.slice(0, 30)} />
+            <ExportExcelButton rows={rows} filename={`Evergreen_Water_${selected.replace(/[\s/]+/g, "_")}_${today.replace(/\s/g, "-")}.xlsx`} sheetName={selected.slice(0, 30)} reportTitle={selected} branding={branding} />
             <PrintButton />
           </div>
         </div>
@@ -69,8 +75,18 @@ export default function ReportsBrowser({ reports }) {
                 <tr key={i} className="hover:bg-foam">{columns.map((c) => <Td key={c}>{fmtCell(row[c])}</Td>)}</tr>
               ))}
             </tbody>
+            {numericCols.length > 0 && rows.length > 0 && (
+              <tfoot>
+                <tr className="bg-foam font-semibold">
+                  {columns.map((c, i) => (
+                    <Td key={c}>{i === 0 ? "Total" : (numericCols.includes(c) ? fmtCell(totals[c]) : "")}</Td>
+                  ))}
+                </tr>
+              </tfoot>
+            )}
           </table>
         </div>
+        <DocumentPrintFooter />
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import BankPaymentVoucherDocument from "@/lib/pdf/BankPaymentVoucherDocument";
+import { getBusinessBranding } from "@/lib/pdf/business";
 
 const EXPENSE_TX_TYPE_FALLBACK = "Expense Payment";
 
@@ -20,11 +21,11 @@ export async function GET(request, { params }) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new NextResponse("Unauthorized", { status: 401 });
 
-  const [{ data: record, error: recordError }, { data: settings }] = await Promise.all([
+  const [{ data: record, error: recordError }, branding] = await Promise.all([
     mod === "expenses"
       ? supabase.from("expenses").select("*, expense_categories(name), profiles!expenses_employee_id_fkey(employee_code, full_name)").eq("id", id).single()
       : supabase.from("payments").select("*, customers(code, name)").eq("id", id).single(),
-    supabase.from("business_settings").select("business_name, currency, address").single(),
+    getBusinessBranding(supabase),
   ]);
   if (recordError || !record) return new NextResponse(`${mod === "expenses" ? "Expense" : "Payment"} not found`, { status: 404 });
 
@@ -55,9 +56,8 @@ export async function GET(request, { params }) {
       chequeRef={mod === "expenses" ? record.receipt_reference : record.reference}
       entry={entry}
       lines={entry?.journal_lines || []}
-      currency={settings?.currency}
-      businessName={settings?.business_name}
-      address={settings?.address}
+      currency={branding.currency}
+      branding={branding}
     />
   );
 

@@ -26,7 +26,7 @@ export async function GET(request, { params }) {
   const newBalance = previousBalance + Number(invoice.net_amount) - paid;
 
   const buffer = await renderToBuffer(
-    <InvoiceDocument invoice={invoice} customer={customer} items={invoice.invoice_items || []} paid={paid} previousBalance={previousBalance} newBalance={newBalance} businessName={branding.businessName} address={branding.address} />
+    <InvoiceDocument invoice={invoice} customer={customer} items={invoice.invoice_items || []} paid={paid} previousBalance={previousBalance} newBalance={newBalance} branding={branding} />
   );
 
   return new NextResponse(buffer, {

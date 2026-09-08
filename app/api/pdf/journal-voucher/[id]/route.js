@@ -13,7 +13,7 @@ export async function GET(request, { params }) {
   const { data: entry } = await supabase.from("journal_entries").select("*, journal_lines(*, chart_of_accounts(code, name))").eq("id", params.id).single();
   if (!entry) return new NextResponse("Journal entry not found", { status: 404 });
 
-  const buffer = await renderToBuffer(<JournalVoucherDocument entry={entry} lines={entry.journal_lines || []} businessName={branding.businessName} address={branding.address} />);
+  const buffer = await renderToBuffer(<JournalVoucherDocument entry={entry} lines={entry.journal_lines || []} branding={branding} />);
 
   return new NextResponse(buffer, {
     headers: {

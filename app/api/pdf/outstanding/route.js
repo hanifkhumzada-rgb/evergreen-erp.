@@ -22,7 +22,7 @@ export async function GET() {
     .sort((a, b) => b.balance - a.balance);
   const totalOutstanding = rows.reduce((a, c) => a + c.balance, 0);
 
-  const buffer = await renderToBuffer(<OutstandingDocument rows={rows} totalOutstanding={totalOutstanding} businessName={branding.businessName} address={branding.address} />);
+  const buffer = await renderToBuffer(<OutstandingDocument rows={rows} totalOutstanding={totalOutstanding} branding={branding} />);
 
   return new NextResponse(buffer, {
     headers: {

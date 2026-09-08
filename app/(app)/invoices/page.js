@@ -6,6 +6,8 @@ import AddSaleForm from "@/components/AddSaleForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { bulkImportSales, voidInvoice } from "@/app/actions";
+import { getBrandingLite } from "@/lib/pdf/business";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 
 // Invoice Center. Invoices in this schema ARE the invoices table
 // (createSale/bulkImportSales generate one per sale; sales/[id]/page.js is
@@ -24,7 +26,8 @@ const STATUS_TONE = { paid: "green", partially_paid: "amber", sent: "coral", dra
 export default async function InvoicesPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const supabase = await createClient();
-  const [{ data: invoices }, { data: customers }, { data: products }, { data: canVoid }] = await Promise.all([
+  const [branding, { data: invoices }, { data: customers }, { data: products }, { data: canVoid }] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("invoices").select("*, customers(name), invoice_items(quantity)").order("created_at", { ascending: false }).limit(200),
     supabase.from("customers").select("id, name, default_product_id"),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
@@ -56,10 +59,11 @@ export default async function InvoicesPage({ searchParams }) {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-1">Invoice Center</h2>
-      <p className="text-slate text-sm mb-4">Every invoice, its rate frozen at the moment it was billed.</p>
+      <DocumentPrintHeader branding={branding} title="Invoice Center" meta={`${rows.length} of ${allRows.length} invoices\nGenerated ${fmtDate(today)}`} />
+      <h2 className="no-print font-display text-2xl font-semibold mb-1">Invoice Center</h2>
+      <p className="no-print text-slate text-sm mb-4">Every invoice, its rate frozen at the moment it was billed.</p>
 
-      <div className="flex flex-wrap gap-3.5 mb-5">
+      <div className="no-print flex flex-wrap gap-3.5 mb-5">
         <KPI label="TODAY'S INVOICES" value={todaysInvoices.length} tone="navy" sub={pkr(todaysInvoices.filter((s) => s.status !== "void").reduce((a, s) => a + Number(s.net_amount), 0))} />
         <KPI label="THIS MONTH" value={monthInvoices.length} tone="aqua" sub={pkr(monthInvoices.filter((s) => s.status !== "void").reduce((a, s) => a + Number(s.net_amount), 0))} />
         <KPI label="UNPAID" value={unpaidInvoices.length} tone="coral" sub={pkr(unpaidInvoices.reduce((a, s) => a + Number(s.net_amount), 0))} />
@@ -116,6 +120,7 @@ export default async function InvoicesPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      <DocumentPrintFooter />
     </div>
   );
 }

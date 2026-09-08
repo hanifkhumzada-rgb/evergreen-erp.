@@ -30,7 +30,7 @@ export async function GET(request, { params }) {
   });
 
   const buffer = await renderToBuffer(
-    <CustomerStatementDocument customer={customer} rows={rows} totalSales={totalSales} totalPaid={totalPaid} balance={running} businessName={branding.businessName} address={branding.address} />
+    <CustomerStatementDocument customer={customer} rows={rows} totalSales={totalSales} totalPaid={totalPaid} balance={running} branding={branding} />
   );
 
   return new NextResponse(buffer, {

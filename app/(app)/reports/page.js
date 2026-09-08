@@ -1,17 +1,20 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import ReportsBrowser from "@/components/ReportsBrowser";
+import { getBrandingLite } from "@/lib/pdf/business";
 
 export const dynamic = "force-dynamic";
 
 export default async function ReportsPage() {
   const supabase = await createClient();
   const [
+    branding,
     { data: invoices }, { data: expenses }, { data: customers }, { data: deliveries },
     { data: products }, { data: employees }, { data: balances }, { data: bottleBalances },
     { data: invoicesWithZone }, { data: payments }, { data: vehicles }, { data: fuelLogs },
     { data: maintLogs }, { data: routes }, { data: productionBatches },
   ] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("invoices").select("*, customers(name), invoice_items(quantity)"),
     supabase.from("expenses").select("*, expense_categories(name)"),
     supabase.from("customers").select("*, zones(name), routes(name)"),
@@ -129,7 +132,7 @@ export default async function ReportsPage() {
         <Link href="/accounting/profit-loss" className="px-3 py-1.5 rounded-lg border border-line bg-card text-xs font-semibold hover:bg-foam">Profit &amp; Loss →</Link>
         <Link href="/accounting/balance-sheet" className="px-3 py-1.5 rounded-lg border border-line bg-card text-xs font-semibold hover:bg-foam">Balance Sheet →</Link>
       </div>
-      <ReportsBrowser reports={reports} />
+      <ReportsBrowser reports={reports} branding={branding} />
     </div>
   );
 }

@@ -14,7 +14,7 @@ export async function GET(request, { params }) {
   if (!payment) return new NextResponse("Payment not found", { status: 404 });
 
   const buffer = await renderToBuffer(
-    <PaymentReceiptDocument payment={payment} customer={payment.customers} receivedBy={payment.profiles?.full_name} businessName={branding.businessName} address={branding.address} />
+    <PaymentReceiptDocument payment={payment} customer={payment.customers} receivedBy={payment.profiles?.full_name} branding={branding} />
   );
 
   return new NextResponse(buffer, {
