@@ -92,7 +92,7 @@ export default async function InvoicesPage({ searchParams }) {
           sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Qty: 5, Paid: 500, Date: "2026-08-31", Method: "Cash", Product: "19L" }}
           previewType="sales"
         />
-        <ExportExcelButton rows={exportRows} filename="evergreen-invoices.xlsx" sheetName="Invoices" />
+        <ExportExcelButton rows={exportRows} sheetName="Invoices" reportTitle="Invoice Center" branding={branding} />
         <DownloadPdfButton href={`/api/pdf/daily-sales?date=${today}`} label="Download Today's PDF" />
         <PrintButton />
         <AddSaleForm customers={customers || []} products={products || []} initialCustomerId={sp.customer || ""} />

@@ -49,7 +49,7 @@ export default async function ProductionPage() {
 
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
-        <ExportExcelButton rows={exportRows} filename="evergreen-production.xlsx" sheetName="Production" />
+        <ExportExcelButton rows={exportRows} sheetName="Production" reportTitle="Production & Filling" branding={branding} />
         <PrintButton />
         <ProductionBatchForm products={products || []} />
       </div>

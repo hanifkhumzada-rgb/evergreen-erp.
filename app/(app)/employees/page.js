@@ -52,7 +52,7 @@ export default async function EmployeesPage() {
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <EmployeeAdvanceForm employees={perf} />
-        <ExportExcelButton rows={exportRows} filename="evergreen-employees.xlsx" sheetName="Employees" />
+        <ExportExcelButton rows={exportRows} sheetName="Employees" reportTitle="Employees" branding={branding} />
         <PrintButton />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">

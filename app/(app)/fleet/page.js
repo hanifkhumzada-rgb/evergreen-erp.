@@ -96,7 +96,7 @@ export default async function FleetPage() {
           sampleRow={{ "Registration No": "LEA-1234", "Vehicle Type": "Suzuki Bolan", Driver: "" }}
           previewType="vehicles"
         />
-        <ExportExcelButton rows={exportRows} filename="fleet-report.xlsx" sheetName="Fleet" />
+        <ExportExcelButton rows={exportRows} sheetName="Fleet" reportTitle="Fleet Report" branding={branding} />
         <PrintButton />
         {vehicles?.length > 0 && <AddVehicleExpenseForm vehicles={vehicles.map((v) => ({ id: v.id, vehicle_no: v.registration_no }))} />}
         <AddVehicleForm employees={(riders || []).map((r) => ({ id: r.id, name: r.full_name }))} />

@@ -57,7 +57,7 @@ export default async function LedgerPage({ searchParams }) {
           missing-type="button" issue that broke /customers' "New Customer". */}
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
-        <ExportExcelButton rows={exportRows} filename="evergreen-ledger.xlsx" sheetName="Ledger" />
+        <ExportExcelButton rows={exportRows} sheetName="Ledger" reportTitle="Customer Ledger" branding={branding} />
         <DownloadPdfButton href="/api/pdf/outstanding" label="Download Outstanding PDF" />
         <PrintButton />
       </div>

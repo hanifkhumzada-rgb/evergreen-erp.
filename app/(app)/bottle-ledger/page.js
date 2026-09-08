@@ -202,7 +202,7 @@ export default async function BottleLedgerPage() {
 
       <h4 className="text-sm font-bold mb-2.5">Activity timeline</h4>
       <div className="no-print flex gap-2.5 mb-3">
-        <ExportExcelButton rows={exportRows} filename="bottle-ledger.xlsx" sheetName="Bottle Ledger" />
+        <ExportExcelButton rows={exportRows} sheetName="Bottle Ledger" reportTitle="Bottle Ledger" branding={branding} />
         <PrintButton />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">

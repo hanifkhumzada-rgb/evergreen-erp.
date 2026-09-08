@@ -126,7 +126,7 @@ export default async function PaymentsPage({ searchParams }) {
           sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Amount: 1000, Date: "2026-08-31", Method: "Cash" }}
           previewType="payments"
         />
-        <ExportExcelButton rows={exportRows} filename="evergreen-payments.xlsx" sheetName="Payments" />
+        <ExportExcelButton rows={exportRows} sheetName="Payments" reportTitle="Payments" branding={branding} />
         <PrintButton />
         <AddPaymentForm
           customers={(balances || []).map((b) => ({ id: b.customer_id, name: b.name, balance: b.balance, frequency: freqMap[b.customer_id] }))}

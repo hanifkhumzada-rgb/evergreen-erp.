@@ -128,7 +128,7 @@ export default async function ExpensesPage({ searchParams }) {
           sampleRow={{ Category: "Fuel", Description: "Bike fuel", Amount: 500, Date: "2026-08-31", Method: "Cash" }}
           previewType="expenses"
         />
-        <ExportExcelButton rows={exportRows} filename="evergreen-expenses.xlsx" sheetName="Expenses" />
+        <ExportExcelButton rows={exportRows} sheetName="Expenses" reportTitle="Expenses" branding={branding} />
         <PrintButton />
         <AddExpenseForm />
       </div>

@@ -328,7 +328,7 @@ export default async function DeliveriesPage({ searchParams }) {
               sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Qty: 5, CashCollected: 600, Date: "2026-08-31", Product: "19L", Returned: 5 }}
               previewType="deliveries"
             />
-            <ExportExcelButton rows={exportRows} filename="evergreen-deliveries.xlsx" sheetName="Deliveries" />
+            <ExportExcelButton rows={exportRows} sheetName="Deliveries" reportTitle="Deliveries" branding={branding} />
             <PrintButton />
           </form>
           <p className="no-print text-xs text-slate mb-2">{historyRows.length} of {allRows.length} deliveries</p>

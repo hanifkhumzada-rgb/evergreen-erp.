@@ -53,7 +53,7 @@ export default async function BottlesPage() {
 
       <h4 className="text-sm font-bold mb-2.5">Customer bottle balances, by size</h4>
       <div className="no-print flex gap-2.5 mb-3">
-        <ExportExcelButton rows={exportRows} filename="bottle-balances.xlsx" sheetName="Bottles" />
+        <ExportExcelButton rows={exportRows} sheetName="Bottles" reportTitle="Bottle Balances" branding={branding} />
         <PrintButton />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">

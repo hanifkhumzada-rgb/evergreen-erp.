@@ -182,7 +182,7 @@ export default async function CustomersPage({ searchParams }) {
           duplicateKey="Mobile"
           existingValues={(customers || []).map((c) => c.mobile).filter(Boolean)}
         />
-        <ExportExcelButton rows={exportRows} filename="evergreen-customers.xlsx" sheetName="Customers" />
+        <ExportExcelButton rows={exportRows} sheetName="Customers" reportTitle="Customers" branding={branding} />
         <PrintButton />
         <CustomerForm mode="create" {...formProps} />
       </div>

@@ -41,7 +41,7 @@ export default async function SalesPage() {
           sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Qty: 5, Paid: 500, Date: "2026-08-31", Method: "Cash", Product: "19L" }}
           previewType="sales"
         />
-        <ExportExcelButton rows={exportRows} filename="evergreen-sales.xlsx" sheetName="Sales" />
+        <ExportExcelButton rows={exportRows} sheetName="Sales" reportTitle="Sales" branding={branding} />
         <DownloadPdfButton href={`/api/pdf/daily-sales?date=${new Date().toISOString().slice(0, 10)}`} label="Download Today's PDF" />
         <PrintButton />
         <AddSaleForm customers={customers || []} products={products || []} />

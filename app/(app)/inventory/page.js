@@ -32,7 +32,7 @@ export default async function InventoryPage() {
       <h2 className="no-print font-display text-2xl font-semibold mb-4">Inventory</h2>
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
-        <ExportExcelButton rows={exportRows} filename="evergreen-inventory.xlsx" sheetName="Inventory" />
+        <ExportExcelButton rows={exportRows} sheetName="Inventory" reportTitle="Inventory" branding={branding} />
         <PrintButton />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">

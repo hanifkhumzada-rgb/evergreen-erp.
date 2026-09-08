@@ -62,7 +62,7 @@ export default function ReportsBrowser({ reports, branding }) {
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <h3 className="font-display text-lg font-semibold">{selected}</h3>
           <div className="no-print flex gap-2">
-            <ExportExcelButton rows={rows} filename={`Evergreen_Water_${selected.replace(/[\s/]+/g, "_")}_${today.replace(/\s/g, "-")}.xlsx`} sheetName={selected.slice(0, 30)} reportTitle={selected} branding={branding} />
+            <ExportExcelButton rows={rows} sheetName={selected.slice(0, 30)} reportTitle={selected} branding={branding} />
             <PrintButton />
           </div>
         </div>

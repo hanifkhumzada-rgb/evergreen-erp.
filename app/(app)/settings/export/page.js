@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { ExportExcelButton } from "@/components/ui";
+import { getBrandingLite } from "@/lib/pdf/business";
 import { FileSpreadsheet } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,7 @@ export default async function ExportDataPage() {
   const supabase = await createClient();
 
   const [
+    branding,
     { data: customers }, { data: customerBalances },
     { data: invoices },
     { data: payments },
@@ -18,6 +20,7 @@ export default async function ExportDataPage() {
     { data: bottleMovements },
     { data: ledgerCustomers }, { data: ledgerBalances },
   ] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("customers").select("*, zones(name)").order("created_at", { ascending: false }),
     supabase.from("v_customer_balance").select("customer_id, balance"),
     supabase.from("invoices").select("*, customers(name), invoice_items(quantity)").order("created_at", { ascending: false }).limit(200),
@@ -87,7 +90,7 @@ export default async function ExportDataPage() {
                 <div className="text-xs text-slate">{d.rows.length} row{d.rows.length === 1 ? "" : "s"}</div>
               </div>
             </div>
-            <ExportExcelButton rows={d.rows} filename={d.filename} sheetName={d.sheetName} />
+            <ExportExcelButton rows={d.rows} sheetName={d.sheetName} reportTitle={d.name} branding={branding} />
           </div>
         ))}
       </div>

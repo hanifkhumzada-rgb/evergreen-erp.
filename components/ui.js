@@ -1,7 +1,8 @@
 "use client";
 import Link from "next/link";
-import * as XLSX from "xlsx";
 import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, FileDown } from "lucide-react";
+import { buildBrandedWorkbook, brandedFilename } from "@/lib/excel";
+import * as XLSX from "xlsx";
 
 export function Badge({ text, tone = "slate" }) {
   const map = {
@@ -42,15 +43,23 @@ export function KPI({ label, value, sub, tone = "navy", trend, href }) {
 // hover/focus tweak only needs to happen here.
 const TOOLBAR_BTN = "no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold text-ink transition-colors hover:border-aqua/40 hover:bg-aquaSoft/60 hover:text-aqua focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aqua/40";
 
-export function ExportExcelButton({ rows, filename, sheetName = "Sheet1" }) {
+// Every export goes through lib/excel.js's buildBrandedWorkbook — company
+// name/tagline, report title, period and a generated timestamp as the
+// first rows, auto-fit columns, PKR number formatting on currency-looking
+// columns, and a totals row — rather than the old bare json_to_sheet
+// dump. `reportTitle` falls back to `sheetName` so existing call sites
+// that only ever passed a sheet name still get a sensible title. Any old
+// `filename` prop a caller still passes is simply ignored (not
+// destructured) — the branded Evergreen_Water_<Report>_<Date>.xlsx
+// pattern always applies instead.
+export function ExportExcelButton({ rows, sheetName = "Sheet1", reportTitle, branding, period }) {
   return (
     <button type="button"
       onClick={() => {
         if (!rows?.length) { alert("No data to export."); return; }
-        const ws = XLSX.utils.json_to_sheet(rows);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, sheetName);
-        XLSX.writeFile(wb, filename.endsWith(".xlsx") ? filename : filename + ".xlsx");
+        const title = reportTitle || sheetName;
+        const wb = buildBrandedWorkbook({ rows, sheetName, reportTitle: title, branding, period });
+        XLSX.writeFile(wb, brandedFilename(title), { cellStyles: true });
       }}
       className={TOOLBAR_BTN}
     >
