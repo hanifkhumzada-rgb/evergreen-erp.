@@ -35,7 +35,7 @@ export default async function SettingsPage() {
             <Badge text="Automated notification triggers (low stock, overdue, bottle limit, inactive, payment overdue) — configurable above" tone="slate" />
             <Badge text="WhatsApp Business API (official) — Coming Soon" tone="slate" />
             <Badge text="AI sales forecasting & anomaly detection — Coming Soon" tone="slate" />
-            <Badge text="Server-rendered PDF (currently uses browser print) — Coming Soon" tone="slate" />
+            <Badge text="Server-rendered branded PDFs — invoices, statements, vouchers and daily reports; every other report has a matching branded print preview" tone="slate" />
           </div>
         </div>
       </div>

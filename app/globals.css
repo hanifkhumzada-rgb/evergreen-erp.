@@ -72,6 +72,14 @@ table tr.hover\:bg-foam:hover {
 
 @media print {
   .no-print { display: none !important; }
+  /* A4 with sane margins for every printed page (reports, statements,
+     the invoice/ledger "print preview" views) — otherwise the browser's
+     own print defaults vary by OS/printer and rarely match the app's own
+     A4 PDFs (lib/pdf/DocumentChrome.js uses the same 36pt/~12.7mm page
+     padding). White background so the app's foam-tinted page canvas
+     doesn't print as a tinted rectangle behind the content. */
+  @page { size: A4; margin: 12mm; }
+  body { background: #fff !important; }
 }
 
 /* Route loading.js shimmer skeletons — a moving highlight sweep (not just
