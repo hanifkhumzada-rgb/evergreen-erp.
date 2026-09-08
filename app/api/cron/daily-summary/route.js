@@ -25,10 +25,19 @@ export async function GET(request) {
   const supabase = createAdminClient();
   const { text } = await computeBusinessHealthSummary(supabase);
 
+  // Service-role client, no user session — business_id can't be auto-filled
+  // by the insert trigger, so it's looked up explicitly. Single business
+  // today, so "the one business" is unambiguous; once there's more than
+  // one, this route needs to loop over every business and post one summary
+  // notification each (Phase 3+ work, not done here).
+  const { data: business } = await supabase.from("businesses").select("id").limit(1).single();
+  if (!business) return NextResponse.json({ ok: false, error: "No business found" }, { status: 500 });
+
   const { error } = await supabase.from("notifications").insert({
     severity: "info",
     title: "Daily Business Summary",
     message: text,
+    business_id: business.id,
   });
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

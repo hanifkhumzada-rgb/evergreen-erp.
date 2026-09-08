@@ -1972,6 +1972,15 @@ export async function inviteUser(formData) {
   const { data: allowed } = await supabase.rpc("fn_has_permission", { perm_key: "users.manage" });
   if (!allowed) return { error: "You don't have permission to invite users." };
 
+  // The service-role admin client bypasses RLS entirely, so it also bypasses
+  // fn_stamp_business_id's auto-fill (that trigger reads auth.uid(), which
+  // resolves to nothing for a service-role request) — business_id has to be
+  // set explicitly here, to the inviting user's own business, or these
+  // inserts fail their NOT NULL constraint.
+  const { data: inviterProfile } = await supabase.from("profiles").select("business_id").eq("id", user.id).single();
+  const businessId = inviterProfile?.business_id;
+  if (!businessId) return { error: "Your account has no business assigned — contact support." };
+
   const admin = createAdminClient();
   const email = formData.get("email");
   const fullName = formData.get("full_name");
@@ -1988,11 +1997,11 @@ export async function inviteUser(formData) {
   if (!role) return { error: "Unknown role" };
 
   const { error: profileError } = await admin.from("profiles").insert({
-    id: authData.user.id, full_name: fullName, phone, role_id: role.id, is_active: true,
+    id: authData.user.id, full_name: fullName, phone, role_id: role.id, is_active: true, business_id: businessId,
   });
   if (profileError) return { error: profileError.message };
 
-  await admin.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "profiles", record_id: authData.user.id, new_value: { action: "invited", role: roleKey } });
+  await admin.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "profiles", record_id: authData.user.id, new_value: { action: "invited", role: roleKey }, business_id: businessId });
   revalidatePath("/user-management");
   return { ok: true, email, tempPassword };
 }
@@ -2021,6 +2030,12 @@ export async function deleteUser(userId, reason) {
     if ((count || 0) <= 1) return { error: "Can't delete the last remaining Owner account." };
   }
 
+  // Same reasoning as inviteUser: the admin client bypasses RLS (and the
+  // business_id auto-fill trigger, which needs a real user session), so the
+  // audit log entry needs business_id set explicitly.
+  const { data: actorProfile } = await supabase.from("profiles").select("business_id").eq("id", user.id).single();
+  const businessId = actorProfile?.business_id;
+
   const admin = createAdminClient();
   const { error: authError } = await admin.auth.admin.deleteUser(userId);
   if (authError) return { error: authError.message };
@@ -2028,7 +2043,7 @@ export async function deleteUser(userId, reason) {
   const { error: profileError } = await admin.from("profiles").delete().eq("id", userId);
   if (profileError) return { error: profileError.message };
 
-  await admin.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "profiles", new_value: { action: "deleted", target_user_id: userId, reason: trimmed } });
+  await admin.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "profiles", new_value: { action: "deleted", target_user_id: userId, reason: trimmed }, business_id: businessId });
   revalidatePath("/user-management");
   revalidatePath("/employees");
   return { ok: true };
