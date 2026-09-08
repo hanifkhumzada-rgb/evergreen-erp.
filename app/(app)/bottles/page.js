@@ -1,12 +1,16 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import { fmtDate } from "@/lib/format";
 import { ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
+import { getBrandingLite } from "@/lib/pdf/business";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 
 export const dynamic = "force-dynamic";
 
 export default async function BottlesPage() {
   const supabase = await createClient();
-  const [{ data: rows }, { data: products }, { data: reconciliation }] = await Promise.all([
+  const [branding, { data: rows }, { data: products }, { data: reconciliation }] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("v_customer_bottle_balance").select("customer_id, name, product_id, bottles_with_customer"),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
     supabase.from("v_bottle_reconciliation").select("product_id, total_assets"),
@@ -37,9 +41,10 @@ export default async function BottlesPage() {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-1">Bottle Tracking</h2>
-      <p className="text-slate text-sm mb-1">Total owned: {totalOwned} bottles across {(products || []).length} sizes · sourced live from bottle_transactions</p>
-      <p className="text-slate text-xs mb-5">Opening + Delivered − Returned − Damaged/Lost ± Adjustments = Current Balance. Click a customer for the full per-size breakdown and movement history.</p>
+      <DocumentPrintHeader branding={branding} title="Bottle Tracking" meta={`${customers.length} customers\nGenerated ${fmtDate(new Date().toISOString())}`} />
+      <h2 className="no-print font-display text-2xl font-semibold mb-1">Bottle Tracking</h2>
+      <p className="no-print text-slate text-sm mb-1">Total owned: {totalOwned} bottles across {(products || []).length} sizes · sourced live from bottle_transactions</p>
+      <p className="no-print text-slate text-xs mb-5">Opening + Delivered − Returned − Damaged/Lost ± Adjustments = Current Balance. Click a customer for the full per-size breakdown and movement history.</p>
 
       <div className="flex gap-5 flex-wrap mb-7">
         <Stat label="Full (available)" value={full} />
@@ -72,6 +77,7 @@ export default async function BottlesPage() {
           </tbody>
         </table>
       </div>
+      <DocumentPrintFooter />
     </div>
   );
 }

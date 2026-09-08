@@ -4,6 +4,8 @@ import { KPI, ExportExcelButton, PrintButton, Th, Td, Badge } from "@/components
 import ProductionBatchForm from "@/components/ProductionBatchForm";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { voidProductionBatch } from "@/app/actions";
+import { getBrandingLite } from "@/lib/pdf/business";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -11,7 +13,8 @@ function batchCost(b) { return Number(b.total_filling_cost || 0) + Number(b.cap_
 
 export default async function ProductionPage() {
   const supabase = await createClient();
-  const [{ data: batches }, { data: products }, { data: canVoid }] = await Promise.all([
+  const [branding, { data: batches }, { data: products }, { data: canVoid }] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("production_batches").select("*, products(name)").order("batch_date", { ascending: false }).limit(200),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
     supabase.rpc("fn_has_permission", { perm_key: "production.delete" }),
@@ -33,10 +36,11 @@ export default async function ProductionPage() {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-1">Production & Filling</h2>
-      <p className="text-slate text-sm mb-5">Bottle filling runs, kept separate from general expenses — quantity × cost per bottle, with caps and materials tracked alongside.</p>
+      <DocumentPrintHeader branding={branding} title="Production & Filling" meta={`${rows.length} of ${allRows.length} batches\nGenerated ${fmtDate(today)}`} />
+      <h2 className="no-print font-display text-2xl font-semibold mb-1">Production & Filling</h2>
+      <p className="no-print text-slate text-sm mb-5">Bottle filling runs, kept separate from general expenses — quantity × cost per bottle, with caps and materials tracked alongside.</p>
 
-      <div className="flex flex-wrap gap-3.5 mb-6">
+      <div className="no-print flex flex-wrap gap-3.5 mb-6">
         <KPI label="TODAY'S PRODUCTION" value={todayRows.reduce((a, b) => a + Number(b.quantity_filled || 0), 0)} tone="navy" sub={`${todayRows.length} batch${todayRows.length === 1 ? "" : "es"}`} />
         <KPI label="THIS MONTH" value={monthRows.reduce((a, b) => a + Number(b.quantity_filled || 0), 0)} tone="aqua" sub={pkr(monthRows.reduce((a, b) => a + batchCost(b), 0))} />
         <KPI label="TOTAL FILLED" value={totalBottles} tone="slate" sub={`${rows.length} batches all-time`} />
@@ -75,6 +79,7 @@ export default async function ProductionPage() {
           </tbody>
         </table>
       </div>
+      <DocumentPrintFooter />
     </div>
   );
 }

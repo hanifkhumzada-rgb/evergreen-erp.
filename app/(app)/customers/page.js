@@ -1,11 +1,13 @@
 import { getCurrentProfile } from "@/lib/session";
 import Link from "next/link";
-import { pkr } from "@/lib/format";
+import { pkr, fmtDate } from "@/lib/format";
 import { Badge, KPI, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import CustomerForm from "@/components/CustomerForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { bulkImportCustomers, deleteCustomer } from "@/app/actions";
+import { getBrandingLite } from "@/lib/pdf/business";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { Truck, Wallet, FilePlus, UserCircle2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -83,7 +85,8 @@ export default async function CustomersPage({ searchParams }) {
   const typeFilter = sp.type || "";
 
   const { supabase, profile } = await getCurrentProfile();
-  const [{ data: customers }, { data: zones }, { data: balances }, { data: products }, { data: vehicles }, { data: riders }, { data: routes }, { data: canDelete }] = await Promise.all([
+  const [branding, { data: customers }, { data: zones }, { data: balances }, { data: products }, { data: vehicles }, { data: riders }, { data: routes }, { data: canDelete }] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("customers").select("*, zones(name)").order("created_at", { ascending: false }),
     supabase.from("zones").select("*"),
     supabase.from("v_customer_balance").select("customer_id, balance"),
@@ -128,10 +131,11 @@ export default async function CustomersPage({ searchParams }) {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-1">Customers</h2>
-      <p className="text-slate text-sm mb-4">Customer workspace — book, balances, and quick actions in one place.</p>
+      <DocumentPrintHeader branding={branding} title="Customers" meta={`${rows.length} of ${allRows.length} customers\nGenerated ${fmtDate(new Date().toISOString())}`} />
+      <h2 className="no-print font-display text-2xl font-semibold mb-1">Customers</h2>
+      <p className="no-print text-slate text-sm mb-4">Customer workspace — book, balances, and quick actions in one place.</p>
 
-      <div className="flex flex-wrap gap-3.5 mb-5">
+      <div className="no-print flex flex-wrap gap-3.5 mb-5">
         <KPI label="TOTAL CUSTOMERS" value={allRows.length} tone="navy" />
         <KPI label="NEW THIS MONTH" value={newThisMonth} tone="aqua" />
         <KPI label="OUTSTANDING" value={pkr(totalOutstanding)} tone="coral" sub="total receivable across all customers" />
@@ -219,6 +223,7 @@ export default async function CustomersPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      <DocumentPrintFooter />
     </div>
   );
 }

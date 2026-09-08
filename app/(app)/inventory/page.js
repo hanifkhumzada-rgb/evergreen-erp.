@@ -3,12 +3,15 @@ import { pkr, fmtDate } from "@/lib/format";
 import { Badge, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import BulkImportButton from "@/components/BulkImportButton";
 import { bulkImportPurchases } from "@/app/actions";
+import { getBrandingLite } from "@/lib/pdf/business";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 
 export const dynamic = "force-dynamic";
 
 export default async function InventoryPage() {
   const supabase = await createClient();
-  const [{ data: products }, { data: stock }, { data: prices }, { data: purchases }] = await Promise.all([
+  const [branding, { data: products }, { data: stock }, { data: prices }, { data: purchases }] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("products").select("*").order("name"),
     supabase.from("v_bottle_reconciliation").select("product_id, warehouse"),
     supabase.from("product_prices").select("product_id, price"),
@@ -25,7 +28,8 @@ export default async function InventoryPage() {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-4">Inventory</h2>
+      <DocumentPrintHeader branding={branding} title="Inventory" meta={`${rows.length} products\nGenerated ${fmtDate(new Date().toISOString())}`} />
+      <h2 className="no-print font-display text-2xl font-semibold mb-4">Inventory</h2>
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <ExportExcelButton rows={exportRows} filename="evergreen-inventory.xlsx" sheetName="Inventory" />
@@ -69,6 +73,7 @@ export default async function InventoryPage() {
           </tbody>
         </table>
       </div>
+      <DocumentPrintFooter />
     </div>
   );
 }

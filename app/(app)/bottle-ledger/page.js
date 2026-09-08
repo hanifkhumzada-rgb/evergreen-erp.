@@ -5,6 +5,8 @@ import { Badge, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import BottleReconciliationForm from "@/components/BottleReconciliationForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import { bulkImportBottleOpeningBalances } from "@/app/actions";
+import { getBrandingLite } from "@/lib/pdf/business";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { AlertTriangle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +31,8 @@ function movementType(m) {
 
 export default async function BottleLedgerPage() {
   const supabase = await createClient();
-  const [{ data: balances }, { data: movements }, { data: customers }, { data: reconciliation }, { data: products }, { data: reconHistory }] = await Promise.all([
+  const [branding, { data: balances }, { data: movements }, { data: customers }, { data: reconciliation }, { data: products }, { data: reconHistory }] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("v_customer_bottle_balance").select("customer_id, name, bottles_with_customer"),
     supabase.from("bottle_transactions").select("*, customers(name), products(name), profiles(full_name)").order("created_at", { ascending: false }).limit(150),
     supabase.from("customers").select("id, bottle_limit"),
@@ -105,11 +108,12 @@ export default async function BottleLedgerPage() {
 
   return (
     <div>
-      <div className="flex flex-wrap items-start justify-between gap-2 mb-1">
+      <DocumentPrintHeader branding={branding} title="Bottle Inventory" meta={`${(movements || []).length} movements\nGenerated ${fmtDate(new Date().toISOString())}`} />
+      <div className="no-print flex flex-wrap items-start justify-between gap-2 mb-1">
         <h2 className="font-display text-2xl font-semibold">Bottle Inventory</h2>
         <Link href="/bottles" className="no-print text-xs font-semibold text-aqua hover:underline">Customer-wise balances →</Link>
       </div>
-      <p className="text-slate text-sm mb-5">Professional bottle accounting — every movement traceable, valued against replacement cost.</p>
+      <p className="no-print text-slate text-sm mb-5">Professional bottle accounting — every movement traceable, valued against replacement cost.</p>
 
       {needsAttention.length > 0 && (
         <div className="border border-coral/40 bg-coralSoft rounded-2xl p-4 mb-5">
@@ -225,6 +229,7 @@ export default async function BottleLedgerPage() {
         </table>
       </div>
       <p className="text-xs text-slate mt-3">Note: bottle liability here is shown for reporting only — it is not posted as a formal ledger entry against a &quot;Customer Bottle Deposit Liability&quot; account (the live database has no chart-of-accounts engine). See Settings for what&apos;s still pending.</p>
+      <DocumentPrintFooter />
     </div>
   );
 }

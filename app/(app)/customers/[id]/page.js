@@ -9,6 +9,8 @@ import { SalesTrendChart } from "@/components/LazyCharts";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { archiveCustomer, deleteCustomer, voidDelivery } from "@/app/actions";
+import { getBrandingLite } from "@/lib/pdf/business";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -41,11 +43,13 @@ function SectionTitle({ children }) {
 export default async function CustomerProfilePage({ params }) {
   const { supabase, profile } = await getCurrentProfile();
   const [
+    branding,
     { data: c }, { data: invoices }, { data: payments }, { data: balanceRow }, { data: bottleBalanceRows },
     { data: deliveries }, { data: bottleTxns }, { data: ledgerEntries },
     { data: zones }, { data: products }, { data: vehicles }, { data: riders }, { data: routes },
     { data: canDelete },
   ] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("customers").select("*, zones(name), profiles!customers_assigned_rider_id_fkey(full_name), vehicles(registration_no)").eq("id", params.id).single(),
     supabase.from("invoices").select("*").eq("customer_id", params.id).neq("status", "void").order("invoice_date", { ascending: false }),
     supabase.from("payments").select("*").eq("customer_id", params.id).eq("voided", false).order("payment_date", { ascending: false }),
@@ -165,6 +169,7 @@ export default async function CustomerProfilePage({ params }) {
 
   return (
     <div className="print-area">
+      <DocumentPrintHeader branding={branding} title="Customer Profile" meta={`${c.name}\nGenerated ${fmtDate(new Date().toISOString())}`} />
       <Link href="/customers" className="no-print flex items-center gap-2 text-aqua font-semibold text-sm mb-4"><ArrowLeft size={18} /> Back to Customers</Link>
 
       <div className="flex justify-between items-start mb-5">
@@ -364,6 +369,7 @@ export default async function CustomerProfilePage({ params }) {
           <SalesTrendChart data={monthlySales} />
         </div>
       )}
+      <DocumentPrintFooter />
     </div>
   );
 }

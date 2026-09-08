@@ -5,6 +5,8 @@ import { Badge, ExportExcelButton, PrintButton, DownloadPdfButton, Th, Td } from
 import AddSaleForm from "@/components/AddSaleForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import { bulkImportSales } from "@/app/actions";
+import { getBrandingLite } from "@/lib/pdf/business";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 
 export const dynamic = "force-dynamic";
 const STATUS_LABEL = { paid: "Paid", partially_paid: "Partially Paid", sent: "Pending", draft: "Draft", overdue: "Overdue", void: "Void" };
@@ -12,7 +14,8 @@ const STATUS_TONE = { paid: "green", partially_paid: "amber", sent: "coral", dra
 
 export default async function SalesPage() {
   const supabase = await createClient();
-  const [{ data: invoices }, { data: customers }, { data: products }] = await Promise.all([
+  const [branding, { data: invoices }, { data: customers }, { data: products }] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("invoices").select("*, customers(name), invoice_items(quantity)").order("created_at", { ascending: false }).limit(200),
     supabase.from("customers").select("id, name, default_product_id"),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
@@ -23,9 +26,12 @@ export default async function SalesPage() {
     Invoice: s.invoice_no, Date: s.invoice_date, Customer: s.customers?.name, Qty: qtyOf(s), Total: s.net_amount, Status: STATUS_LABEL[s.status] || s.status,
   }));
 
+  const today = new Date().toISOString().slice(0, 10);
+
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-4">Sales</h2>
+      <DocumentPrintHeader branding={branding} title="Sales" meta={`${(invoices || []).length} invoices\nGenerated ${fmtDate(today)}`} />
+      <h2 className="no-print font-display text-2xl font-semibold mb-4">Sales</h2>
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <BulkImportButton
@@ -58,6 +64,7 @@ export default async function SalesPage() {
           </tbody>
         </table>
       </div>
+      <DocumentPrintFooter />
     </div>
   );
 }

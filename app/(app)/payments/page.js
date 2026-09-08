@@ -7,6 +7,8 @@ import AddPaymentForm from "@/components/AddPaymentForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { bulkImportPayments, voidPayment } from "@/app/actions";
+import { getBrandingLite } from "@/lib/pdf/business";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +25,8 @@ const BUCKET_TONE = { overdue: "coral", today: "amber", week: "aqua", month: "sl
 export default async function PaymentsPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const supabase = await createClient();
-  const [{ data: payments }, { data: balances }, { data: collectors }, { data: allPayments }, { data: customersMeta }, { data: canVoid }] = await Promise.all([
+  const [branding, { data: payments }, { data: balances }, { data: collectors }, { data: allPayments }, { data: customersMeta }, { data: canVoid }] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("payments").select("*, customers(name), profiles!payments_received_by_fkey(full_name)").order("created_at", { ascending: false }).limit(200),
     supabase.from("v_customer_balance").select("customer_id, name, balance"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").neq("roles.key", "customer").eq("is_active", true).order("full_name"),
@@ -68,10 +71,11 @@ export default async function PaymentsPage({ searchParams }) {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-1">Payment Collection</h2>
-      <p className="text-slate text-sm mb-4">Due today, collected today, and every overdue customer that needs a follow-up.</p>
+      <DocumentPrintHeader branding={branding} title="Payments" meta={`${(payments || []).length} payments\nGenerated ${fmtDate(todayISO)}`} />
+      <h2 className="no-print font-display text-2xl font-semibold mb-1">Payment Collection</h2>
+      <p className="no-print text-slate text-sm mb-4">Due today, collected today, and every overdue customer that needs a follow-up.</p>
 
-      <div className="flex flex-wrap gap-3.5 mb-5">
+      <div className="no-print flex flex-wrap gap-3.5 mb-5">
         <KPI label="TODAY'S DUE" value={pkr(todaysDue)} tone="navy" />
         <KPI label="COLLECTED" value={pkr(todaysCollected)} tone="green" />
         <KPI label="REMAINING" value={pkr(todaysRemaining)} tone={todaysRemaining > 0 ? "amber" : "slate"} />
@@ -151,6 +155,7 @@ export default async function PaymentsPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      <DocumentPrintFooter />
     </div>
   );
 }

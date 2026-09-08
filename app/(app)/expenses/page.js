@@ -7,6 +7,8 @@ import BulkImportButton from "@/components/BulkImportButton";
 import PendingApprovals from "@/components/PendingApprovals";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { bulkImportExpenses, voidExpense } from "@/app/actions";
+import { getBrandingLite } from "@/lib/pdf/business";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { Tag } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +25,8 @@ const STATUS_BADGE = {
 export default async function ExpensesPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const { supabase, profile } = await getCurrentProfile();
-  const [{ data: expenses }, { data: categories }, { data: canVoid }] = await Promise.all([
+  const [branding, { data: expenses }, { data: categories }, { data: canVoid }] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("expenses").select("*, expense_categories(name), profiles!expenses_submitted_by_fkey(full_name)").order("created_at", { ascending: false }).limit(200),
     supabase.from("expense_categories").select("id, name").order("name"),
     supabase.rpc("fn_has_permission", { perm_key: "expenses.delete" }),
@@ -76,10 +79,11 @@ export default async function ExpensesPage({ searchParams }) {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-1">Expenses</h2>
-      <p className="text-slate text-sm mb-4">Operating costs by category — filling/production costs live in their own workspace.</p>
+      <DocumentPrintHeader branding={branding} title="Expenses" meta={`${rows.length} of ${allRows.length} expenses\nGenerated ${fmtDate(today)}`} />
+      <h2 className="no-print font-display text-2xl font-semibold mb-1">Expenses</h2>
+      <p className="no-print text-slate text-sm mb-4">Operating costs by category — filling/production costs live in their own workspace.</p>
 
-      <div className="flex flex-wrap gap-3.5 mb-5">
+      <div className="no-print flex flex-wrap gap-3.5 mb-5">
         <KPI label="TODAY" value={pkr(todayTotal)} tone="navy" />
         <KPI label="THIS MONTH" value={pkr(monthTotal)} tone="aqua" />
         <KPI label="PENDING APPROVAL" value={pendingExpenses.length} tone={pendingExpenses.length > 0 ? "amber" : "slate"} />
@@ -155,6 +159,7 @@ export default async function ExpensesPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      <DocumentPrintFooter />
     </div>
   );
 }

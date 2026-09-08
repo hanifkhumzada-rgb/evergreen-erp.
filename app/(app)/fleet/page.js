@@ -1,10 +1,12 @@
 import { createClient } from "@/lib/supabase/server";
-import { pkr } from "@/lib/format";
+import { pkr, fmtDate } from "@/lib/format";
 import { Badge, KPI, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import { AddVehicleForm, AddVehicleExpenseForm, EditVehicleDatesForm } from "@/components/FleetForms";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { bulkImportVehicles, deleteVehicle } from "@/app/actions";
+import { getBrandingLite } from "@/lib/pdf/business";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { AlertTriangle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +15,8 @@ const EXPIRY_WARNING_DAYS = 30;
 
 export default async function FleetPage() {
   const supabase = await createClient();
-  const [{ data: vehicles }, { data: riders }, { data: fuelLogs }, { data: maintLogs }, { data: customers }, { data: canDelete }] = await Promise.all([
+  const [branding, { data: vehicles }, { data: riders }, { data: fuelLogs }, { data: maintLogs }, { data: customers }, { data: canDelete }] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("vehicles").select("*, profiles!vehicles_assigned_rider_id_fkey(full_name)"),
     supabase.from("profiles").select("id, full_name"),
     supabase.from("vehicle_fuel_logs").select("*, vehicles(registration_no)"),
@@ -59,10 +62,11 @@ export default async function FleetPage() {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-1">Fleet Management</h2>
-      <p className="text-slate text-sm mb-4">Vehicles, drivers, running costs, and expiry tracking.</p>
+      <DocumentPrintHeader branding={branding} title="Fleet" meta={`${withCosts.length} vehicles\nGenerated ${fmtDate(new Date().toISOString())}`} />
+      <h2 className="no-print font-display text-2xl font-semibold mb-1">Fleet Management</h2>
+      <p className="no-print text-slate text-sm mb-4">Vehicles, drivers, running costs, and expiry tracking.</p>
 
-      <div className="flex flex-wrap gap-3.5 mb-5">
+      <div className="no-print flex flex-wrap gap-3.5 mb-5">
         <KPI label="TOTAL VEHICLES" value={withCosts.length} tone="navy" />
         <KPI label="ACTIVE" value={activeCount} tone="green" />
         <KPI label="EXPIRING SOON" value={expiryAlerts.filter((a) => !a.expired).length} tone={expiryAlerts.length > 0 ? "amber" : "slate"} sub={`within ${EXPIRY_WARNING_DAYS} days`} />
@@ -135,6 +139,7 @@ export default async function FleetPage() {
           </tbody>
         </table>
       </div>
+      <DocumentPrintFooter />
     </div>
   );
 }

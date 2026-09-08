@@ -5,6 +5,8 @@ import { ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import EmployeeAdvanceForm from "@/components/EmployeeAdvanceForm";
 import EmployeeEditForm from "@/components/EmployeeEditForm";
 import AttendanceButtons from "@/components/AttendanceButtons";
+import { getBrandingLite } from "@/lib/pdf/business";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +15,8 @@ function todayISO() { return new Date().toISOString().slice(0, 10); }
 export default async function EmployeesPage() {
   const supabase = await createClient();
   const today = todayISO();
-  const [{ data: employees }, { data: deliveries }, { data: zones }, { data: vehicles }, { data: advances }, { data: attendanceToday }] = await Promise.all([
+  const [branding, { data: employees }, { data: deliveries }, { data: zones }, { data: vehicles }, { data: advances }, { data: attendanceToday }] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("profiles").select("*, roles!inner(name, key), zones(name), vehicles(registration_no)").neq("roles.key", "customer"),
     supabase.from("deliveries").select("rider_id, status, amount_collected"),
     supabase.from("zones").select("id, name").order("name"),
@@ -44,7 +47,8 @@ export default async function EmployeesPage() {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-4">Employees</h2>
+      <DocumentPrintHeader branding={branding} title="Employees" meta={`${perf.length} employees\nGenerated ${fmtDate(today)}`} />
+      <h2 className="no-print font-display text-2xl font-semibold mb-4">Employees</h2>
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <EmployeeAdvanceForm employees={perf} />
@@ -75,6 +79,7 @@ export default async function EmployeesPage() {
           </tbody>
         </table>
       </div>
+      <DocumentPrintFooter />
     </div>
   );
 }

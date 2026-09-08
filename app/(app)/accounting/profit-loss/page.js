@@ -1,6 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
-import { pkr } from "@/lib/format";
+import { pkr, fmtDate } from "@/lib/format";
 import { PrintButton } from "@/components/ui";
+import { getBrandingLite } from "@/lib/pdf/business";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 
 export const dynamic = "force-dynamic";
 function monthStart() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10); }
@@ -10,7 +12,8 @@ export default async function ProfitLossPage({ searchParams }) {
   const from = searchParams?.from || monthStart();
   const to = searchParams?.to || new Date().toISOString().slice(0, 10);
 
-  const [{ data: invoices }, { data: expenses }] = await Promise.all([
+  const [branding, { data: invoices }, { data: expenses }] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("invoices").select("net_amount").neq("status", "void").gte("invoice_date", from).lte("invoice_date", to),
     supabase.from("expenses").select("amount, expense_categories(name)").in("status", ["approved", "paid"]).gte("expense_date", from).lte("expense_date", to),
   ]);
@@ -29,7 +32,8 @@ export default async function ProfitLossPage({ searchParams }) {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-1">Profit &amp; Loss</h2>
+      <DocumentPrintHeader branding={branding} title="Profit & Loss" meta={`${fmtDate(from)} – ${fmtDate(to)}`} />
+      <h2 className="no-print font-display text-2xl font-semibold mb-1">Profit &amp; Loss</h2>
       <form className="no-print flex flex-wrap gap-2.5 mb-2 items-end">
         <label className="text-xs font-semibold text-slate">From<br /><input type="date" name="from" defaultValue={from} className="mt-1 px-2.5 py-2 rounded-lg border border-line bg-card text-ink text-sm" /></label>
         <label className="text-xs font-semibold text-slate">To<br /><input type="date" name="to" defaultValue={to} className="mt-1 px-2.5 py-2 rounded-lg border border-line bg-card text-ink text-sm" /></label>
@@ -49,6 +53,7 @@ export default async function ProfitLossPage({ searchParams }) {
         <Row label="Net Profit" value={netProfit} bold big />
       </div>
       <p className="text-xs text-slate mt-3">Figures are calculated live from invoices and expenses — nothing here is hardcoded. This is a heuristic P&amp;L (no cost-of-goods-sold or chart-of-accounts engine in the live database yet).</p>
+      <DocumentPrintFooter />
     </div>
   );
 }

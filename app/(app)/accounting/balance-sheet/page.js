@@ -1,12 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
-import { pkr } from "@/lib/format";
+import { pkr, fmtDate } from "@/lib/format";
 import { PrintButton } from "@/components/ui";
+import { getBrandingLite } from "@/lib/pdf/business";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 
 export const dynamic = "force-dynamic";
 
 export default async function BalanceSheetPage() {
   const supabase = await createClient();
-  const [{ data: rows }, { data: invoices }, { data: expenses }] = await Promise.all([
+  const [branding, { data: rows }, { data: invoices }, { data: expenses }] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("v_trial_balance").select("*").order("code"),
     supabase.from("invoices").select("net_amount").neq("status", "void"),
     supabase.from("expenses").select("amount").in("status", ["approved", "paid"]),
@@ -25,8 +28,9 @@ export default async function BalanceSheetPage() {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-1">Balance Sheet</h2>
-      <p className="text-slate text-sm mb-5">Assets, liabilities and equity as of today — calculated live from posted journal entries.</p>
+      <DocumentPrintHeader branding={branding} title="Balance Sheet" meta={`As of ${fmtDate(new Date().toISOString())}`} />
+      <h2 className="no-print font-display text-2xl font-semibold mb-1">Balance Sheet</h2>
+      <p className="no-print text-slate text-sm mb-5">Assets, liabilities and equity as of today — calculated live from posted journal entries.</p>
       <div className="no-print mb-3"><PrintButton /></div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-3xl">
@@ -79,6 +83,7 @@ export default async function BalanceSheetPage() {
           ? "✓ Balanced — Assets = Liabilities + Equity."
           : `Note: Assets (${pkr(totalAssets)}) vs Liabilities + Equity (${pkr(totalLiabilities + totalEquity)}) — small gaps are expected until Owner Capital / opening balances are recorded.`}
       </p>
+      <DocumentPrintFooter />
     </div>
   );
 }

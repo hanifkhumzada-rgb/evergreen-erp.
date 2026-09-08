@@ -12,6 +12,8 @@ import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import RiderLocationTracker from "@/components/RiderLocationTracker";
 import { bulkImportDeliveries, voidDelivery } from "@/app/actions";
+import { getBrandingLite } from "@/lib/pdf/business";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { Phone, MessageCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -85,11 +87,13 @@ export default async function DeliveriesPage({ searchParams }) {
 
   const today = todayISO();
   const [
+    branding,
     { data: deliveries }, { data: todayDeliveries }, { data: lastDeliveredRaw },
     { data: customersRaw }, { data: zones }, { data: routes }, { data: products },
     { data: balances }, { data: bottleBalances }, { data: customerPrices }, { data: productPrices }, { data: riders },
     { data: canVoidDeliveries },
   ] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("deliveries")
       .select("*, customers(name, zone_id), profiles!deliveries_rider_id_fkey(id, full_name), delivery_items(expected_qty)")
       .order("delivery_date", { ascending: false }).limit(200),
@@ -207,10 +211,11 @@ export default async function DeliveriesPage({ searchParams }) {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-1">Today&apos;s Deliveries</h2>
-      <p className="text-slate text-sm mb-4">{fmtDate(today)} · {todayAbbr}</p>
+      <DocumentPrintHeader branding={branding} title="Today's Deliveries" meta={`${todayCustomers.length} customers due today\n${historyRows.length} of ${allRows.length} in history\nGenerated ${fmtDate(today)}`} />
+      <h2 className="no-print font-display text-2xl font-semibold mb-1">Today&apos;s Deliveries</h2>
+      <p className="no-print text-slate text-sm mb-4">{fmtDate(today)} · {todayAbbr}</p>
 
-      <div className="flex flex-wrap gap-3.5 mb-5">
+      <div className="no-print flex flex-wrap gap-3.5 mb-5">
         <KPI label="CUSTOMERS TODAY" value={todayCustomers.length} tone="navy" />
         <KPI label="BOTTLES DELIVERED" value={bottlesDeliveredToday} tone="aqua" />
         <KPI label="SALES" value={pkr(salesToday)} tone="navy" />
@@ -352,6 +357,7 @@ export default async function DeliveriesPage({ searchParams }) {
           </div>
         </div>
       </details>
+      <DocumentPrintFooter />
     </div>
   );
 }
