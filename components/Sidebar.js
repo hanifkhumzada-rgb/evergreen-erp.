@@ -40,47 +40,55 @@ export function SidebarToggleButton() {
 // reports page). "Inventory" (raw materials/purchases — a different system
 // from bottle tracking) isn't in the spec's MAIN list but is kept reachable
 // here rather than silently dropped from the nav.
+// "admin" (Admin) is a distinct role row from "owner" in the roles table,
+// but role_permissions grants it the exact same permission set as owner
+// (verified live) — it's a second full-access account, not a lesser one.
+// Every "owner" entry below lists "admin" alongside it for that reason; an
+// admin profile with none of these roles matching left the entire nav (and,
+// on mobile, functionally the whole drawer) empty.
+const OWNER_ROLES = ["owner", "admin"];
+
 const NAV = [
-  { type: "link", href: "/dashboard", label: "Dashboard", icon: Home, roles: ["owner", "manager", "accountant"] },
-  { type: "link", href: "/customers", label: "Customers", icon: Users, roles: ["owner", "manager"] },
-  { type: "link", href: "/deliveries", label: "Deliveries", icon: Truck, roles: ["owner", "manager", "rider"] },
-  { type: "link", href: "/bottle-ledger", label: "Bottle Inventory", icon: Droplet, roles: ["owner", "manager"] },
-  { type: "link", href: "/production", label: "Production & Filling", icon: Factory, roles: ["owner", "manager", "accountant"] },
-  { type: "link", href: "/payments", label: "Payments", icon: Receipt, roles: ["owner", "accountant"] },
-  { type: "link", href: "/expenses", label: "Expenses", icon: Wallet, roles: ["owner", "manager", "accountant"] },
-  { type: "link", href: "/ledger", label: "Customer Ledger", icon: BookOpen, roles: ["owner", "accountant"] },
-  { type: "link", href: "/invoices", label: "Invoices", icon: ReceiptText, roles: ["owner", "manager", "accountant"] },
-  { type: "link", href: "/fleet", label: "Fleet", icon: Car, roles: ["owner", "manager"] },
-  { type: "link", href: "/employees", label: "Employees", icon: UserCog, roles: ["owner", "manager"] },
-  { type: "link", href: "/zones", label: "Zones & Routes", icon: MapPin, roles: ["owner", "manager"] },
-  { type: "link", href: "/inventory", label: "Inventory", icon: Package, roles: ["owner", "manager"] },
+  { type: "link", href: "/dashboard", label: "Dashboard", icon: Home, roles: [...OWNER_ROLES, "manager", "accountant"] },
+  { type: "link", href: "/customers", label: "Customers", icon: Users, roles: [...OWNER_ROLES, "manager"] },
+  { type: "link", href: "/deliveries", label: "Deliveries", icon: Truck, roles: [...OWNER_ROLES, "manager", "rider"] },
+  { type: "link", href: "/bottle-ledger", label: "Bottle Inventory", icon: Droplet, roles: [...OWNER_ROLES, "manager"] },
+  { type: "link", href: "/production", label: "Production & Filling", icon: Factory, roles: [...OWNER_ROLES, "manager", "accountant"] },
+  { type: "link", href: "/payments", label: "Payments", icon: Receipt, roles: [...OWNER_ROLES, "accountant"] },
+  { type: "link", href: "/expenses", label: "Expenses", icon: Wallet, roles: [...OWNER_ROLES, "manager", "accountant"] },
+  { type: "link", href: "/ledger", label: "Customer Ledger", icon: BookOpen, roles: [...OWNER_ROLES, "accountant"] },
+  { type: "link", href: "/invoices", label: "Invoices", icon: ReceiptText, roles: [...OWNER_ROLES, "manager", "accountant"] },
+  { type: "link", href: "/fleet", label: "Fleet", icon: Car, roles: [...OWNER_ROLES, "manager"] },
+  { type: "link", href: "/employees", label: "Employees", icon: UserCog, roles: [...OWNER_ROLES, "manager"] },
+  { type: "link", href: "/zones", label: "Zones & Routes", icon: MapPin, roles: [...OWNER_ROLES, "manager"] },
+  { type: "link", href: "/inventory", label: "Inventory", icon: Package, roles: [...OWNER_ROLES, "manager"] },
   {
     type: "group", key: "accounting-finance", label: "Accounting & Finance", icon: Landmark,
     items: [
-      { href: "/accounting/chart-of-accounts", label: "Chart of Accounts", icon: Landmark, roles: ["owner", "accountant"] },
-      { href: "/accounting/journal", label: "Journal Entries", icon: FileText, roles: ["owner", "accountant"] },
-      { href: "/accounting/trial-balance", label: "Trial Balance", icon: Scale, roles: ["owner", "accountant"] },
-      { href: "/accounting/profit-loss", label: "Profit & Loss", icon: TrendingUp, roles: ["owner", "accountant"] },
-      { href: "/accounting/balance-sheet", label: "Balance Sheet", icon: Scale, roles: ["owner", "accountant"] },
-      { href: "/accounting/daily-closing", label: "Daily Closing", icon: ClipboardCheck, roles: ["owner", "accountant"] },
-      { href: "/reports", label: "Financial Reports", icon: BarChart3, roles: ["owner", "manager", "accountant"] },
+      { href: "/accounting/chart-of-accounts", label: "Chart of Accounts", icon: Landmark, roles: [...OWNER_ROLES, "accountant"] },
+      { href: "/accounting/journal", label: "Journal Entries", icon: FileText, roles: [...OWNER_ROLES, "accountant"] },
+      { href: "/accounting/trial-balance", label: "Trial Balance", icon: Scale, roles: [...OWNER_ROLES, "accountant"] },
+      { href: "/accounting/profit-loss", label: "Profit & Loss", icon: TrendingUp, roles: [...OWNER_ROLES, "accountant"] },
+      { href: "/accounting/balance-sheet", label: "Balance Sheet", icon: Scale, roles: [...OWNER_ROLES, "accountant"] },
+      { href: "/accounting/daily-closing", label: "Daily Closing", icon: ClipboardCheck, roles: [...OWNER_ROLES, "accountant"] },
+      { href: "/reports", label: "Financial Reports", icon: BarChart3, roles: [...OWNER_ROLES, "manager", "accountant"] },
     ],
   },
   {
     type: "group", key: "intelligence", label: "Intelligence", icon: Bot,
     items: [
-      { href: "/ai", label: "Evergreen AI", icon: Bot, roles: ["owner", "manager", "accountant"] },
-      { href: "/notifications", label: "Alerts & Notifications", icon: Bell, roles: ["owner", "manager", "accountant"] },
+      { href: "/ai", label: "Evergreen AI", icon: Bot, roles: [...OWNER_ROLES, "manager", "accountant"] },
+      { href: "/notifications", label: "Alerts & Notifications", icon: Bell, roles: [...OWNER_ROLES, "manager", "accountant"] },
     ],
   },
   {
     type: "group", key: "system", label: "System", icon: Settings,
     items: [
-      { href: "/user-management", label: "User Management", icon: UserCog, roles: ["owner"] },
-      { href: "/user-management/permissions", label: "Permissions", icon: ShieldCheck, roles: ["owner"] },
-      { href: "/audit-logs", label: "Audit Logs", icon: FileText, roles: ["owner"] },
-      { href: "/settings/export", label: "Import/Export", icon: FolderInput, roles: ["owner"] },
-      { href: "/settings", label: "Settings", icon: Settings, roles: ["owner"] },
+      { href: "/user-management", label: "User Management", icon: UserCog, roles: OWNER_ROLES },
+      { href: "/user-management/permissions", label: "Permissions", icon: ShieldCheck, roles: OWNER_ROLES },
+      { href: "/audit-logs", label: "Audit Logs", icon: FileText, roles: OWNER_ROLES },
+      { href: "/settings/export", label: "Import/Export", icon: FolderInput, roles: OWNER_ROLES },
+      { href: "/settings", label: "Settings", icon: Settings, roles: OWNER_ROLES },
     ],
   },
 ];

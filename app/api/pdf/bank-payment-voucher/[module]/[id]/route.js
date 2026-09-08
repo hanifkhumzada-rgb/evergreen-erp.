@@ -24,7 +24,7 @@ export async function GET(request, { params }) {
     mod === "expenses"
       ? supabase.from("expenses").select("*, expense_categories(name), profiles!expenses_employee_id_fkey(employee_code, full_name)").eq("id", id).single()
       : supabase.from("payments").select("*, customers(code, name)").eq("id", id).single(),
-    supabase.from("business_settings").select("currency, address").single(),
+    supabase.from("business_settings").select("business_name, currency, address").single(),
   ]);
   if (recordError || !record) return new NextResponse(`${mod === "expenses" ? "Expense" : "Payment"} not found`, { status: 404 });
 
@@ -56,6 +56,7 @@ export async function GET(request, { params }) {
       entry={entry}
       lines={entry?.journal_lines || []}
       currency={settings?.currency}
+      businessName={settings?.business_name}
       address={settings?.address}
     />
   );

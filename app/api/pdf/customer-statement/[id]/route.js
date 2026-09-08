@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import CustomerStatementDocument from "@/lib/pdf/CustomerStatementDocument";
+import { getBusinessBranding } from "@/lib/pdf/business";
 
 export async function GET(request, { params }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new NextResponse("Unauthorized", { status: 401 });
 
+  const branding = await getBusinessBranding(supabase);
   const [{ data: customer }, { data: entries }] = await Promise.all([
     supabase.from("customers").select("*, zones(name)").eq("id", params.id).single(),
     supabase.from("customer_ledger_entries").select("entry_date, description, debit, credit, created_at")
@@ -28,7 +30,7 @@ export async function GET(request, { params }) {
   });
 
   const buffer = await renderToBuffer(
-    <CustomerStatementDocument customer={customer} rows={rows} totalSales={totalSales} totalPaid={totalPaid} balance={running} />
+    <CustomerStatementDocument customer={customer} rows={rows} totalSales={totalSales} totalPaid={totalPaid} balance={running} businessName={branding.businessName} address={branding.address} />
   );
 
   return new NextResponse(buffer, {
