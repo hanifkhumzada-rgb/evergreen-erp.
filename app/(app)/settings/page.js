@@ -1,17 +1,25 @@
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui";
 import AutomationRulesForm from "@/components/AutomationRulesForm";
+import BusinessSettingsForm from "@/components/BusinessSettingsForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
-  const { data: rules } = await supabase.from("automation_rules").select("*").order("created_at");
+  const [{ data: rules }, { data: businessSettings }, { data: canManage }] = await Promise.all([
+    supabase.from("automation_rules").select("*").order("created_at"),
+    supabase.from("business_settings").select("*").maybeSingle(),
+    supabase.rpc("fn_has_permission", { perm_key: "settings.manage" }),
+  ]);
 
   return (
     <div>
       <h2 className="font-display text-2xl font-semibold mb-4">Settings</h2>
       <div className="flex flex-col gap-5">
+        {canManage
+          ? <BusinessSettingsForm settings={businessSettings} />
+          : <p className="text-xs text-slate border border-line rounded-2xl p-5 max-w-3xl">Business branding is managed by the Owner.</p>}
         <AutomationRulesForm rules={rules || []} />
         <div className="border border-line rounded-2xl p-5 max-w-xl">
           <h4 className="text-sm font-bold mb-2">About this build</h4>

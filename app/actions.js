@@ -923,6 +923,53 @@ export async function updateAutomationRule(ruleId, formData) {
   return { ok: true };
 }
 
+const BRANDING_TEXT_FIELDS = [
+  "business_name", "tagline", "address", "phone", "phone_2", "whatsapp_number", "email", "ntn",
+  "bank_details", "payment_terms", "footer_note",
+  "invoice_prefix", "receipt_prefix", "delivery_prefix", "order_prefix", "bpv_prefix",
+];
+const BRANDING_IMAGE_FIELDS = { logo: "logo_url", signature: "signature_url", stamp: "stamp_url" };
+
+// The single source of truth every document generator (PDF routes, print
+// headers, Excel exports) reads its letterhead from — see
+// lib/pdf/business.js's getBusinessBranding(). Text fields go straight
+// into business_settings; the three optional image fields are uploaded to
+// the public "branding" storage bucket first (RLS on storage.objects is
+// gated on the same settings.manage permission as the row update below —
+// migration 0029 — so this naturally fails closed for anyone else) and
+// only their resulting public URL is written to the row.
+export async function updateBusinessSettings(formData) {
+  const { supabase, user } = await requireUser();
+
+  const patch = { updated_by: user.id, updated_at: new Date().toISOString() };
+  for (const field of BRANDING_TEXT_FIELDS) {
+    const value = formData.get(field);
+    if (value !== null) patch[field] = String(value).trim() || null;
+  }
+  // business_name/footer_note are NOT NULL in the schema — never write an
+  // empty string into them.
+  if (!patch.business_name) delete patch.business_name;
+  if (!patch.footer_note) patch.footer_note = "Thank you for choosing Evergreen Water — Pure Drinking Water, delivered.";
+
+  for (const [field, column] of Object.entries(BRANDING_IMAGE_FIELDS)) {
+    const file = formData.get(field);
+    if (!(file instanceof File) || file.size === 0) continue;
+    const ext = (file.name.split(".").pop() || "png").toLowerCase().replace(/[^a-z0-9]/g, "") || "png";
+    const path = `${field}-${Date.now()}.${ext}`;
+    const { error: upErr } = await supabase.storage.from("branding").upload(path, file, { upsert: true, contentType: file.type || "image/png" });
+    if (upErr) return { error: `${field}: ${upErr.message}` };
+    const { data: pub } = supabase.storage.from("branding").getPublicUrl(path);
+    patch[column] = pub.publicUrl;
+  }
+
+  const { error } = await supabase.from("business_settings").update(patch).eq("id", true);
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "SETTINGS_CHANGE", module: "business_settings", record_id: null, new_value: patch });
+  revalidatePath("/settings");
+  return { ok: true };
+}
+
 // NOTE: the live schema has no `daily_closings` table (this accounting
 // feature was dropped from the newer schema). To keep the Daily Closing page
 // working without altering the database schema, each closing is recorded as
