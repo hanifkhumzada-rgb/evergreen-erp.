@@ -10,6 +10,7 @@ import DeliverSheet from "@/components/DeliverSheet";
 import OneTapDeliverButton, { SkipDeliveryButton } from "@/components/OneTapDeliverButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import RiderLocationTracker from "@/components/RiderLocationTracker";
 import { bulkImportDeliveries, voidDelivery } from "@/app/actions";
 import { Phone, MessageCircle } from "lucide-react";
 
@@ -46,9 +47,12 @@ export default async function DeliveriesPage({ searchParams }) {
       .select("*, customers(*), delivery_items(expected_qty)")
       .eq("rider_id", user.id).eq("delivery_date", todayISO());
 
+    const hasActiveRoute = (deliveries || []).some((d) => d.status !== "delivered");
+
     return (
       <div>
         <h2 className="font-display text-2xl font-semibold mb-4">Today&apos;s Route</h2>
+        {hasActiveRoute && <RiderLocationTracker />}
         <div className="flex flex-col gap-3">
           {(deliveries || []).length === 0 && <p className="text-sm text-slate">No deliveries assigned for today.</p>}
           {(deliveries || []).map((d) => {

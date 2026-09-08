@@ -8,7 +8,7 @@ import {
   Home, Users, Truck, Droplet, Package, Wallet, Receipt, ReceiptText,
   BookOpen, UserCog, BarChart3, Settings, LogOut, Landmark, FileText,
   Scale, TrendingUp, ClipboardCheck, Car, Bot, Bell, MapPin, Menu, X,
-  ChevronRight, ChevronLeft, Factory, FolderInput, ShieldCheck,
+  ChevronRight, ChevronLeft, Factory, FolderInput, ShieldCheck, Navigation,
 } from "lucide-react";
 
 const SidebarContext = createContext(null);
@@ -59,6 +59,7 @@ const NAV = [
   { type: "link", href: "/ledger", label: "Customer Ledger", icon: BookOpen, roles: [...OWNER_ROLES, "accountant"] },
   { type: "link", href: "/invoices", label: "Invoices", icon: ReceiptText, roles: [...OWNER_ROLES, "manager", "accountant"] },
   { type: "link", href: "/fleet", label: "Fleet", icon: Car, roles: [...OWNER_ROLES, "manager"] },
+  { type: "link", href: "/tracking", label: "Live Tracking", icon: Navigation, roles: [...OWNER_ROLES, "manager"] },
   { type: "link", href: "/employees", label: "Employees", icon: UserCog, roles: [...OWNER_ROLES, "manager"] },
   { type: "link", href: "/zones", label: "Zones & Routes", icon: MapPin, roles: [...OWNER_ROLES, "manager"] },
   { type: "link", href: "/inventory", label: "Inventory", icon: Package, roles: [...OWNER_ROLES, "manager"] },

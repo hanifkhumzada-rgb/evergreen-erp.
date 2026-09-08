@@ -348,6 +348,29 @@ export async function deleteCustomer(customerId, reason) {
   return { ok: true };
 }
 
+// Recurring/subscription order automation — a customer's preferred_days +
+// regular_qty + default_product_id schedule can be paused (skips the daily
+// cron until resumed, nothing else about the account changes), resumed, or
+// cancelled (same as paused, but a deliberate "stop for good" the Owner can
+// still flip back if it turns out to be premature — nothing here ever
+// touches historical deliveries/invoices/payments). Relies on customers'
+// existing customers.edit RLS policy the same way archiveCustomer does
+// above; fn_audit_trigger (already attached to customers) logs the change
+// automatically.
+async function setRecurringStatus(customerId, status) {
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("customers")
+    .update({ recurring_status: status, recurring_status_updated_at: new Date().toISOString(), recurring_status_updated_by: user.id })
+    .eq("id", customerId);
+  if (error) return { error: error.message };
+  revalidatePath(`/customers/${customerId}`);
+  revalidatePath("/deliveries");
+  return { ok: true };
+}
+export async function pauseRecurringSchedule(customerId) { return setRecurringStatus(customerId, "paused"); }
+export async function resumeRecurringSchedule(customerId) { return setRecurringStatus(customerId, "active"); }
+export async function cancelRecurringSchedule(customerId) { return setRecurringStatus(customerId, "cancelled"); }
+
 export async function createSale(formData) {
   const { supabase, user } = await requireUser();
   const customerId = formData.get("customer_id");
@@ -517,24 +540,50 @@ export async function createDelivery(formData) {
     .order("created_at", { ascending: false }).limit(1).maybeSingle();
   if (recentDup) return { ok: true, duplicate: true };
 
-  const deliveryNo = genCode("DEL");
-  const { data: delivery, error } = await supabase.from("deliveries").insert({
-    delivery_no: deliveryNo,
-    customer_id: customerId,
-    rider_id: riderId,
-    delivery_date: deliveryDate,
-    status: "delivered",
-    amount,
-    amount_collected: cashCollected,
-    payment_method: "cash",
-    delivered_at: new Date().toISOString(),
-    created_by: user.id,
-  }).select("id").single();
+  // The daily recurring-order cron (app/api/cron/recurring-orders) may
+  // already have created a "pending" placeholder for this customer today —
+  // reuse it instead of inserting a second row, the same one-record-per-
+  // customer-per-day rule the duplicate guard above enforces for completed
+  // deliveries.
+  const { data: existingPending } = await supabase.from("deliveries")
+    .select("id, delivery_no").eq("customer_id", customerId).eq("delivery_date", deliveryDate).eq("status", "pending")
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+
+  const deliveryNo = existingPending?.delivery_no || genCode("DEL");
+  let delivery, error;
+  if (existingPending) {
+    ({ data: delivery, error } = await supabase.from("deliveries").update({
+      rider_id: riderId, status: "delivered", amount, amount_collected: cashCollected,
+      payment_method: "cash", delivered_at: new Date().toISOString(),
+    }).eq("id", existingPending.id).select("id").single());
+  } else {
+    ({ data: delivery, error } = await supabase.from("deliveries").insert({
+      delivery_no: deliveryNo,
+      customer_id: customerId,
+      rider_id: riderId,
+      delivery_date: deliveryDate,
+      status: "delivered",
+      amount,
+      amount_collected: cashCollected,
+      payment_method: "cash",
+      delivered_at: new Date().toISOString(),
+      created_by: user.id,
+    }).select("id").single());
+  }
   if (error) return { error: error.message };
 
-  await supabase.from("delivery_items").insert({
-    delivery_id: delivery.id, product_id: productId, expected_qty: deliveredQty, delivered_qty: deliveredQty, returned_qty: returnedQty, unit_price: rate,
-  });
+  // Same reuse-over-duplicate logic for the line item the cron's placeholder
+  // already has (expected_qty = the customer's regular_qty, delivered_qty 0).
+  const { data: existingItem } = existingPending
+    ? await supabase.from("delivery_items").select("id").eq("delivery_id", delivery.id).eq("product_id", productId).maybeSingle()
+    : { data: null };
+  if (existingItem) {
+    await supabase.from("delivery_items").update({ expected_qty: deliveredQty, delivered_qty: deliveredQty, returned_qty: returnedQty, unit_price: rate }).eq("id", existingItem.id);
+  } else {
+    await supabase.from("delivery_items").insert({
+      delivery_id: delivery.id, product_id: productId, expected_qty: deliveredQty, delivered_qty: deliveredQty, returned_qty: returnedQty, unit_price: rate,
+    });
+  }
   await supabase.from("bottle_transactions").insert({
     txn_date: deliveryDate, product_id: productId, quantity: deliveredQty,
     from_state: "with_rider", to_state: "with_customer", customer_id: customerId,
@@ -830,6 +879,28 @@ export async function skipTodayDelivery(customerId, note) {
   }
   revalidatePath("/deliveries");
   revalidatePath("/dashboard");
+  return { ok: true };
+}
+
+// Live GPS rider tracking — called every 30-60s by RiderLocationTracker
+// while a rider has an active route open and the tab is in the foreground.
+// No revalidatePath: nothing on the page that calls this needs to re-render
+// off the back of it — the Live Tracking page picks up new rows through its
+// own Supabase Realtime subscription instead. RLS (p_rider_locations_insert)
+// is the real gate here — rider_id/business_id trust the session, not the
+// caller's input, so this can't be used to spoof another rider's position.
+export async function reportRiderLocation(latitude, longitude) {
+  const { supabase, user } = await requireUser();
+  if (typeof latitude !== "number" || typeof longitude !== "number" || Number.isNaN(latitude) || Number.isNaN(longitude)) {
+    return { error: "Invalid coordinates." };
+  }
+  const { error } = await supabase.from("rider_locations").insert({ rider_id: user.id, latitude, longitude });
+  if (error) return { error: error.message };
+
+  // Current-location tracking only, not a trip history feature — trim this
+  // rider's own older points on every write instead of running a separate
+  // cleanup job for what's a genuinely small table.
+  await supabase.from("rider_locations").delete().eq("rider_id", user.id).lt("recorded_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
   return { ok: true };
 }
 

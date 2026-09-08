@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { pkr, fmtDate } from "@/lib/format";
 import { KPI, Badge, Th, Td, PrintButton, DownloadPdfButton } from "@/components/ui";
 import CustomerForm, { EditCustomerTrigger } from "@/components/CustomerForm";
+import RecurringScheduleControl from "@/components/RecurringScheduleControl";
 import { SalesTrendChart } from "@/components/LazyCharts";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -257,6 +258,7 @@ export default async function CustomerProfilePage({ params }) {
         <KPI label="NEXT SCHEDULED" value={nextScheduled ? fmtDate(nextScheduled.delivery_date) : "—"} tone="aqua" />
         <KPI label="FAILED DELIVERIES" value={failedDeliveries} tone={failedDeliveries > 0 ? "coral" : "slate"} />
       </div>
+      <RecurringScheduleControl customer={c} />
       <table className="w-full text-xs border-collapse border border-line rounded-xl overflow-hidden">
         <thead><tr className="bg-foam"><Th>Date</Th><Th>Items</Th><Th>Status</Th><Th>Collected</Th><Th className="no-print">&nbsp;</Th></tr></thead>
         <tbody>
