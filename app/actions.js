@@ -477,6 +477,18 @@ export async function createPayment(formData) {
   const method = methodMap[formData.get("method")] || "cash";
   const customerId = formData.get("customer_id");
   const amount = Number(formData.get("amount"));
+
+  // Duplicate-submission guard — same pattern createDelivery already uses.
+  // Without this, a double-tapped "Record Payment" button or a retried
+  // network request inserted two separate payment rows, each posting its
+  // own ledger credit (a real double-payment). Caught while verifying
+  // "double-submit never creates a duplicate transaction" for real.
+  const { data: recentDup } = await supabase.from("payments")
+    .select("id").eq("customer_id", customerId).eq("amount", amount).eq("method", method).eq("voided", false)
+    .gte("created_at", new Date(Date.now() - 20000).toISOString())
+    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+  if (recentDup) return { ok: true, duplicate: true };
+
   const { data: payment, error } = await supabase.from("payments").insert({
     receipt_no: receiptNo,
     customer_id: customerId,

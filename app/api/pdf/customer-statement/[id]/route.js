@@ -28,24 +28,39 @@ export async function GET(request, { params }) {
   ]);
   if (!customer) return new NextResponse("Customer not found", { status: 404 });
 
-  // The customer's opening_balance is shown as its own statement line, so
-  // the ledger's own 'opening' entry (fn_post_opening_balance posts one
-  // automatically at registration, carrying the exact same amount) is
-  // excluded from the transaction rows below — otherwise it would be
-  // counted twice, once as the Opening Balance line and once as a row in
-  // the table.
-  const allEntries = (entries || []).filter((e) => e.reference_type !== "opening");
-  const baseOpeningBalance = Number(customer.opening_balance) || 0;
+  // The customer's opening_balance is shown as its own statement line —
+  // but its VALUE is read from the ledger's own 'opening' entry
+  // (fn_post_opening_balance posts one at registration), never from the
+  // customers.opening_balance column directly. That column can be edited
+  // later (Customer Master) without the matching ledger entry being
+  // touched — the trigger only fires on INSERT — so trusting it directly
+  // let this statement's total silently drift from v_customer_balance
+  // (the balance the rest of the app shows everywhere else) for any
+  // customer whose opening balance was edited after creation. Deriving it
+  // from the actual ledger entry instead makes openingBalance + sum(every
+  // other entry) mathematically identical to sum(all ledger entries) —
+  // i.e. always equal to v_customer_balance — by construction. Caught
+  // and fixed while verifying Phase 5's "statement totals match the
+  // underlying ledger" requirement against real data.
+  const allEntries = entries || [];
+  const openingEntry = allEntries.find((e) => e.reference_type === "opening");
+  const baseOpeningBalance = openingEntry ? (Number(openingEntry.debit) || 0) - (Number(openingEntry.credit) || 0) : 0;
+  const nonOpeningEntries = allEntries.filter((e) => e.reference_type !== "opening");
 
   // For a scoped (monthly) statement, "opening balance" is the running
   // balance as of the start of that month — every entry before the
-  // period is folded in rather than shown as a row, same convention the
-  // all-time statement already uses for customer.opening_balance itself.
+  // period (the ledger's own opening entry included, wherever it falls)
+  // is folded in rather than shown as a row.
   let openingBalance = baseOpeningBalance;
-  let periodEntries = allEntries;
+  let periodEntries = nonOpeningEntries;
   if (isScoped) {
     const before = allEntries.filter((e) => new Date(e.entry_date) < periodStart);
-    openingBalance = before.reduce((bal, e) => bal + (Number(e.debit) || 0) - (Number(e.credit) || 0), baseOpeningBalance);
+    openingBalance = before.reduce((bal, e) => bal + (Number(e.debit) || 0) - (Number(e.credit) || 0), 0);
+    // The opening entry is NOT excluded here (unlike the all-time view) —
+    // if registration happened to fall inside the viewed month, it needs
+    // to show up as a normal row so the month's total still reconciles;
+    // excluding it unconditionally would make it vanish from both the
+    // opening-balance fold above and the period rows below.
     periodEntries = allEntries.filter((e) => new Date(e.entry_date) >= periodStart && new Date(e.entry_date) < periodEnd);
   }
 

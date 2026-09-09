@@ -13,16 +13,23 @@ export default async function PortalStatementPage({ searchParams }) {
   const periodStart = new Date(Date.UTC(year, month - 1, 1));
   const periodEnd = new Date(Date.UTC(year, month, 1));
 
-  const [{ data: customer }, { data: entries }] = await Promise.all([
-    supabase.from("customers").select("opening_balance").eq("id", customerId).maybeSingle(),
-    supabase.from("customer_ledger_entries").select("entry_date, reference_type, description, debit, credit")
-      .eq("customer_id", customerId).order("entry_date", { ascending: true }).order("created_at", { ascending: true }),
-  ]);
+  const { data: entries } = await supabase.from("customer_ledger_entries")
+    .select("entry_date, reference_type, description, debit, credit")
+    .eq("customer_id", customerId).order("entry_date", { ascending: true }).order("created_at", { ascending: true });
 
-  const allEntries = (entries || []).filter((e) => e.reference_type !== "opening");
-  const baseOpening = Number(customer?.opening_balance) || 0;
+  // Opening balance as of the start of the viewed month is folded purely
+  // from the ledger itself (every entry before the period, the ledger's
+  // own 'opening' entry included wherever it falls) — never from
+  // customers.opening_balance directly, which can be edited without the
+  // matching ledger entry being touched and silently drift out of sync
+  // with v_customer_balance (the balance shown everywhere else in the
+  // app). This keeps the statement's math always equal to the ledger's,
+  // by construction. A same-month opening entry isn't excluded from the
+  // period rows either — excluding it unconditionally would make it
+  // vanish entirely for the one month a customer registered in.
+  const allEntries = entries || [];
   const before = allEntries.filter((e) => new Date(e.entry_date) < periodStart);
-  const openingBalance = before.reduce((bal, e) => bal + (Number(e.debit) || 0) - (Number(e.credit) || 0), baseOpening);
+  const openingBalance = before.reduce((bal, e) => bal + (Number(e.debit) || 0) - (Number(e.credit) || 0), 0);
   const periodEntries = allEntries.filter((e) => new Date(e.entry_date) >= periodStart && new Date(e.entry_date) < periodEnd);
 
   let running = openingBalance;
