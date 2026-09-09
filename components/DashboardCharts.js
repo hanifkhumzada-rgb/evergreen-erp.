@@ -30,6 +30,21 @@ export function SalesTrendChart({ data }) {
   );
 }
 
+export function RatingTrendChart({ data }) {
+  return (
+    <ResponsiveContainer width="100%" height={200}>
+      <AreaChart data={data}>
+        <defs><linearGradient id="gRating" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor={AMBER} stopOpacity={0.35} /><stop offset="100%" stopColor={AMBER} stopOpacity={0} /></linearGradient></defs>
+        <CartesianGrid strokeDasharray="3 3" stroke="#E2EAEA" vertical={false} />
+        <XAxis dataKey="week" tick={AXIS_TICK} axisLine={false} tickLine={false} />
+        <YAxis domain={[0, 5]} tick={AXIS_TICK} axisLine={false} tickLine={false} />
+        <Tooltip formatter={(v) => `${v} ★`} contentStyle={TOOLTIP_STYLE} />
+        <Area type="monotone" dataKey="avgRating" stroke={AMBER} fill="url(#gRating)" strokeWidth={2.5} />
+      </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
 export function DeliveriesTrendChart({ data }) {
   return (
     <ResponsiveContainer width="100%" height={220}>

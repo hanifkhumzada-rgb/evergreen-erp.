@@ -9,6 +9,7 @@ import {
   BookOpen, UserCog, BarChart3, Settings, LogOut, Landmark, FileText,
   Scale, TrendingUp, ClipboardCheck, Car, Bot, Bell, MapPin, Menu, X,
   ChevronRight, ChevronLeft, Factory, FolderInput, ShieldCheck, Navigation, Zap, MessageSquare,
+  LifeBuoy, Star,
 } from "lucide-react";
 
 const SidebarContext = createContext(null);
@@ -82,6 +83,8 @@ const NAV = [
       { href: "/notifications", label: "Alerts & Notifications", icon: Bell, roles: [...OWNER_ROLES, "manager", "accountant"] },
       { href: "/automation", label: "Automation Center", icon: Zap, roles: OWNER_ROLES },
       { href: "/communication", label: "Communication Center", icon: MessageSquare, roles: OWNER_ROLES },
+      { href: "/issues", label: "Customer Issues", icon: LifeBuoy, roles: [...OWNER_ROLES, "manager"] },
+      { href: "/customer-feedback", label: "Customer Feedback", icon: Star, roles: [...OWNER_ROLES, "manager"] },
     ],
   },
   {

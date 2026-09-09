@@ -43,14 +43,41 @@ export async function middleware(request) {
   // same as /login, or the client-side code that processes the link would
   // never get to run.
   const isPasswordReset = pathname.startsWith("/reset-password");
-  const isAppRoute = !isAuthRoute && !isPasswordReset && pathname !== "/";
+  // Customer Portal ("My Evergreen Water") lives entirely under /portal —
+  // its own login, its own session (a real Supabase Auth session, but for
+  // a profile whose role is 'customer'), completely separate from the
+  // staff-facing app below. RLS (migration 0033) is the actual isolation
+  // boundary; these redirects are a second, server-side layer on top —
+  // not just hiding nav links — so neither audience can even land on the
+  // other's routes.
+  const isPortalRoute = pathname.startsWith("/portal");
+  const isPortalLogin = pathname === "/portal/login";
+  const isAppRoute = !isAuthRoute && !isPasswordReset && !isPortalRoute && pathname !== "/";
 
   if (!user && isAppRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
+  if (!user && isPortalRoute && !isPortalLogin) {
+    return NextResponse.redirect(new URL("/portal/login", request.url));
+  }
   if (user && isAuthRoute) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
+
+  if (user && (isAppRoute || isPortalRoute)) {
+    const { data: profile } = await supabase.from("profiles").select("roles(key)").eq("id", user.id).maybeSingle();
+    const roleKey = profile?.roles?.key;
+    if (roleKey === "customer" && isAppRoute) {
+      return NextResponse.redirect(new URL("/portal", request.url));
+    }
+    if (roleKey && roleKey !== "customer" && isPortalRoute) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+    if (roleKey === "customer" && isPortalLogin) {
+      return NextResponse.redirect(new URL("/portal", request.url));
+    }
+  }
+
   return response;
 }
 

@@ -2480,3 +2480,68 @@ export async function resetUserPermissionOverrides(userId) {
   revalidatePath(`/user-management/permissions/${userId}`);
   return { ok: !error, error: error?.message };
 }
+
+// --- Customer Portal (Phase 4) — staff-side actions ---
+// Everything below is gated on deliveries.edit, matching the RLS policies
+// on customer_issues/customer_feedback (migration 0033) exactly — a role
+// that can't see/update these tables at the database level can't use
+// these actions either.
+
+async function notifyCustomerPortal({ supabase, businessId, customerId, title, message, type = "info", relatedType = null, relatedId = null }) {
+  try {
+    await supabase.from("customer_notifications").insert({ business_id: businessId, customer_id: customerId, title, message, type, related_type: relatedType, related_id: relatedId });
+  } catch { /* best-effort — never blocks the staff action it's attached to */ }
+}
+
+// A customer's reported issue becomes a ticket only — resolving it never
+// touches any financial record directly. If a correction is actually
+// needed, the admin makes it through the normal delivery/payment/invoice
+// workflow (its own audit trail), completely separate from this status
+// change.
+export async function updateCustomerIssueStatus(issueId, status, resolutionNote) {
+  const { supabase, user } = await requireUser();
+  const { data: allowed } = await supabase.rpc("fn_has_permission", { perm_key: "deliveries.edit" });
+  if (!allowed) return { error: "You don't have permission to manage customer issues." };
+  if (!["open", "under_review", "resolved", "rejected"].includes(status)) return { error: "Invalid status." };
+  if ((status === "resolved" || status === "rejected") && !resolutionNote?.trim()) {
+    return { error: "A resolution note is required to resolve or reject an issue." };
+  }
+
+  const { data: issue } = await supabase.from("customer_issues").select("business_id, customer_id, issue_type").eq("id", issueId).maybeSingle();
+  if (!issue) return { error: "Issue not found." };
+
+  const patch = { status, updated_at: new Date().toISOString() };
+  if (status === "resolved" || status === "rejected") {
+    patch.resolution_note = resolutionNote.trim();
+    patch.resolved_by = user.id;
+    patch.resolved_at = new Date().toISOString();
+  }
+  const { error } = await supabase.from("customer_issues").update(patch).eq("id", issueId);
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "UPDATE", module: "customer_issues", record_id: issueId, new_value: { status } });
+
+  const statusLabel = { open: "Open", under_review: "Under Review", resolved: "Resolved", rejected: "Rejected" }[status];
+  await notifyCustomerPortal({
+    supabase, businessId: issue.business_id, customerId: issue.customer_id,
+    title: `Issue update: ${statusLabel}`,
+    message: `Your reported issue "${issue.issue_type}" is now ${statusLabel}.${resolutionNote ? ` ${resolutionNote.trim()}` : ""}`,
+    type: "issue", relatedType: "customer_issue", relatedId: issueId,
+  });
+
+  const { data: customer } = await supabase.from("customers").select("name").eq("id", issue.customer_id).maybeSingle();
+  await notifyBestEffort({
+    supabase, businessId: issue.business_id, customerId: issue.customer_id, templateKey: "issue_update",
+    variables: { customer_name: customer?.name || "there", issue_type: issue.issue_type, status: statusLabel, resolution_note: resolutionNote || "" },
+    // relatedType carries the status, not just "customer_issue" — the
+    // idempotency unique index is per (business, related_type, related_id,
+    // template_key), so without this a second status change on the SAME
+    // issue (open -> under_review -> resolved) would collide with the
+    // first one's row and get silently skipped as "duplicate" even though
+    // it's a genuinely different notification.
+    relatedType: `customer_issue_status_${status}`, relatedId: issueId,
+  });
+
+  revalidatePath("/issues");
+  return { ok: true };
+}

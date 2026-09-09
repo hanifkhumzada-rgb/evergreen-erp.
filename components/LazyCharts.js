@@ -25,6 +25,11 @@ export const DeliveriesTrendChart = dynamic(() => import("./DashboardCharts").th
   loading: ChartSkeleton,
 });
 
+export const RatingTrendChart = dynamic(() => import("./DashboardCharts").then((m) => m.RatingTrendChart), {
+  ssr: false,
+  loading: ChartSkeleton,
+});
+
 export const ZoneRevenueChart = dynamic(() => import("./DashboardCharts").then((m) => m.ZoneRevenueChart), {
   ssr: false,
   loading: ChartSkeleton,
