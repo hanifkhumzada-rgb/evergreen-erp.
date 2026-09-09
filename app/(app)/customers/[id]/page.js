@@ -47,7 +47,7 @@ export default async function CustomerProfilePage({ params }) {
     { data: c }, { data: invoices }, { data: payments }, { data: balanceRow }, { data: bottleBalanceRows },
     { data: deliveries }, { data: bottleTxns }, { data: ledgerEntries },
     { data: zones }, { data: products }, { data: vehicles }, { data: riders }, { data: routes },
-    { data: canDelete },
+    { data: canDelete }, { data: canVoidDeliveries },
   ] = await Promise.all([
     getBrandingLite(supabase),
     supabase.from("customers").select("*, zones(name), profiles!customers_assigned_rider_id_fkey(full_name), vehicles(registration_no)").eq("id", params.id).single(),
@@ -64,8 +64,8 @@ export default async function CustomerProfilePage({ params }) {
     supabase.from("profiles").select("id, full_name, roles!inner(key)").eq("roles.key", "rider").eq("is_active", true).order("full_name"),
     supabase.from("routes").select("id, name").eq("is_active", true).order("name"),
     supabase.rpc("fn_has_permission", { perm_key: "customers.delete" }),
+    supabase.rpc("fn_has_permission", { perm_key: "deliveries.delete" }),
   ]);
-  const { data: canVoidDeliveries } = await supabase.rpc("fn_has_permission", { perm_key: "deliveries.delete" });
 
   if (!c) {
     return (

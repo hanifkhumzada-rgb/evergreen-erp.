@@ -64,19 +64,23 @@ export async function middleware(request) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
-  if (user && (isAppRoute || isPortalRoute)) {
-    const { data: profile } = await supabase.from("profiles").select("roles(key)").eq("id", user.id).maybeSingle();
-    const roleKey = profile?.roles?.key;
-    if (roleKey === "customer" && isAppRoute) {
-      return NextResponse.redirect(new URL("/portal", request.url));
-    }
-    if (roleKey && roleKey !== "customer" && isPortalRoute) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
-    }
-    if (roleKey === "customer" && isPortalLogin) {
-      return NextResponse.redirect(new URL("/portal", request.url));
-    }
-  }
+  // The customer-vs-staff cross-boundary redirect (a customer landing on
+  // a staff route or vice versa) used to live here too, via its own
+  // `profiles` query — a SECOND full Supabase round-trip on every single
+  // authenticated navigation, on top of the auth.getUser() call above.
+  // Moved into app/(app)/layout.js and app/portal/(main)/layout.js
+  // instead, which already fetch this exact same role/customer-id data
+  // for their own normal per-page needs (getCurrentProfile() and
+  // fn_current_customer_id() respectively) — reusing it there costs
+  // nothing, instead of a duplicate query costing something on every
+  // navigation. RLS remains the actual isolation boundary either way;
+  // this was always a second, UX-layer redirect on top of it, so moving
+  // where it's decided changes nothing about what's actually enforced.
+  // The one edge case this drops: a customer or staff member manually
+  // navigating to /portal/login while already signed in sees the login
+  // form instead of being bounced immediately — harmless (not a hot
+  // navigation path, not a security concern), so not worth a third
+  // query here just to also cover it.
 
   return response;
 }

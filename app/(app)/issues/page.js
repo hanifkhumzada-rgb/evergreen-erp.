@@ -20,9 +20,11 @@ export default async function IssuesPage({ searchParams }) {
   const status = searchParams?.status || "all";
   let query = supabase.from("customer_issues").select("*, customers(name, code, mobile), deliveries(delivery_no)").order("created_at", { ascending: false }).limit(200);
   if (status !== "all") query = query.eq("status", status);
-  const { data: issues } = await query;
 
-  const { data: allIssues } = await supabase.from("customer_issues").select("status");
+  const [{ data: issues }, { data: allIssues }] = await Promise.all([
+    query,
+    supabase.from("customer_issues").select("status"),
+  ]);
   const counts = { open: 0, under_review: 0, resolved: 0, rejected: 0 };
   (allIssues || []).forEach((i) => { counts[i.status] = (counts[i.status] || 0) + 1; });
 

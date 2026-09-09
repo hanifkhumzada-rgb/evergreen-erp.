@@ -8,7 +8,13 @@ export default async function PortalMainLayout({ children }) {
   if (!user) redirect("/portal/login");
 
   const { data: customerId } = await supabase.rpc("fn_current_customer_id");
-  if (!customerId) redirect("/portal/login");
+  // Authenticated but not a customer-portal account (a staff login that
+  // ended up here) — send them to their actual home instead of back to
+  // the portal's login form. This used to be middleware's job via its
+  // own extra `profiles` query on every navigation; doing it here
+  // instead reuses the fn_current_customer_id() call this layout already
+  // makes for its own needs, at zero extra cost.
+  if (!customerId) redirect("/dashboard");
 
   const [{ data: customer }, { count: unread }] = await Promise.all([
     supabase.from("customers").select("id, name, code").eq("id", customerId).maybeSingle(),

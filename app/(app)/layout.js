@@ -9,6 +9,11 @@ import { Bell } from "lucide-react";
 export default async function AppLayout({ children }) {
   const { supabase, user, profile } = await getCurrentProfile();
   if (!user) redirect("/login");
+  // A customer-portal session (role 'customer') landing on a staff route —
+  // sent to /portal instead. This used to be middleware's job via its own
+  // extra `profiles` query on every navigation; doing it here instead
+  // reuses getCurrentProfile()'s own fetch, at zero extra cost.
+  if (profile?.roles?.key === "customer") redirect("/portal");
 
   const unreadNotificationsRes = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("is_read", false);
   const unreadNotifications = unreadNotificationsRes.count || 0;
