@@ -4,12 +4,27 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { REMEMBER_ME_COOKIE } from "@/lib/rememberMe";
+import { sendNotification, retryNotification } from "@/lib/notifications";
 
 async function requireUser() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("Not authenticated");
   return { supabase, user };
+}
+
+async function getUserBusinessId(supabase, userId) {
+  const { data } = await supabase.from("profiles").select("business_id").eq("id", userId).maybeSingle();
+  return data?.business_id || null;
+}
+
+// Fire-and-forget wrapper every delivery/payment trigger point below uses —
+// sendNotification() already never throws, but this is one more layer of
+// insurance around the rule that a notification failure must NEVER fail or
+// roll back the actual transaction it's attached to. Always called AFTER
+// the real transaction has already committed.
+async function notifyBestEffort(args) {
+  try { await sendNotification(args); } catch { /* best-effort — never surfaced to the caller */ }
 }
 
 // customers.manage_financial (Customer Master's opening balance / credit
@@ -460,21 +475,37 @@ export async function createPayment(formData) {
   const { data: receiptNo } = await supabase.rpc("fn_next_receipt_no");
   const methodMap = { Cash: "cash", "Bank Transfer": "bank", JazzCash: "jazzcash", Easypaisa: "easypaisa" };
   const method = methodMap[formData.get("method")] || "cash";
-  const { error } = await supabase.from("payments").insert({
+  const customerId = formData.get("customer_id");
+  const amount = Number(formData.get("amount"));
+  const { data: payment, error } = await supabase.from("payments").insert({
     receipt_no: receiptNo,
-    customer_id: formData.get("customer_id"),
-    amount: Number(formData.get("amount")),
+    customer_id: customerId,
+    amount,
     method,
     cash_account_id: await getCashAccountId(supabase, method),
     received_by: formData.get("collector_id") || user.id,
     reference: formData.get("reference") || null,
     notes: formData.get("notes") || null,
-  });
+  }).select("id").single();
   if (error) return { error: error.message };
   await supabase.from("audit_logs").insert({
     user_id: user.id, action: "CREATE", module: "payments",
-    new_value: { customer_id: formData.get("customer_id"), amount: Number(formData.get("amount")), method, collected_by: formData.get("collector_id") || user.id },
+    new_value: { customer_id: customerId, amount, method, collected_by: formData.get("collector_id") || user.id },
   });
+
+  // Best-effort, after the payment transaction above has already fully
+  // committed. automationKey gates it on the "Payment Receipt Messages"
+  // row (Automation Center) being turned on.
+  const businessId = await getUserBusinessId(supabase, user.id);
+  if (businessId) {
+    const { data: custRow } = await supabase.from("customers").select("name").eq("id", customerId).maybeSingle();
+    await notifyBestEffort({
+      supabase, businessId, customerId, templateKey: "payment_received",
+      variables: { customer_name: custRow?.name || "Customer", amount: Math.round(amount).toLocaleString("en-PK"), receipt_no: receiptNo },
+      automationKey: "payment_receipts", relatedType: "payment", relatedId: payment.id,
+    });
+  }
+
   revalidatePath("/payments");
   revalidatePath("/dashboard");
   revalidatePath("/customers");
@@ -603,6 +634,20 @@ export async function createDelivery(formData) {
     user_id: user.id, action: "CREATE", module: "deliveries", record_id: delivery.id,
     new_value: { customer_id: customerId, product_id: productId, delivered_qty: deliveredQty, returned_qty: returnedQty, rate, amount, cash_collected: cashCollected, rider_id: riderId },
   });
+
+  // Best-effort, after the delivery transaction above has already fully
+  // committed — see notifyBestEffort's own comment for why this can never
+  // roll anything back. automationKey gates it on the "Delivery
+  // Confirmation Messages" row (Automation Center) being turned on.
+  const businessId = await getUserBusinessId(supabase, user.id);
+  if (businessId) {
+    const { data: custRow } = await supabase.from("customers").select("name").eq("id", customerId).maybeSingle();
+    await notifyBestEffort({
+      supabase, businessId, customerId, templateKey: "delivery_confirmation",
+      variables: { customer_name: custRow?.name || "Customer", quantity: deliveredQty },
+      automationKey: "delivery_messages", relatedType: "delivery", relatedId: delivery.id,
+    });
+  }
 
   revalidatePath("/deliveries");
   revalidatePath("/bottles");
@@ -807,6 +852,19 @@ export async function markDelivered(deliveryId, deliveredQty, emptyReceived) {
     p_cash_account_id: await getCashAccountId(supabase, "cash"),
   });
   if (error) return { error: error.message };
+
+  // Best-effort, after record_delivery_completion has already fully
+  // committed — same delivery_confirmation trigger as createDelivery.
+  const businessId = await getUserBusinessId(supabase, user.id);
+  if (businessId) {
+    const { data: custRow } = await supabase.from("customers").select("name").eq("id", d.customer_id).maybeSingle();
+    await notifyBestEffort({
+      supabase, businessId, customerId: d.customer_id, templateKey: "delivery_confirmation",
+      variables: { customer_name: custRow?.name || "Customer", quantity: deliveredQty },
+      automationKey: "delivery_messages", relatedType: "delivery", relatedId: deliveryId,
+    });
+  }
+
   revalidatePath("/deliveries");
   revalidatePath("/bottles");
   revalidatePath("/bottle-ledger");
@@ -1698,10 +1756,47 @@ export async function bulkImportBottleOpeningBalances(rows) {
 function norm(s) { return (s || "").toString().toLowerCase().replace(/[^a-z0-9]/g, ""); }
 
 export async function refreshAlerts() {
-  const { supabase } = await requireUser();
+  const { supabase, user } = await requireUser();
+  const before = new Date().toISOString();
   const { error } = await supabase.rpc("refresh_alerts");
+
+  // Push newly-created alerts to the Owner's WhatsApp/SMS when "Owner
+  // Alerts" (Automation Center) is on — best-effort, after refresh_alerts
+  // has already fully committed its notification rows, same rule as
+  // every other trigger point in this file.
+  if (!error) {
+    const businessId = await getUserBusinessId(supabase, user.id);
+    if (businessId) {
+      const { data: fresh } = await supabase.from("notifications").select("title, message")
+        .eq("business_id", businessId).gte("created_at", before).in("severity", ["warning", "critical"]).limit(10);
+      if (fresh?.length) {
+        const { data: settings } = await supabase.from("business_settings").select("phone, whatsapp_number").maybeSingle();
+        const ownerPhone = settings?.whatsapp_number || settings?.phone;
+        if (ownerPhone) {
+          const summary = fresh.map((n) => `• ${n.title}: ${n.message}`).join("\n");
+          await notifyBestEffort({
+            supabase, businessId, customerId: null, templateKey: "general_announcement",
+            variables: { message: `New alerts:\n${summary}` }, automationKey: "owner_alerts", toNumberOverride: ownerPhone,
+          });
+        }
+      }
+    }
+  }
+
   revalidatePath("/notifications");
   return { ok: !error, error: error?.message };
+}
+
+// Communication Center's Retry button. RLS on notification_logs already
+// restricts the underlying update to settings.manage, so a non-owner
+// reaching this returns the RLS error rather than silently succeeding —
+// same pattern as every other RLS-gated action in this file.
+export async function retryNotificationLog(logId) {
+  const { supabase, user } = await requireUser();
+  const result = await retryNotification({ supabase, logId });
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "RETRY", module: "notification_logs", record_id: logId, new_value: result });
+  revalidatePath("/communication");
+  return result;
 }
 
 // Physical stock-take for one bottle size. "Expected" is read live from

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { computeBusinessHealthSummary, computeDailyOwnerBrief } from "@/app/actions";
+import { sendNotification } from "@/lib/notifications";
 
 // Phase 10 automation — "daily owner summary", extended (Phase 2 of the
 // automation/notification work) with a facts-first Morning Brief:
@@ -44,13 +45,33 @@ export async function GET(request) {
       computeDailyOwnerBrief(supabase, business.id),
     ]);
 
+    const combinedText = `${healthText} ${briefText}`;
     const { error } = await supabase.from("notifications").insert({
       severity: "info",
       title: "Daily Business Summary",
-      message: `${healthText} ${briefText}`,
+      message: combinedText,
       business_id: business.id,
     });
-    results.push({ business_id: business.id, ok: !error, error: error?.message });
+
+    // Push to the Owner's own WhatsApp/SMS when the "Daily Summary"
+    // communication automation is turned on (Automation Center) — reuses
+    // the general_announcement template since the message is already
+    // fully composed. toNumberOverride: there's no "customer" here, just
+    // the Owner's own contact number from Business Branding.
+    // business_settings has no business_id column (still a single global
+    // row today, same as every other reader of this table — see
+    // lib/pdf/business.js's getBusinessBranding()).
+    const { data: settings } = await supabase.from("business_settings").select("phone, whatsapp_number").maybeSingle();
+    const ownerPhone = settings?.whatsapp_number || settings?.phone;
+    let pushResult = { skipped: true, reason: "no_owner_phone" };
+    if (ownerPhone) {
+      pushResult = await sendNotification({
+        supabase, businessId: business.id, customerId: null, templateKey: "general_announcement",
+        variables: { message: combinedText }, automationKey: "daily_summary", toNumberOverride: ownerPhone,
+      });
+    }
+
+    results.push({ business_id: business.id, ok: !error, error: error?.message, ownerPush: pushResult });
   }
 
   const ok = results.every((r) => r.ok);

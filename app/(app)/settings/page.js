@@ -27,6 +27,13 @@ export default async function SettingsPage() {
           </div>
           <ArrowRight size={18} className="text-aqua flex-shrink-0" />
         </Link>
+        <Link href="/settings/integrations" className="flex items-center justify-between border border-line rounded-2xl p-5 max-w-3xl hover:bg-foam transition-colors">
+          <div>
+            <h4 className="text-sm font-bold mb-1">Integrations</h4>
+            <p className="text-xs text-slate">Twilio WhatsApp/SMS connection status and setup.</p>
+          </div>
+          <ArrowRight size={18} className="text-aqua flex-shrink-0" />
+        </Link>
         <div className="border border-line rounded-2xl p-5 max-w-xl">
           <h4 className="text-sm font-bold mb-2">About this build</h4>
           <p className="text-[13px] text-slate leading-relaxed">
@@ -39,7 +46,7 @@ export default async function SettingsPage() {
             <Badge text="Granular per-action permissions (view/create/edit/approve/export) — Coming Soon, role-level only for now" tone="slate" />
             <Badge text="Route performance & driver on-time % — Coming Soon" tone="slate" />
             <Badge text="Automated notification triggers (low stock, overdue, bottle limit, inactive, payment overdue, low activity) — configurable in the Automation Center" tone="slate" />
-            <Badge text="WhatsApp Business API (official) — Coming Soon" tone="slate" />
+            <Badge text="WhatsApp/SMS via Twilio — built, needs live credentials in Settings → Integrations to actually send" tone="slate" />
             <Badge text="AI sales forecasting & anomaly detection — Coming Soon" tone="slate" />
             <Badge text="Server-rendered branded PDFs — invoices, statements, vouchers and daily reports; every other report has a matching branded print preview" tone="slate" />
           </div>
