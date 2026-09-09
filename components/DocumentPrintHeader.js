@@ -17,12 +17,15 @@ export default function DocumentPrintHeader({ branding, title, meta, printOnly =
   const contact = [b.address, phones, b.email].filter(Boolean).join("   ·   ");
 
   return (
-    <div className={`${printOnly ? "hidden print:flex" : "flex"} items-start justify-between gap-4 pb-3 mb-4 border-b-2 border-navy`}>
-      <div className="w-12 flex-shrink-0">
-        {(b.logoUrl || b.logo_url) && <img src={b.logoUrl || b.logo_url} alt="" className="w-11 h-11 rounded-lg object-contain" />}
+    <div className={`${printOnly ? "hidden print:flex" : "flex"} items-start justify-between gap-4 pb-3.5 mb-4 border-b-2 border-navy`}>
+      <div className="w-16 flex-shrink-0">
+        {/* Logo + company name are the primary brand element on every
+            document — sized up noticeably from tagline/contact/meta text so
+            they read as the letterhead's focal point, matching PdfShell. */}
+        {(b.logoUrl || b.logo_url) && <img src={b.logoUrl || b.logo_url} alt="" className="w-16 h-16 rounded-xl object-contain" />}
       </div>
       <div className="flex-1 text-center">
-        <div className="font-display text-lg font-bold text-navy tracking-wide">{b.businessName || b.business_name || "Evergreen Water"}</div>
+        <div className="font-display text-2xl font-bold text-navy tracking-wide">{b.businessName || b.business_name || "Evergreen Water"}</div>
         {b.tagline && <div className="text-[9px] font-bold text-aqua uppercase tracking-widest mt-0.5">{b.tagline}</div>}
         {contact && <div className="text-[8.5px] text-slate mt-1.5">{contact}</div>}
       </div>
