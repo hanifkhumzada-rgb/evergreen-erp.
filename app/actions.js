@@ -1415,6 +1415,125 @@ export async function computeBusinessHealthSummary(supabase) {
   if (reconDiffs > 0) parts.push(`Recent bottle reconciliations show ${reconDiffs} bottles of net difference across the last 5 checks.`);
   return { text: parts.join(" ") };
 }
+
+// Phase 2 — Morning Summary / AI Owner Brief. Computes today's operational
+// facts (deliveries, sales, collection, due today, overdue, new customers)
+// plus two "worth a look" signals (a weak zone, customers near the
+// inactivity threshold) and phrases them as one flowing sentence in the
+// same rule-based style as computeBusinessHealthSummary and askAI —
+// template strings over real numbers, never a model call, never writes
+// anything. Every number here is filtered to `businessId` explicitly:
+// unlike computeBusinessHealthSummary (still only ever called from a
+// user-session client, where RLS already scopes it), this is written to
+// also be called from the cron's service-role admin client, which bypasses
+// RLS entirely and would otherwise aggregate across every business.
+export async function computeDailyOwnerBrief(supabase, businessId) {
+  const today = todayISO2();
+  const avgFrom = daysAgoISO(30);
+
+  const [
+    { data: todaysDeliveries }, { data: todaysInvoices }, { data: todaysPayments },
+    { data: avgInvoices }, { data: dueTodayInvoices }, overdue,
+    { data: inactiveRule },
+    { data: zonesRaw }, { data: zoneInvoicesToday }, { data: zoneInvoicesAvg }, { data: customersWithZone },
+  ] = await Promise.all([
+    supabase.from("deliveries").select("id, status").eq("business_id", businessId).eq("delivery_date", today),
+    supabase.from("invoices").select("net_amount").eq("business_id", businessId).neq("status", "void").eq("invoice_date", today),
+    supabase.from("payments").select("amount").eq("business_id", businessId).eq("voided", false).eq("payment_date", today),
+    supabase.from("invoices").select("net_amount").eq("business_id", businessId).neq("status", "void").gte("invoice_date", avgFrom).lt("invoice_date", today),
+    supabase.from("invoices").select("id").eq("business_id", businessId).not("status", "in", "(paid,void)").eq("due_date", today),
+    getOverdueCustomers(supabase, 30),
+    supabase.from("automation_rules").select("threshold_value").eq("business_id", businessId).eq("key", "customer_inactive").maybeSingle(),
+    supabase.from("zones").select("id, name").eq("business_id", businessId),
+    supabase.from("invoices").select("net_amount, customers(zone_id)").eq("business_id", businessId).neq("status", "void").eq("invoice_date", today),
+    supabase.from("invoices").select("net_amount, customers(zone_id)").eq("business_id", businessId).neq("status", "void").gte("invoice_date", avgFrom).lt("invoice_date", today),
+    supabase.from("customers").select("id, name, zone_id").eq("business_id", businessId).eq("is_active", true),
+  ]);
+
+  // customers.created_at::date isn't filterable via the query builder the
+  // same way as the other calls above (no operator for a cast-then-eq), so
+  // it's computed with a plain range instead, same as every other
+  // "today" filter in this function.
+  const { count: newCustomers } = await supabase.from("customers").select("id", { count: "exact", head: true })
+    .eq("business_id", businessId).gte("created_at", `${today}T00:00:00`).lt("created_at", `${today}T23:59:59.999`);
+
+  const deliveredToday = (todaysDeliveries || []).length;
+  const salesToday = (todaysInvoices || []).reduce((a, i) => a + Number(i.net_amount), 0);
+  const collectionToday = (todaysPayments || []).reduce((a, p) => a + Number(p.amount), 0);
+  const dueToday = (dueTodayInvoices || []).length;
+  const overdueCount = overdue.length;
+  const overdueTotal = overdue.reduce((a, c) => a + c.amount, 0);
+
+  // Sales vs normal — average daily sales over the trailing 30 days
+  // (excluding today, which is still accumulating), same trailing-average
+  // technique the sales forecast askAI answer already uses.
+  const avgDailySales = (avgInvoices || []).length ? (avgInvoices || []).reduce((a, i) => a + Number(i.net_amount), 0) / 30 : 0;
+  const salesVsNormalPct = avgDailySales > 0 ? Math.round(((salesToday - avgDailySales) / avgDailySales) * 100) : null;
+
+  // Weakest zone — today's collection (invoiced revenue, same figure the
+  // rest of the app calls "sales") per zone vs that zone's own trailing
+  // 30-day daily average. Only flagged when the zone has a real average to
+  // compare against and today is meaningfully behind it (avoids flagging a
+  // zone that simply has no deliveries scheduled today).
+  const zoneNameById = {};
+  (zonesRaw || []).forEach((z) => { zoneNameById[z.id] = z.name; });
+  const zoneOfCustomer = {};
+  (customersWithZone || []).forEach((c) => { zoneOfCustomer[c.id] = c.zone_id; });
+  const sumByZone = (rows) => {
+    const m = {};
+    (rows || []).forEach((r) => {
+      const zoneId = r.customers?.zone_id;
+      if (!zoneId) return;
+      m[zoneId] = (m[zoneId] || 0) + Number(r.net_amount);
+    });
+    return m;
+  };
+  const zoneToday = sumByZone(zoneInvoicesToday);
+  const zoneAvg30 = sumByZone(zoneInvoicesAvg);
+  let weakZone = null;
+  Object.keys(zoneAvg30).forEach((zoneId) => {
+    const avgDaily = zoneAvg30[zoneId] / 30;
+    if (avgDaily < 500) return; // too small a zone for "today vs average" to mean anything
+    const todayAmt = zoneToday[zoneId] || 0;
+    const ratio = todayAmt / avgDaily;
+    if (ratio < 0.5 && (!weakZone || ratio < weakZone.ratio)) {
+      weakZone = { name: zoneNameById[zoneId] || "Unknown zone", ratio };
+    }
+  });
+
+  // At-risk-of-inactive — active, has ordered before, but hasn't in a
+  // while: between half the customer_inactive threshold and the threshold
+  // itself. Past the threshold, they're already the "inactive_customer"
+  // alert's problem, not this "still time to act" one.
+  const inactiveDays = Number(inactiveRule?.threshold_value) || 15;
+  const warnFrom = daysAgoISO(inactiveDays);
+  const warnSince = daysAgoISO(Math.floor(inactiveDays / 2));
+  const { data: recentOrderers } = await supabase.from("invoices").select("customer_id").eq("business_id", businessId).neq("status", "void").gte("invoice_date", warnFrom);
+  const orderedSince = new Set((recentOrderers || []).map((i) => i.customer_id));
+  const { data: recentlyOrdered } = await supabase.from("invoices").select("customer_id").eq("business_id", businessId).neq("status", "void").gte("invoice_date", warnSince);
+  const orderedRecently = new Set((recentlyOrdered || []).map((i) => i.customer_id));
+  const atRiskCount = (customersWithZone || []).filter((c) => orderedSince.has(c.id) && !orderedRecently.has(c.id)).length;
+
+  const factLines = [
+    `${deliveredToday} deliveries, ${pkrFmt(salesToday)} sales, ${pkrFmt(collectionToday)} collected so far today.`,
+    `${dueToday} customers due today, ${overdueCount} overdue (${pkrFmt(overdueTotal)}).`,
+  ];
+  if (newCustomers) factLines.push(`${newCustomers} new customer${newCustomers === 1 ? "" : "s"} today.`);
+
+  const clauses = [];
+  if (salesVsNormalPct !== null && Math.abs(salesVsNormalPct) >= 5) {
+    clauses.push(`Sales are ${Math.abs(salesVsNormalPct)}% ${salesVsNormalPct < 0 ? "below" : "above"} normal today`);
+  }
+  if (overdueCount > 0) clauses.push(`${overdueCount} customer${overdueCount === 1 ? " is" : "s are"} overdue`);
+  if (weakZone) clauses.push(`${weakZone.name} collection is weak`);
+  if (atRiskCount > 0) clauses.push(`${atRiskCount} customer${atRiskCount === 1 ? " is" : "s are"} at risk of going inactive`);
+
+  const summarySentence = clauses.length
+    ? clauses.join(", ") + "."
+    : "No unusual patterns today — sales, collections and customer activity all look normal.";
+
+  return { text: [...factLines, summarySentence].join(" ") };
+}
 function pkrFmt(n) { return "PKR " + Math.round(Number(n) || 0).toLocaleString("en-PK"); }
 
 async function resolveByName(supabase, table, nameCol, value) {

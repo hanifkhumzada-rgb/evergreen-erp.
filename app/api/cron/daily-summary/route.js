@@ -1,19 +1,30 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
-import { computeBusinessHealthSummary } from "@/app/actions";
+import { computeBusinessHealthSummary, computeDailyOwnerBrief } from "@/app/actions";
 
-// Phase 10 automation — "daily owner summary". This route computes the
-// same Business Health Score + summary the AI page answers on-demand and
-// stores it as a notification (severity "info"), so it shows up in
-// Notifications for every owner/manager without them having to ask.
+// Phase 10 automation — "daily owner summary", extended (Phase 2 of the
+// automation/notification work) with a facts-first Morning Brief:
+// today's deliveries/sales/collection/due-today/overdue/new-customers,
+// plus a short plain-language read-out (weak zone, at-risk-of-inactive
+// count, sales vs normal) in the same rule-based Evergreen AI style as
+// every other on-demand answer — computed facts only, never a model call,
+// never writes anything back. Business Health Score stays first in the
+// message since it's the one figure with a 0-100 band at a glance; the
+// Morning Brief follows with the same-day operational detail the score
+// doesn't carry.
 //
-// It does nothing on its own: something has to call it once a day. This
-// sandbox has no way to verify a scheduler is actually wired up, so this
-// is the endpoint, not a working cron job — point a Vercel Cron entry
-// (or any external scheduler) at GET /api/cron/daily-summary with a
-// `?secret=` query param (or `Authorization: Bearer` header) matching the
-// CRON_SECRET environment variable, which must be set for this route to
-// do anything; without it configured, every request is rejected.
+// Now loops every business (previously assumed a single one, same gap
+// recurring-orders already avoided) — computeDailyOwnerBrief is scoped by
+// business_id throughout (every table it queries has the column). Note:
+// computeBusinessHealthSummary itself is NOT business-scoped — it reads
+// v_customer_balance, which has no business_id column to filter on, so it
+// stays a global aggregate here (harmless today with one business; if a
+// second business is added, give that view a business_id first).
+//
+// Still just an endpoint: point a Vercel Cron entry (or any external
+// scheduler) at GET /api/cron/daily-summary with a `?secret=` query param
+// (or `Authorization: Bearer` header) matching CRON_SECRET, which must be
+// set for this route to do anything.
 export async function GET(request) {
   const secret = process.env.CRON_SECRET;
   if (!secret) return new NextResponse("CRON_SECRET is not configured", { status: 503 });
@@ -23,22 +34,25 @@ export async function GET(request) {
   if (provided !== secret) return new NextResponse("Unauthorized", { status: 401 });
 
   const supabase = createAdminClient();
-  const { text } = await computeBusinessHealthSummary(supabase);
+  const { data: businesses, error: bizError } = await supabase.from("businesses").select("id");
+  if (bizError) return NextResponse.json({ ok: false, error: bizError.message }, { status: 500 });
 
-  // Service-role client, no user session — business_id can't be auto-filled
-  // by the insert trigger, so it's looked up explicitly. Single business
-  // today, so "the one business" is unambiguous; once there's more than
-  // one, this route needs to loop over every business and post one summary
-  // notification each (Phase 3+ work, not done here).
-  const { data: business } = await supabase.from("businesses").select("id").limit(1).single();
-  if (!business) return NextResponse.json({ ok: false, error: "No business found" }, { status: 500 });
+  const results = [];
+  for (const business of businesses || []) {
+    const [{ text: healthText }, { text: briefText }] = await Promise.all([
+      computeBusinessHealthSummary(supabase),
+      computeDailyOwnerBrief(supabase, business.id),
+    ]);
 
-  const { error } = await supabase.from("notifications").insert({
-    severity: "info",
-    title: "Daily Business Summary",
-    message: text,
-    business_id: business.id,
-  });
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-  return NextResponse.json({ ok: true });
+    const { error } = await supabase.from("notifications").insert({
+      severity: "info",
+      title: "Daily Business Summary",
+      message: `${healthText} ${briefText}`,
+      business_id: business.id,
+    });
+    results.push({ business_id: business.id, ok: !error, error: error?.message });
+  }
+
+  const ok = results.every((r) => r.ok);
+  return NextResponse.json({ ok, results });
 }
