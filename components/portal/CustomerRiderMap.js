@@ -5,15 +5,16 @@ import { createClient } from "@/lib/supabase/client";
 import "leaflet/dist/leaflet.css";
 
 // Single-rider live map for the Customer Portal Dashboard — reuses the
-// exact same rider_locations + Realtime infrastructure as the staff Live
+// exact same staff_locations + Realtime infrastructure as the staff Live
 // Tracking map (components/LiveTrackingMap.js), scoped down to one rider.
-// Security is enforced entirely by RLS (p_rider_locations_customer_self,
-// migration 0037): a customer session can only ever SELECT this rider's
-// row while a delivery assigned to THEM, dated today, is
-// 'out_for_delivery' — Realtime already respects RLS for subscribers, so
-// this component never receives another rider's or another customer's
-// location, and the moment the delivery is no longer out for delivery
-// the subscription simply stops receiving updates for it.
+// Security is enforced entirely by RLS (p_staff_locations_customer_self,
+// migration 0037, renamed onto staff_locations by migration 0038): a
+// customer session can only ever SELECT this rider's row while a
+// delivery assigned to THEM, dated today, is 'out_for_delivery' —
+// Realtime already respects RLS for subscribers, so this component never
+// receives another rider's or another customer's location, and the
+// moment the delivery is no longer out for delivery the subscription
+// simply stops receiving updates for it.
 function riderDivIcon(L) {
   return L.divIcon({
     className: "",
@@ -34,7 +35,7 @@ export default function CustomerRiderMap({ riderId, initialLocation }) {
     const supabase = createClient();
     const channel = supabase
       .channel(`rider-location-${riderId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "rider_locations", filter: `rider_id=eq.${riderId}` }, (payload) => {
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "staff_locations", filter: `user_id=eq.${riderId}` }, (payload) => {
         setLocation({ latitude: payload.new.latitude, longitude: payload.new.longitude });
       })
       .subscribe();

@@ -30,6 +30,7 @@ export default async function PortalDashboardPage() {
   const [
     { data: customer }, { data: todayDeliveries }, { data: monthDeliveries },
     { data: bottleBalances }, { data: ledgerEntries }, { data: lastPayment }, { data: recentNotifications },
+    { data: businessSettings },
   ] = await Promise.all([
     supabase.from("customers").select("name, code, opening_balance, payment_frequency, bottle_limit").eq("id", customerId).maybeSingle(),
     supabase.from("deliveries").select("id, delivery_no, status, amount, rider_id, delivered_at, delivery_items(delivered_qty, returned_qty, products(name))")
@@ -40,7 +41,14 @@ export default async function PortalDashboardPage() {
     supabase.from("customer_ledger_entries").select("debit, credit").eq("customer_id", customerId),
     supabase.from("payments").select("amount, payment_date").eq("customer_id", customerId).eq("voided", false).order("payment_date", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("customer_notifications").select("id, title, message, created_at, is_read").eq("customer_id", customerId).order("created_at", { ascending: false }).limit(3),
+    // Owner-controlled toggle (Automation Center) — business_settings has
+    // no business_id column (still a single global row, same as every
+    // other reader of this table) and is readable by any authenticated
+    // session, customer portal included (p_settings_select).
+    supabase.from("business_settings").select("customer_live_tracking_enabled").maybeSingle(),
   ]);
+
+  const liveTrackingEnabled = businessSettings?.customer_live_tracking_enabled !== false;
 
   const openingBalance = Number(customer?.opening_balance) || 0;
   const ledgerNet = (ledgerEntries || []).reduce((sum, e) => sum + (Number(e.debit) || 0) - (Number(e.credit) || 0), 0);
@@ -56,16 +64,19 @@ export default async function PortalDashboardPage() {
     ? new Date(new Date(lastPayment.payment_date).getTime() + (FREQ_DAYS[freq] || 30) * 86400000)
     : null;
 
-  // Reuses the existing GPS tracking infrastructure (rider_locations +
-  // its Realtime publication) — RLS (p_rider_locations_customer_self,
-  // migration 0037) is what actually restricts this to only the rider
-  // currently out for delivery to THIS customer; this query just asks
-  // for it, the database enforces whether it's allowed to answer.
-  const outForDelivery = (todayDeliveries || []).find((d) => d.status === "out_for_delivery" && d.rider_id);
+  // Reuses the existing GPS tracking infrastructure (staff_locations +
+  // its Realtime publication) — RLS (p_staff_locations_customer_self)
+  // is what actually restricts this to only the rider currently out for
+  // delivery to THIS customer; this query just asks for it, the database
+  // enforces whether it's allowed to answer. Also gated on the Owner's
+  // "Customers can see live delivery tracking" toggle (Automation
+  // Center, business_settings.customer_live_tracking_enabled) — skip the
+  // query entirely when it's off, not just hide the result.
+  const outForDelivery = liveTrackingEnabled && (todayDeliveries || []).find((d) => d.status === "out_for_delivery" && d.rider_id);
   let riderLocation = null;
   if (outForDelivery) {
-    const { data: loc } = await supabase.from("rider_locations").select("latitude, longitude")
-      .eq("rider_id", outForDelivery.rider_id).order("recorded_at", { ascending: false }).limit(1).maybeSingle();
+    const { data: loc } = await supabase.from("staff_locations").select("latitude, longitude")
+      .eq("user_id", outForDelivery.rider_id).order("recorded_at", { ascending: false }).limit(1).maybeSingle();
     riderLocation = loc;
   }
 

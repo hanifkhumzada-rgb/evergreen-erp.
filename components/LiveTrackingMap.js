@@ -3,11 +3,11 @@ import { useEffect, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import "leaflet/dist/leaflet.css";
 
-// A rider whose last reported position is older than this reads as
-// "stale" — most likely their tab is backgrounded, they closed the app,
-// or their route finished — rather than actively out for delivery.
+// A staff member whose last reported position is older than this reads
+// as "stale" — most likely their tab is backgrounded or they've closed
+// the app — rather than currently active.
 const STALE_MS = 5 * 60 * 1000;
-const DEFAULT_CENTER = [24.8607, 67.0011]; // fallback view before any rider has reported a position
+const DEFAULT_CENTER = [24.8607, 67.0011]; // fallback view before anyone has reported a position
 
 function timeAgo(iso) {
   const mins = Math.floor((Date.now() - new Date(iso).getTime()) / 60000);
@@ -28,10 +28,12 @@ function riderDivIcon(L, stale) {
   });
 }
 
-// Current-location-only rider map (no route history / trip replay by
-// design). Riders is [{ id, name, location: { latitude, longitude,
+// Current-location-only staff map (no route history / trip replay by
+// design). Riders is [{ id, name, role, location: { latitude, longitude,
 // recorded_at } | null }], passed in from a server-fetched initial
-// snapshot; Supabase Realtime keeps it current after that.
+// snapshot; Supabase Realtime keeps it current after that. (Prop/var
+// names kept as "riders" — this component predates the generalization to
+// every staff role and the rename isn't worth the churn.)
 export default function LiveTrackingMap({ riders: initialRiders }) {
   const containerRef = useRef(null);
   const mapRef = useRef(null);
@@ -44,11 +46,11 @@ export default function LiveTrackingMap({ riders: initialRiders }) {
   useEffect(() => {
     const supabase = createClient();
     const channel = supabase
-      .channel("rider-locations-live")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "rider_locations" }, (payload) => {
+      .channel("staff-locations-live")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "staff_locations" }, (payload) => {
         const row = payload.new;
-        setRiders((prev) => prev.map((r) => (r.id === row.rider_id
-          ? { ...r, location: { rider_id: row.rider_id, latitude: row.latitude, longitude: row.longitude, recorded_at: row.recorded_at } }
+        setRiders((prev) => prev.map((r) => (r.id === row.user_id
+          ? { ...r, location: { user_id: row.user_id, latitude: row.latitude, longitude: row.longitude, recorded_at: row.recorded_at } }
           : r)));
       })
       .subscribe();
@@ -74,7 +76,7 @@ export default function LiveTrackingMap({ riders: initialRiders }) {
       seen.add(r.id);
       const stale = Date.now() - new Date(r.location.recorded_at).getTime() > STALE_MS;
       const latlng = [r.location.latitude, r.location.longitude];
-      const popupHtml = `<strong>${r.name}</strong><br/>${stale ? "Stale — " : ""}${timeAgo(r.location.recorded_at)}`;
+      const popupHtml = `<strong>${r.name}</strong>${r.role ? ` <span style="color:#5C7D78">(${r.role})</span>` : ""}<br/>${stale ? "Stale — " : ""}${timeAgo(r.location.recorded_at)}`;
       const existing = markersRef.current[r.id];
       if (existing) {
         existing.setLatLng(latlng);
@@ -130,19 +132,19 @@ export default function LiveTrackingMap({ riders: initialRiders }) {
     <div>
       <div ref={containerRef} className="w-full rounded-2xl border border-line" style={{ height: "480px" }} />
       <div className="no-print mt-3 flex flex-wrap gap-2">
-        {riders.length === 0 && <p className="text-sm text-slate">No riders configured for this business.</p>}
+        {riders.length === 0 && <p className="text-sm text-slate">No staff configured for this business.</p>}
         {located.map((r) => {
           const stale = Date.now() - new Date(r.location.recorded_at).getTime() > STALE_MS;
           return (
             <span key={r.id} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line text-xs font-semibold ${stale ? "text-slate" : "text-green"}`}>
               <span className={`w-2 h-2 rounded-full ${stale ? "bg-slate" : "bg-green"}`} />
-              {r.name} · {timeAgo(r.location.recorded_at)}
+              {r.name}{r.role ? ` (${r.role})` : ""} · {timeAgo(r.location.recorded_at)}
             </span>
           );
         })}
         {unlocated.map((r) => (
           <span key={r.id} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-line text-xs font-semibold text-slate opacity-60">
-            <span className="w-2 h-2 rounded-full bg-slate opacity-40" /> {r.name} · no location yet
+            <span className="w-2 h-2 rounded-full bg-slate opacity-40" /> {r.name}{r.role ? ` (${r.role})` : ""} · no location yet
           </span>
         ))}
       </div>

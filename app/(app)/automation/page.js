@@ -2,6 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui";
 import AutomationRulesForm from "@/components/AutomationRulesForm";
 import AutomationCenterForm from "@/components/AutomationCenterForm";
+import CustomerTrackingToggle from "@/components/CustomerTrackingToggle";
 
 export const dynamic = "force-dynamic";
 
@@ -16,9 +17,10 @@ export const dynamic = "force-dynamic";
 // only decides how to group and label the rows.
 export default async function AutomationCenterPage() {
   const supabase = await createClient();
-  const [{ data: rules }, { data: canManage }] = await Promise.all([
+  const [{ data: rules }, { data: canManage }, { data: businessSettings }] = await Promise.all([
     supabase.from("automation_rules").select("*").order("key"),
     supabase.rpc("fn_has_permission", { perm_key: "settings.manage" }),
+    supabase.from("business_settings").select("customer_live_tracking_enabled").maybeSingle(),
   ]);
 
   if (!canManage) {
@@ -52,6 +54,7 @@ export default async function AutomationCenterPage() {
       <div className="flex flex-col gap-5">
         <AutomationCenterForm rules={commRules} twilioConfigured={twilioConfigured} />
         <AutomationRulesForm rules={alertRules} />
+        <CustomerTrackingToggle initialEnabled={businessSettings?.customer_live_tracking_enabled !== false} />
       </div>
     </div>
   );

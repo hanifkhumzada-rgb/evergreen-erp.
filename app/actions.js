@@ -952,25 +952,29 @@ export async function skipTodayDelivery(customerId, note) {
   return { ok: true };
 }
 
-// Live GPS rider tracking — called every 30-60s by RiderLocationTracker
-// while a rider has an active route open and the tab is in the foreground.
-// No revalidatePath: nothing on the page that calls this needs to re-render
-// off the back of it — the Live Tracking page picks up new rows through its
-// own Supabase Realtime subscription instead. RLS (p_rider_locations_insert)
-// is the real gate here — rider_id/business_id trust the session, not the
-// caller's input, so this can't be used to spoof another rider's position.
-export async function reportRiderLocation(latitude, longitude) {
+// Live GPS staff tracking — called every ~45s by StaffLocationTracker,
+// mounted for every logged-in staff member (Owner/Admin/Manager/
+// Accountant/Rider) while the app tab is in the foreground, not just
+// riders on an active delivery (generalized from the original rider-only
+// design — see migration 0038). No revalidatePath: nothing on the page
+// that calls this needs to re-render off the back of it — the Live
+// Tracking page picks up new rows through its own Supabase Realtime
+// subscription instead. RLS (p_staff_locations_insert) is the real gate
+// here — user_id/business_id trust the session, not the caller's input,
+// so this can't be used to spoof another staff member's position, and a
+// customer-portal session is rejected outright.
+export async function reportStaffLocation(latitude, longitude) {
   const { supabase, user } = await requireUser();
   if (typeof latitude !== "number" || typeof longitude !== "number" || Number.isNaN(latitude) || Number.isNaN(longitude)) {
     return { error: "Invalid coordinates." };
   }
-  const { error } = await supabase.from("rider_locations").insert({ rider_id: user.id, latitude, longitude });
+  const { error } = await supabase.from("staff_locations").insert({ user_id: user.id, latitude, longitude });
   if (error) return { error: error.message };
 
   // Current-location tracking only, not a trip history feature — trim this
-  // rider's own older points on every write instead of running a separate
+  // person's own older points on every write instead of running a separate
   // cleanup job for what's a genuinely small table.
-  await supabase.from("rider_locations").delete().eq("rider_id", user.id).lt("recorded_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
+  await supabase.from("staff_locations").delete().eq("user_id", user.id).lt("recorded_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
   return { ok: true };
 }
 
@@ -1042,6 +1046,20 @@ export async function updateBusinessSettings(formData) {
 
   await supabase.from("audit_logs").insert({ user_id: user.id, action: "SETTINGS_CHANGE", module: "business_settings", record_id: null, new_value: patch });
   revalidatePath("/settings");
+  return { ok: true };
+}
+
+// Owner-controlled toggle (Automation Center) for whether the Customer
+// Portal's live rider map shows at all (app/portal/(main)/page.js checks
+// this before even querying staff_locations). A separate small action
+// rather than folding into updateBusinessSettings above — this is a
+// single boolean flipped from a checkbox, not part of the branding form.
+export async function updateCustomerLiveTrackingSetting(enabled) {
+  const { supabase, user } = await requireUser();
+  const { error } = await supabase.from("business_settings").update({ customer_live_tracking_enabled: enabled }).eq("id", true);
+  if (error) return { error: error.message };
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "SETTINGS_CHANGE", module: "business_settings", record_id: null, new_value: { customer_live_tracking_enabled: enabled } });
+  revalidatePath("/automation");
   return { ok: true };
 }
 

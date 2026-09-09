@@ -4,6 +4,7 @@ import { getCurrentProfile } from "@/lib/session";
 import Sidebar, { SidebarProvider, SidebarToggleButton } from "@/components/Sidebar";
 import GlobalSearch from "@/components/GlobalSearch";
 import OfflineIndicator from "@/components/OfflineIndicator";
+import StaffLocationTracker from "@/components/StaffLocationTracker";
 import { Bell } from "lucide-react";
 
 export default async function AppLayout({ children }) {
@@ -43,6 +44,7 @@ export default async function AppLayout({ children }) {
           <div className="flex items-center gap-3">
             <SidebarToggleButton />
             <div className="text-sm text-slate hidden sm:block">Live data — Evergreen Water</div>
+            <StaffLocationTracker />
           </div>
           <div className="flex items-center gap-4">
             <OfflineIndicator />
