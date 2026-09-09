@@ -1,7 +1,17 @@
 "use client";
 import { useRef, useState } from "react";
-import * as XLSX from "xlsx";
 import { Upload, Download, X, ArrowRight } from "lucide-react";
+
+// xlsx is a large dependency and this component is rendered on ~9 pages
+// (every page with a bulk import) — a static top-level import shipped it
+// in every one of those pages' initial JS even when nobody ever opens the
+// import dialog (confirmed: it measurably did — those pages sat ~150kB
+// heavier than pages without a BulkImportButton). Loaded on demand here
+// instead, exactly like lib/excel.js's exceljs is for Export Excel.
+async function loadXlsx() {
+  const mod = await import("xlsx");
+  return mod.default && mod.default.utils ? mod.default : mod;
+}
 
 const PREVIEW_LINES = {
   sales: (r) => `${r.Name || r.name || r.Phone || r.phone} — Qty ${r.Qty || r.qty}${r.Paid ? `, Paid ${r.Paid}` : ""}`,
@@ -31,7 +41,8 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
   const [result, setResult] = useState(null);
   const [busy, setBusy] = useState(false);
 
-  const downloadTemplate = () => {
+  const downloadTemplate = async () => {
+    const XLSX = await loadXlsx();
     const ws = XLSX.utils.json_to_sheet([sampleRow || {}]);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Template");
@@ -63,8 +74,9 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
       return;
     }
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       try {
+        const XLSX = await loadXlsx();
         const wb = XLSX.read(e.target.result, { type: "binary" });
         const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: "" });
         if (rows.length > MAX_ROWS) {

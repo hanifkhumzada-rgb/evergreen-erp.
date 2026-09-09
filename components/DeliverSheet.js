@@ -5,6 +5,7 @@ import { Truck, X } from "lucide-react";
 import { createDelivery } from "@/app/actions";
 import { pkr } from "@/lib/format";
 import Toast from "@/components/Toast";
+import { useOfflineSubmit } from "@/lib/useOfflineSubmit";
 
 // The Today's Deliveries workspace's per-customer "Deliver" action — a
 // compact bottom sheet (not the centered New Delivery modal) so it reads as
@@ -16,9 +17,9 @@ export default function DeliverSheet({ customer, riders = [], currentUserId }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
-  const [busy, setBusy] = useState(false);
   const formRef = useRef();
   const router = useRouter();
+  const { submit, busy } = useOfflineSubmit("delivery", createDelivery, { label: () => `Delivery — ${customer.name}` });
 
   const defaultQty = customer.regularQty > 0 ? customer.regularQty : 1;
   const [deliveredQty, setDeliveredQty] = useState(defaultQty);
@@ -26,21 +27,20 @@ export default function DeliverSheet({ customer, riders = [], currentUserId }) {
 
   const handleSubmit = async (formData) => {
     setError("");
-    setBusy(true);
     try {
-      const res = await createDelivery(formData);
-      setBusy(false);
+      const res = await submit(formData);
       if (res?.error) { setError(res.error); return; }
       setOpen(false);
-      if (res?.duplicate) {
+      if (res?.offline) {
+        setToast({ type: "success", message: "Saved offline — will sync when back online." });
+      } else if (res?.duplicate) {
         setToast({ type: "success", message: "Already recorded — skipped duplicate submission." });
       } else {
         setToast({ type: "success", message: "Delivery recorded." });
       }
-      router.refresh();
+      if (!res?.offline) router.refresh();
     } catch {
-      setBusy(false);
-      setError("Network error — please check your connection and try again.");
+      setError("Something went wrong — please try again.");
     }
   };
 

@@ -3,26 +3,26 @@ import { useState, useRef } from "react";
 import { Plus, X } from "lucide-react";
 import { createExpense } from "@/app/actions";
 import Toast from "@/components/Toast";
+import { useOfflineSubmit } from "@/lib/useOfflineSubmit";
 
 const CATS = ["Bottle Purchase","Caps","Delivery Expenses","Electricity","Fuel","Labour","Marketing","Office","Packaging","Rent","Repairs","Salaries","Vehicle Maintenance","Other"];
 
 export default function AddExpenseForm() {
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState(null);
-  const [busy, setBusy] = useState(false);
   const formRef = useRef();
+  const { submit, busy } = useOfflineSubmit("expense", createExpense, {
+    label: (payload) => `Expense — ${payload.category || "Other"}`,
+  });
   const handleSubmit = async (formData) => {
-    setBusy(true);
     try {
-      const res = await createExpense(formData);
-      setBusy(false);
+      const res = await submit(formData);
       if (res?.error) { setToast({ type: "error", message: res.error }); return; }
       setOpen(false);
       formRef.current?.reset();
-      setToast({ type: "success", message: "Expense added." });
+      setToast({ type: "success", message: res?.offline ? "Saved offline — will sync when back online." : "Expense added." });
     } catch {
-      setBusy(false);
-      setToast({ type: "error", message: "Network error — please check your connection and try again." });
+      setToast({ type: "error", message: "Something went wrong — please try again." });
     }
   };
   return (

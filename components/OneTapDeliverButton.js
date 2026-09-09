@@ -4,21 +4,22 @@ import { useRouter } from "next/navigation";
 import { RotateCcw, CheckCheck } from "lucide-react";
 import { createDelivery, skipTodayDelivery } from "@/app/actions";
 import Toast from "@/components/Toast";
+import { useOfflineSubmit } from "@/lib/useOfflineSubmit";
 
 const ICONS = { repeat: RotateCcw, complete: CheckCheck };
 
 // "Repeat Last Delivery" and one-tap "Complete" — both post through the
 // same createDelivery action as the full Deliver sheet (same ledger/
-// payment/bottle cascade, same duplicate-submission guard), just with the
-// form values already decided instead of asking the rider to re-enter them.
+// payment/bottle cascade, same duplicate-submission guard, same offline
+// queue), just with the form values already decided instead of asking
+// the rider to re-enter them.
 export default function OneTapDeliverButton({ variant, label, customer, deliveredQty, returnedQty, cashCollected, currentUserId }) {
-  const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState(null);
   const router = useRouter();
   const Icon = ICONS[variant] || CheckCheck;
+  const { submit, busy } = useOfflineSubmit("delivery", createDelivery, { label: () => `Delivery — ${customer.name}` });
 
   const handleClick = async () => {
-    setBusy(true);
     const fd = new FormData();
     fd.set("customer_id", customer.id);
     fd.set("product_id", customer.defaultProductId || "");
@@ -28,14 +29,16 @@ export default function OneTapDeliverButton({ variant, label, customer, delivere
     fd.set("delivery_date", new Date().toISOString().slice(0, 10));
     fd.set("rider_id", currentUserId);
     try {
-      const res = await createDelivery(fd);
-      setBusy(false);
+      const res = await submit(fd);
       if (res?.error) { setToast({ type: "error", message: res.error }); return; }
-      setToast({ type: "success", message: res?.duplicate ? "Already recorded — skipped duplicate submission." : "Delivery recorded." });
-      router.refresh();
+      if (res?.offline) {
+        setToast({ type: "success", message: "Saved offline — will sync when back online." });
+      } else {
+        setToast({ type: "success", message: res?.duplicate ? "Already recorded — skipped duplicate submission." : "Delivery recorded." });
+        router.refresh();
+      }
     } catch {
-      setBusy(false);
-      setToast({ type: "error", message: "Network error — please check your connection and try again." });
+      setToast({ type: "error", message: "Something went wrong — please try again." });
     }
   };
 

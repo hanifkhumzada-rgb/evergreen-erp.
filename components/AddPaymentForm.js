@@ -3,13 +3,16 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { Plus, X } from "lucide-react";
 import { createPayment } from "@/app/actions";
 import Toast from "@/components/Toast";
+import { useOfflineSubmit } from "@/lib/useOfflineSubmit";
 
 export default function AddPaymentForm({ customers, collectors = [], initialCustomerId }) {
   const [open, setOpen] = useState(false);
   const [toast, setToast] = useState(null);
-  const [busy, setBusy] = useState(false);
   const [customerId, setCustomerId] = useState(initialCustomerId || "");
   const formRef = useRef();
+  const { submit, busy } = useOfflineSubmit("payment", createPayment, {
+    label: (payload) => `Payment — ${customers.find((c) => c.id === payload.customer_id)?.name || "Customer"}`,
+  });
 
   // "Collect Payment" quick action elsewhere links here with ?customer=<id>
   // — open pre-selected instead of making the caller duplicate this form.
@@ -20,17 +23,14 @@ export default function AddPaymentForm({ customers, collectors = [], initialCust
   const selected = useMemo(() => customers.find((c) => c.id === customerId), [customers, customerId]);
 
   const handleSubmit = async (formData) => {
-    setBusy(true);
     try {
-      const res = await createPayment(formData);
-      setBusy(false);
+      const res = await submit(formData);
       if (res?.error) { setToast({ type: "error", message: res.error }); return; }
       setOpen(false);
       formRef.current?.reset();
-      setToast({ type: "success", message: "Payment recorded." });
+      setToast({ type: "success", message: res?.offline ? "Saved offline — will sync when back online." : "Payment recorded." });
     } catch {
-      setBusy(false);
-      setToast({ type: "error", message: "Network error — please check your connection and try again." });
+      setToast({ type: "error", message: "Something went wrong — please try again." });
     }
   };
   return (

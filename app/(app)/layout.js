@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getCurrentProfile } from "@/lib/session";
 import Sidebar, { SidebarProvider, SidebarToggleButton } from "@/components/Sidebar";
 import GlobalSearch from "@/components/GlobalSearch";
+import OfflineIndicator from "@/components/OfflineIndicator";
 import { Bell } from "lucide-react";
 
 export default async function AppLayout({ children }) {
@@ -39,6 +40,7 @@ export default async function AppLayout({ children }) {
             <div className="text-sm text-slate hidden sm:block">Live data — Evergreen Water</div>
           </div>
           <div className="flex items-center gap-4">
+            <OfflineIndicator />
             <GlobalSearch />
             <Link href="/notifications" className="relative p-1.5 -m-1.5 rounded-lg hover:bg-foam transition-colors" aria-label="Notifications">
               <Bell size={17} className="text-slate" />
