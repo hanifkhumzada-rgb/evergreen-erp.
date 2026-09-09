@@ -1,3 +1,4 @@
+import { Droplet } from "lucide-react";
 import { requirePortalCustomer } from "@/app/portal/actions";
 import { fmtDate, pkr } from "@/lib/format";
 import StatementPeriodPicker from "@/components/portal/StatementPeriodPicker";
@@ -13,9 +14,22 @@ export default async function PortalStatementPage({ searchParams }) {
   const periodStart = new Date(Date.UTC(year, month - 1, 1));
   const periodEnd = new Date(Date.UTC(year, month, 1));
 
-  const { data: entries } = await supabase.from("customer_ledger_entries")
-    .select("entry_date, reference_type, description, debit, credit")
-    .eq("customer_id", customerId).order("entry_date", { ascending: true }).order("created_at", { ascending: true });
+  const [{ data: entries }, { data: bottleTxns }] = await Promise.all([
+    supabase.from("customer_ledger_entries").select("entry_date, reference_type, description, debit, credit")
+      .eq("customer_id", customerId).order("entry_date", { ascending: true }).order("created_at", { ascending: true }),
+    supabase.from("bottle_transactions").select("txn_date, quantity, from_state, to_state")
+      .eq("customer_id", customerId).lt("txn_date", periodEnd.toISOString().slice(0, 10)),
+  ]);
+
+  // Bottle balance as of the end of the viewed month — same running-total
+  // logic as v_customer_bottle_balance (migration behind the Bottles
+  // page), just cut off at periodEnd instead of "now", so a past month's
+  // statement shows the balance as it stood at the time, not today's.
+  const bottleBalanceAsOfPeriod = (bottleTxns || []).reduce((bal, t) => {
+    if (t.to_state === "with_customer") return bal + Number(t.quantity);
+    if (t.from_state === "with_customer") return bal - Number(t.quantity);
+    return bal;
+  }, 0);
 
   // Opening balance as of the start of the viewed month is folded purely
   // from the ledger itself (every entry before the period, the ledger's
@@ -85,6 +99,11 @@ export default async function PortalStatementPage({ searchParams }) {
         <div className="flex items-center justify-between text-sm font-bold pt-1.5 border-t border-white/15">
           <span>Closing Outstanding</span><span className="font-mono-num">{pkr(running)}</span>
         </div>
+      </div>
+
+      <div className="bg-card border border-line rounded-2xl p-4 flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-xs font-bold text-slate"><Droplet size={13} className="text-aqua" /> Bottle Balance (end of period)</span>
+        <span className="font-mono-num text-sm font-bold">{bottleBalanceAsOfPeriod}</span>
       </div>
     </div>
   );

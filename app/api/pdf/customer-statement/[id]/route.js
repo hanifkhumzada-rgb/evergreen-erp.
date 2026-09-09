@@ -21,12 +21,25 @@ export async function GET(request, { params }) {
   const periodStart = isScoped ? new Date(Date.UTC(year, month - 1, 1)) : null;
   const periodEnd = isScoped ? new Date(Date.UTC(year, month, 1)) : null;
 
-  const [{ data: customer }, { data: entries }] = await Promise.all([
+  // Bottle balance cutoff: as of the end of the viewed month when scoped,
+  // otherwise as of right now (all-time statement) — same running-total
+  // logic v_customer_bottle_balance uses, just date-bounded.
+  const bottleCutoff = isScoped ? periodEnd : new Date();
+
+  const [{ data: customer }, { data: entries }, { data: bottleTxns }] = await Promise.all([
     supabase.from("customers").select("*, zones(name)").eq("id", params.id).single(),
     supabase.from("customer_ledger_entries").select("entry_date, reference_type, description, debit, credit, created_at")
       .eq("customer_id", params.id).order("entry_date", { ascending: true }).order("created_at", { ascending: true }),
+    supabase.from("bottle_transactions").select("quantity, from_state, to_state")
+      .eq("customer_id", params.id).lt("txn_date", bottleCutoff.toISOString().slice(0, 10)),
   ]);
   if (!customer) return new NextResponse("Customer not found", { status: 404 });
+
+  const bottleBalance = (bottleTxns || []).reduce((bal, t) => {
+    if (t.to_state === "with_customer") return bal + Number(t.quantity);
+    if (t.from_state === "with_customer") return bal - Number(t.quantity);
+    return bal;
+  }, 0);
 
   // The customer's opening_balance is shown as its own statement line —
   // but its VALUE is read from the ledger's own 'opening' entry
@@ -79,7 +92,7 @@ export async function GET(request, { params }) {
   const period = isScoped ? `Period: ${periodStart.toLocaleString("en-US", { month: "long", timeZone: "UTC" })} ${year}` : undefined;
 
   const buffer = await renderToBuffer(
-    <CustomerStatementDocument customer={customer} rows={rows} openingBalance={openingBalance} totalDebit={totalDebit} totalCredit={totalCredit} closingBalance={running} branding={branding} period={period} />
+    <CustomerStatementDocument customer={customer} rows={rows} openingBalance={openingBalance} totalDebit={totalDebit} totalCredit={totalCredit} closingBalance={running} branding={branding} period={period} bottleBalance={bottleBalance} />
   );
 
   return new NextResponse(buffer, {

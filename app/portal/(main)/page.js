@@ -1,8 +1,8 @@
 import Link from "next/link";
 import { Droplet, Wallet, Calendar, Truck, RotateCcw, Bell } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
 import { requirePortalCustomer } from "@/app/portal/actions";
 import { pkr, fmtDate } from "@/lib/format";
+import CustomerRiderMap from "@/components/portal/CustomerRiderMap";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +32,7 @@ export default async function PortalDashboardPage() {
     { data: bottleBalances }, { data: ledgerEntries }, { data: lastPayment }, { data: recentNotifications },
   ] = await Promise.all([
     supabase.from("customers").select("name, code, opening_balance, payment_frequency, bottle_limit").eq("id", customerId).maybeSingle(),
-    supabase.from("deliveries").select("id, delivery_no, status, amount, delivered_at, delivery_items(delivered_qty, returned_qty, products(name))")
+    supabase.from("deliveries").select("id, delivery_no, status, amount, rider_id, delivered_at, delivery_items(delivered_qty, returned_qty, products(name))")
       .eq("customer_id", customerId).eq("delivery_date", today).order("created_at", { ascending: false }),
     supabase.from("deliveries").select("id, amount, status, delivery_items(delivered_qty, returned_qty)")
       .eq("customer_id", customerId).gte("delivery_date", monthStart).neq("status", "cancelled"),
@@ -55,6 +55,19 @@ export default async function PortalDashboardPage() {
   const nextDueDate = lastPayment?.payment_date
     ? new Date(new Date(lastPayment.payment_date).getTime() + (FREQ_DAYS[freq] || 30) * 86400000)
     : null;
+
+  // Reuses the existing GPS tracking infrastructure (rider_locations +
+  // its Realtime publication) — RLS (p_rider_locations_customer_self,
+  // migration 0037) is what actually restricts this to only the rider
+  // currently out for delivery to THIS customer; this query just asks
+  // for it, the database enforces whether it's allowed to answer.
+  const outForDelivery = (todayDeliveries || []).find((d) => d.status === "out_for_delivery" && d.rider_id);
+  let riderLocation = null;
+  if (outForDelivery) {
+    const { data: loc } = await supabase.from("rider_locations").select("latitude, longitude")
+      .eq("rider_id", outForDelivery.rider_id).order("recorded_at", { ascending: false }).limit(1).maybeSingle();
+    riderLocation = loc;
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -81,6 +94,11 @@ export default async function PortalDashboardPage() {
           </div>
         ) : (
           <div className="bg-card border border-line rounded-2xl p-4 text-xs text-slate">No delivery scheduled for today yet.</div>
+        )}
+        {outForDelivery && riderLocation && (
+          <div className="mt-2.5">
+            <CustomerRiderMap riderId={outForDelivery.rider_id} initialLocation={riderLocation} />
+          </div>
         )}
       </div>
 
