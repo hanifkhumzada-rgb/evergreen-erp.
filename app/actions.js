@@ -911,15 +911,20 @@ export async function updateAutomationRule(ruleId, formData) {
   const { supabase, user } = await requireUser();
   const enabled = formData.get("enabled") === "on";
   const thresholdValue = Number(formData.get("threshold_value")) || 0;
-  const { error } = await supabase.from("automation_rules").update({
-    enabled,
-    threshold_value: thresholdValue,
-    updated_by: user.id,
-    updated_at: new Date().toISOString(),
-  }).eq("id", ruleId);
+  const patch = { enabled, threshold_value: thresholdValue, updated_by: user.id, updated_at: new Date().toISOString() };
+  // Channel checkboxes only exist on a communication-category row's form
+  // (AutomationCenterForm) — the alert-rule form (AutomationRulesForm)
+  // never submits a "category" field, so this never touches channels for
+  // an alert row.
+  if (formData.get("category") === "communication") {
+    patch.channel_whatsapp = formData.get("channel_whatsapp") === "on";
+    patch.channel_sms = formData.get("channel_sms") === "on";
+  }
+  const { error } = await supabase.from("automation_rules").update(patch).eq("id", ruleId);
   if (error) return { error: error.message };
-  await supabase.from("audit_logs").insert({ user_id: user.id, action: "SETTINGS_CHANGE", module: "automation_rules", record_id: ruleId, new_value: { enabled, threshold_value: thresholdValue } });
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "SETTINGS_CHANGE", module: "automation_rules", record_id: ruleId, new_value: patch });
   revalidatePath("/settings");
+  revalidatePath("/automation");
   return { ok: true };
 }
 

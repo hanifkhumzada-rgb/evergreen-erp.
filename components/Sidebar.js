@@ -8,7 +8,7 @@ import {
   Home, Users, Truck, Droplet, Package, Wallet, Receipt, ReceiptText,
   BookOpen, UserCog, BarChart3, Settings, LogOut, Landmark, FileText,
   Scale, TrendingUp, ClipboardCheck, Car, Bot, Bell, MapPin, Menu, X,
-  ChevronRight, ChevronLeft, Factory, FolderInput, ShieldCheck, Navigation,
+  ChevronRight, ChevronLeft, Factory, FolderInput, ShieldCheck, Navigation, Zap,
 } from "lucide-react";
 
 const SidebarContext = createContext(null);
@@ -80,6 +80,7 @@ const NAV = [
     items: [
       { href: "/ai", label: "Evergreen AI", icon: Bot, roles: [...OWNER_ROLES, "manager", "accountant"] },
       { href: "/notifications", label: "Alerts & Notifications", icon: Bell, roles: [...OWNER_ROLES, "manager", "accountant"] },
+      { href: "/automation", label: "Automation Center", icon: Zap, roles: OWNER_ROLES },
     ],
   },
   {

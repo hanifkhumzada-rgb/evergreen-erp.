@@ -1,14 +1,14 @@
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Badge } from "@/components/ui";
-import AutomationRulesForm from "@/components/AutomationRulesForm";
 import BusinessSettingsForm from "@/components/BusinessSettingsForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const supabase = await createClient();
-  const [{ data: rules }, { data: businessSettings }, { data: canManage }] = await Promise.all([
-    supabase.from("automation_rules").select("*").order("created_at"),
+  const [{ data: businessSettings }, { data: canManage }] = await Promise.all([
     supabase.from("business_settings").select("*").maybeSingle(),
     supabase.rpc("fn_has_permission", { perm_key: "settings.manage" }),
   ]);
@@ -20,7 +20,13 @@ export default async function SettingsPage() {
         {canManage
           ? <BusinessSettingsForm settings={businessSettings} />
           : <p className="text-xs text-slate border border-line rounded-2xl p-5 max-w-3xl">Business branding is managed by the Owner.</p>}
-        <AutomationRulesForm rules={rules || []} />
+        <Link href="/automation" className="flex items-center justify-between border border-line rounded-2xl p-5 max-w-3xl hover:bg-foam transition-colors">
+          <div>
+            <h4 className="text-sm font-bold mb-1">Automation Center</h4>
+            <p className="text-xs text-slate">Payment reminders, delivery/receipt messages, monthly statements, alerts and every alert-threshold rule — all moved here.</p>
+          </div>
+          <ArrowRight size={18} className="text-aqua flex-shrink-0" />
+        </Link>
         <div className="border border-line rounded-2xl p-5 max-w-xl">
           <h4 className="text-sm font-bold mb-2">About this build</h4>
           <p className="text-[13px] text-slate leading-relaxed">
@@ -32,7 +38,7 @@ export default async function SettingsPage() {
             <Badge text="Bottle deposit liability — tracked, but not yet auto-posted as a journal entry" tone="slate" />
             <Badge text="Granular per-action permissions (view/create/edit/approve/export) — Coming Soon, role-level only for now" tone="slate" />
             <Badge text="Route performance & driver on-time % — Coming Soon" tone="slate" />
-            <Badge text="Automated notification triggers (low stock, overdue, bottle limit, inactive, payment overdue) — configurable above" tone="slate" />
+            <Badge text="Automated notification triggers (low stock, overdue, bottle limit, inactive, payment overdue, low activity) — configurable in the Automation Center" tone="slate" />
             <Badge text="WhatsApp Business API (official) — Coming Soon" tone="slate" />
             <Badge text="AI sales forecasting & anomaly detection — Coming Soon" tone="slate" />
             <Badge text="Server-rendered branded PDFs — invoices, statements, vouchers and daily reports; every other report has a matching branded print preview" tone="slate" />
