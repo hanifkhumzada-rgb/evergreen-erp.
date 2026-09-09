@@ -1,8 +1,7 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
-import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, FileDown } from "lucide-react";
-import { buildBrandedWorkbook, brandedFilename } from "@/lib/excel";
-import * as XLSX from "xlsx";
+import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, FileDown, Loader2 } from "lucide-react";
 
 export function Badge({ text, tone = "slate" }) {
   const map = {
@@ -43,27 +42,55 @@ export function KPI({ label, value, sub, tone = "navy", trend, href }) {
 // hover/focus tweak only needs to happen here.
 const TOOLBAR_BTN = "no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold text-ink transition-colors hover:border-aqua/40 hover:bg-aquaSoft/60 hover:text-aqua focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aqua/40";
 
-// Every export goes through lib/excel.js's buildBrandedWorkbook — company
-// name/tagline, report title, period and a generated timestamp as the
-// first rows, auto-fit columns, PKR number formatting on currency-looking
-// columns, and a totals row — rather than the old bare json_to_sheet
-// dump. `reportTitle` falls back to `sheetName` so existing call sites
-// that only ever passed a sheet name still get a sensible title. Any old
+// Every export goes through lib/excel.js's buildBrandedWorkbook —
+// company logo/name/tagline, report title, period and a generated
+// timestamp as the letterhead, bordered cells, a colored header row, PKR
+// number formatting on currency-looking columns, and a bold totals row —
+// built with exceljs (full styling support, unlike the xlsx package's
+// free-tier limits) rather than the old bare json_to_sheet dump.
+// `reportTitle` falls back to `sheetName` so existing call sites that
+// only ever passed a sheet name still get a sensible title. Any old
 // `filename` prop a caller still passes is simply ignored (not
 // destructured) — the branded Evergreen_Water_<Report>_<Date>.xlsx
 // pattern always applies instead.
+//
+// lib/excel.js (and the ~260kB exceljs it pulls in) is dynamically
+// imported here, INSIDE the click handler, rather than at module scope —
+// this file is imported by nearly every page in the app, so a static
+// import would have shipped exceljs in every page's First Load JS even
+// when the Export Excel button is never clicked (confirmed: it measurably
+// did, before this fix). This way it's its own on-demand chunk, loaded
+// only when someone actually exports.
 export function ExportExcelButton({ rows, sheetName = "Sheet1", reportTitle, branding, period }) {
+  const [loading, setLoading] = useState(false);
+
+  const handleExport = async () => {
+    if (!rows?.length) { alert("No data to export."); return; }
+    setLoading(true);
+    try {
+      const { buildBrandedWorkbook, brandedFilename } = await import("@/lib/excel");
+      const title = reportTitle || sheetName;
+      const wb = await buildBrandedWorkbook({ rows, sheetName, reportTitle: title, branding, period });
+      const buffer = await wb.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = brandedFilename(title);
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(`Could not build the Excel export: ${err?.message || "unknown error"}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <button type="button"
-      onClick={() => {
-        if (!rows?.length) { alert("No data to export."); return; }
-        const title = reportTitle || sheetName;
-        const wb = buildBrandedWorkbook({ rows, sheetName, reportTitle: title, branding, period });
-        XLSX.writeFile(wb, brandedFilename(title), { cellStyles: true });
-      }}
-      className={TOOLBAR_BTN}
-    >
-      <FileSpreadsheet size={14} /> Export Excel
+    <button type="button" onClick={handleExport} disabled={loading} className={`${TOOLBAR_BTN} disabled:opacity-60`}>
+      {loading ? <Loader2 size={14} className="animate-spin" /> : <FileSpreadsheet size={14} />} Export Excel
     </button>
   );
 }
