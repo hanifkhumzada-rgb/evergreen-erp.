@@ -3,8 +3,9 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import OutstandingDocument from "@/lib/pdf/OutstandingDocument";
 import { getBusinessBranding } from "@/lib/pdf/business";
+import { pdfContentDisposition } from "@/lib/pdf/response";
 
-export async function GET() {
+export async function GET(request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new NextResponse("Unauthorized", { status: 401 });
@@ -27,7 +28,7 @@ export async function GET() {
   return new NextResponse(buffer, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="outstanding-report-${new Date().toISOString().slice(0, 10)}.pdf"`,
+      "Content-Disposition": pdfContentDisposition(request, `outstanding-report-${new Date().toISOString().slice(0, 10)}.pdf`),
     },
   });
 }
