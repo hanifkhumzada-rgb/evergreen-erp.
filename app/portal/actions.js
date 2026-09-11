@@ -20,12 +20,18 @@ function portalEmailFor(customerId) {
 }
 
 export async function requestPortalOtp(customerCode, mobile) {
-  const trimmedCode = String(customerCode || "").trim();
+  const trimmedCode = String(customerCode || "").trim().toUpperCase();
   const trimmed = String(mobile || "").trim();
   if (!trimmedCode) return { ok: false, error: "Enter your Customer ID." };
   if (trimmed.replace(/\D/g, "").length < 7) return { ok: false, error: "Enter a valid mobile number." };
 
-  const admin = createAdminClient();
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (error) {
+    console.error("[portal OTP] server configuration error", error?.message);
+    return { ok: false, error: "Customer Portal is temporarily unavailable. Please ask the Owner to check portal setup." };
+  }
 
   // Two-factor identity check the login screen asks for — Customer ID
   // *and* the registered mobile number must both match the same active
@@ -33,7 +39,16 @@ export async function requestPortalOtp(customerCode, mobile) {
   // normalization as fn_request_customer_otp() itself, since
   // customers.mobile is stored inconsistently across rows.
   const digits = trimmed.replace(/\D/g, "").slice(-10);
-  const { data: candidate } = await admin.from("customers").select("id, mobile, is_active").eq("code", trimmedCode).maybeSingle();
+  const normalizedCode = trimmedCode.replace(/\\s+/g, "");
+  const { data: candidate, error: lookupError } = await admin
+    .from("customers")
+    .select("id, mobile, is_active")
+    .ilike("code", normalizedCode)
+    .maybeSingle();
+  if (lookupError) {
+    console.error("[portal OTP] customer lookup failed", { code: lookupError.code, message: lookupError.message });
+    return { ok: false, error: "Customer Portal could not verify your account right now. Please try again shortly." };
+  }
   const candidateDigits = (candidate?.mobile || "").replace(/\D/g, "").slice(-10);
   if (!candidate || !candidate.is_active || !digits || candidateDigits !== digits) {
     return { ok: false, error: "Customer ID and mobile number don't match our records." };
