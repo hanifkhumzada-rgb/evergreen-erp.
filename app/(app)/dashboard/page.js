@@ -4,6 +4,7 @@ import { getCurrentProfile } from "@/lib/session";
 import { pkr } from "@/lib/format";
 import { KPI } from "@/components/ui";
 import { SalesTrendChart, ExpensePie, DeliveriesTrendChart, ZoneRevenueChart } from "@/components/LazyCharts";
+import PendingApprovals from "@/components/PendingApprovals";
 import {
   AlertTriangle, UserPlus, Truck, ShoppingCart, Receipt, Wallet, Upload, BarChart3, Sparkles,
 } from "lucide-react";
@@ -84,7 +85,7 @@ export default async function DashboardPage({ searchParams }) {
     overdueRuleRes, { data: unpaidInvoices }, { data: monthToDateExpenses }, { data: lastMonthExpenses },
     { data: custBottleBalances }, { data: bottleLimits },
     { data: rangeInvoices }, { data: rangeDeliveries }, { data: rangeExpenses }, { data: rangePayments }, { data: rangeRiderDeliveries },
-    { data: weekDeliveries },
+    { data: weekDeliveries }, { data: pendingApprovals },
   ] = await Promise.all([
     supabase.from("invoices").select("net_amount, invoice_items(quantity)").eq("invoice_date", today).neq("status", "void"),
     supabase.from("deliveries").select("*, delivery_items(delivered_qty, returned_qty)").eq("delivery_date", today),
@@ -136,6 +137,9 @@ export default async function DashboardPage({ searchParams }) {
     // sales trend above), independent of the Today/7 Days/Month toggle so
     // there's always a meaningful multi-day shape to plot.
     supabase.from("deliveries").select("delivery_date, status, delivery_items(delivered_qty)").gte("delivery_date", daysAgo(6)).lte("delivery_date", today),
+    ["owner", "admin"].includes(profile?.roles?.key)
+      ? supabase.from("expenses").select("id, description, amount, expense_date, expense_categories(name)").eq("status", "submitted").order("created_at", { ascending: false }).limit(8)
+      : Promise.resolve({ data: [] }),
   ]);
 
   const cashBalance = (cashBalances || []).filter((a) => a.type === "cash").reduce((a, c) => a + Number(c.current_balance), 0);
@@ -307,6 +311,16 @@ export default async function DashboardPage({ searchParams }) {
           <span className="rounded-full bg-white/10 px-3 py-1.5">{lowStock.length + overBottleLimitCustomers.length} bottle/stock alerts</span>
         </div>
       </div>
+
+      {["owner", "admin"].includes(profile?.roles?.key) && (pendingApprovals || []).length > 0 && (
+        <section className="mb-6">
+          <div className="mb-2 flex items-center justify-between">
+            <div><h3 className="text-sm font-bold">Owner Approval Inbox</h3><p className="text-xs text-slate">Items waiting for your decision</p></div>
+            <Link href="/expenses?status=submitted" className="text-xs font-semibold text-aqua hover:underline">View all approvals →</Link>
+          </div>
+          <PendingApprovals expenses={pendingApprovals || []} />
+        </section>
+      )}
 
       <div className="no-print grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 mb-6 max-w-2xl">
         {QUICK_ACTIONS.map((a) => {
