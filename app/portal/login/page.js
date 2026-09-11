@@ -3,6 +3,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Droplet, Phone, KeyRound, ArrowLeft } from "lucide-react";
 import { requestPortalOtp, verifyPortalOtpAndSignIn } from "@/app/portal/actions";
+import Image from "next/image";
 
 export default function PortalLoginPage() {
   const router = useRouter();
@@ -59,12 +60,15 @@ export default function PortalLoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-navy to-[#052625] p-5">
-      <div className="w-full max-w-sm bg-card rounded-[28px] shadow-2xl p-7">
+    <div className="min-h-screen relative flex items-center justify-center bg-gradient-to-br from-navy via-[#064C48] to-[#052625] p-5 overflow-hidden">
+      <div className="absolute -top-32 -right-20 w-96 h-96 rounded-full bg-[#9EF0D0]/10 blur-3xl" />
+      <div className="absolute -bottom-32 -left-20 w-96 h-96 rounded-full bg-aqua/15 blur-3xl" />
+      <div className="login-card-in w-full max-w-sm bg-card rounded-[30px] shadow-2xl p-7 relative overflow-hidden">
+        <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-aqua via-[#9EF0D0] to-aqua" />
         <div className="flex flex-col items-center text-center mb-6">
-          <img src="/icon-192.png" alt="Evergreen Water" className="w-14 h-14 rounded-2xl shadow-lg mb-3" />
+          <Image src="/ew-mark.svg" width={60} height={60} alt="Evergreen Water" className="rounded-2xl shadow-lg mb-3" priority />
           <h1 className="font-display text-xl font-semibold">My Evergreen Water</h1>
-          <p className="text-xs text-slate mt-1">Your deliveries, payments and statement — anytime.</p>
+          <p className="text-xs text-slate mt-1 max-w-[260px]">Deliveries, payments, bottles and statements—securely in your pocket.</p>
         </div>
 
         {step === "identify" ? (
@@ -76,7 +80,7 @@ export default function PortalLoginPage() {
                 <input
                   required value={customerCode} onChange={(e) => setCustomerCode(e.target.value)}
                   className="w-full pl-10 pr-3.5 py-3 rounded-2xl border border-line bg-card text-sm outline-none focus:border-aqua focus:ring-4 focus:ring-aqua/15 transition-all"
-                  placeholder="e.g. CUST-0042"
+                  placeholder="e.g. EW-0042"
                 />
               </div>
             </label>
@@ -91,7 +95,7 @@ export default function PortalLoginPage() {
                 />
               </div>
             </label>
-            <p className="text-[11px] text-slate mb-4">The mobile number must match what's registered with Evergreen Water.</p>
+            <p className="text-[11px] text-slate mb-4">Your number must match the one registered with Evergreen Water.</p>
             {error && <p className="text-coral text-xs mb-3 bg-coralSoft px-3 py-2 rounded-lg">{error}</p>}
             <button
               disabled={loading} type="submit"
@@ -132,7 +136,8 @@ export default function PortalLoginPage() {
           </form>
         )}
 
-        <p className="text-center text-[11px] text-slate mt-7">
+        <div className="grid grid-cols-3 gap-2 mt-7 text-center"><div><p className="font-bold text-xs text-aqua">Live</p><p className="text-[9px] text-slate">Deliveries</p></div><div className="border-x"><p className="font-bold text-xs text-aqua">Secure</p><p className="text-[9px] text-slate">OTP Login</p></div><div><p className="font-bold text-xs text-aqua">24/7</p><p className="text-[9px] text-slate">Statements</p></div></div>
+        <p className="text-center text-[11px] text-slate mt-6">
           Not a customer? <a href="/login" className="text-aqua font-semibold">Staff sign in</a>
         </p>
       </div>

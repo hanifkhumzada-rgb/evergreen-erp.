@@ -20,8 +20,8 @@ export default async function PortalSupportPage({ searchParams }) {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="font-display text-xl font-semibold">Support</h1>
-      <IssueForm deliveries={deliveries} defaultDeliveryId={searchParams?.delivery} />
+      <div><h1 className="font-display text-xl font-semibold">Help & Requests</h1><p className="text-xs text-slate mt-1">Request an extra order, pause service, or report a problem.</p></div>
+      <IssueForm deliveries={deliveries} defaultDeliveryId={searchParams?.delivery} defaultType={searchParams?.type} />
 
       <div>
         <h2 className="text-xs font-bold text-slate uppercase tracking-wide mb-2">My Tickets</h2>

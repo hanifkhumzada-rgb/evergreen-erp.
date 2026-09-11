@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Droplet, Wallet, Calendar, Truck, RotateCcw, Bell } from "lucide-react";
+import { Droplet, Wallet, Calendar, Truck, RotateCcw, Bell, PackagePlus, CalendarOff, MessageCircle } from "lucide-react";
 import { requirePortalCustomer } from "@/app/portal/actions";
 import { pkr, fmtDate } from "@/lib/format";
 import CustomerRiderMap from "@/components/portal/CustomerRiderMap";
@@ -82,10 +82,16 @@ export default async function PortalDashboardPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div>
-        <h1 className="font-display text-xl font-semibold">Hi, {customer?.name?.split(" ")[0] || "there"} 👋</h1>
-        <p className="text-xs text-slate mt-0.5">{fmtDate(new Date().toISOString())}</p>
+      <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-navy to-[#087C69] text-white p-5 sm:p-6">
+        <div className="absolute -right-10 -top-12 w-40 h-40 rounded-full bg-white/10" />
+        <div className="relative"><p className="text-[10px] uppercase tracking-[.18em] text-[#9EF0D0] font-bold">My Evergreen Water</p><h1 className="font-display text-2xl font-semibold mt-2">Hi, {customer?.name?.split(" ")[0] || "there"} 👋</h1><p className="text-xs text-[#CDE7E3] mt-1">{fmtDate(new Date().toISOString())} · Account live</p></div>
       </div>
+
+      <div><h2 className="text-xs font-bold text-slate uppercase tracking-wide mb-2">Quick actions</h2><div className="grid grid-cols-3 gap-2.5">
+        <Link href="/portal/support?type=Extra%20Order%20Request" className="rounded-2xl border bg-card p-3 text-center hover:border-aqua"><PackagePlus size={20} className="mx-auto text-aqua"/><span className="block text-[10px] font-semibold mt-1.5">Extra Order</span></Link>
+        <Link href="/portal/support?type=Pause%20Delivery" className="rounded-2xl border bg-card p-3 text-center hover:border-aqua"><CalendarOff size={20} className="mx-auto text-amber"/><span className="block text-[10px] font-semibold mt-1.5">Pause Delivery</span></Link>
+        <Link href="/portal/support" className="rounded-2xl border bg-card p-3 text-center hover:border-aqua"><MessageCircle size={20} className="mx-auto text-aqua"/><span className="block text-[10px] font-semibold mt-1.5">Get Help</span></Link>
+      </div></div>
 
       <div>
         <h2 className="text-xs font-bold text-slate uppercase tracking-wide mb-2">Today</h2>
