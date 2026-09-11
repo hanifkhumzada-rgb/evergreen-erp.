@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr } from "@/lib/format";
-import { Th, Td, Badge } from "@/components/ui";
+import { Th, Td, Badge, KPI } from "@/components/ui";
 import AddZoneForm from "@/components/AddZoneForm";
 import AddRouteForm from "@/components/AddRouteForm";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
@@ -10,13 +10,14 @@ export const dynamic = "force-dynamic";
 
 export default async function ZonesPage() {
   const supabase = await createClient();
+  const today = new Date().toISOString().slice(0, 10);
   const [{ data: zones }, { data: customers }, { data: invoices }, { data: routes }, { data: riders }, { data: deliveries }, { data: canDeleteZone }, { data: canDeleteRoute }] = await Promise.all([
     supabase.from("zones").select("*").order("name"),
     supabase.from("customers").select("id, zone_id, route_id"),
     supabase.from("invoices").select("net_amount, customers(zone_id)").neq("status", "void"),
     supabase.from("routes").select("*, zones(name), profiles(full_name)").order("name"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").eq("roles.key", "rider").eq("is_active", true).order("full_name"),
-    supabase.from("deliveries").select("customer_id, customers(route_id)").eq("status", "delivered"),
+    supabase.from("deliveries").select("customer_id, status, amount_collected, rider_id, customers(route_id)").eq("delivery_date", today),
     supabase.rpc("fn_has_permission", { perm_key: "zones.delete" }),
     supabase.rpc("fn_has_permission", { perm_key: "routes.delete" }),
   ]);
@@ -35,11 +36,27 @@ export default async function ZonesPage() {
     const rid = d.customers?.route_id;
     if (rid) deliveriesByRoute[rid] = (deliveriesByRoute[rid] || 0) + 1;
   });
+  const completedToday = (deliveries || []).filter((d) => d.status === "delivered").length;
+  const missedToday = (deliveries || []).filter((d) => ["missed", "failed", "cancelled"].includes(d.status)).length;
+  const pendingToday = (deliveries || []).filter((d) => !["delivered", "missed", "failed", "cancelled", "void"].includes(d.status)).length;
+  const collectedToday = (deliveries || []).reduce((sum, d) => sum + Number(d.amount_collected || 0), 0);
+  const unassignedRoutes = (routes || []).filter((r) => r.is_active && !r.assigned_rider_id).length;
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-1">Zones &amp; Routes</h2>
-      <p className="text-slate text-sm mb-5">Delivery areas — customers and revenue are grouped by zone throughout the app.</p>
+      <div className="mb-5 rounded-3xl border border-aqua/20 bg-gradient-to-r from-[#073F3A] to-[#087C69] p-5 text-white sm:p-6">
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#A9DDD7]">Live operations</p>
+        <h2 className="font-display text-2xl font-semibold">Route Control Center</h2>
+        <p className="mt-1 text-sm text-[#D7EFEC]">Plan zones, assign riders and monitor today’s route execution.</p>
+      </div>
+      <div className="mb-6 flex flex-wrap gap-3.5">
+        <KPI label="TODAY'S STOPS" value={(deliveries || []).length} tone="navy" />
+        <KPI label="COMPLETED" value={completedToday} tone="green" />
+        <KPI label="PENDING" value={pendingToday} tone="amber" />
+        <KPI label="MISSED" value={missedToday} tone={missedToday ? "coral" : "slate"} />
+        <KPI label="COLLECTED" value={pkr(collectedToday)} tone="aqua" />
+        <KPI label="UNASSIGNED ROUTES" value={unassignedRoutes} tone={unassignedRoutes ? "coral" : "slate"} />
+      </div>
 
       <div className="no-print flex justify-end mb-4"><AddZoneForm /></div>
 
@@ -69,7 +86,7 @@ export default async function ZonesPage() {
       </div>
 
       <div className="flex items-center justify-between mb-2.5">
-        <h3 className="font-display text-base font-semibold">Routes</h3>
+        <div><h3 className="font-display text-base font-semibold">Today’s route board</h3><p className="text-xs text-slate">Delivery counts below are for {today}</p></div>
         <div className="no-print"><AddRouteForm zones={zones || []} riders={riders || []} /></div>
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
