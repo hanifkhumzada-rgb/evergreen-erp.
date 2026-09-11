@@ -223,14 +223,19 @@ export async function checkDuplicateCustomer(mobile, name) {
   const trimmedName = (name || "").toString().trim();
   if (!trimmedMobile && !trimmedName) return { matches: [] };
 
-  const orParts = [];
-  if (trimmedMobile) orParts.push(`mobile.eq.${trimmedMobile}`);
-  if (trimmedName) orParts.push(`name.ilike.${trimmedName}`);
-
-  const { data } = await supabase.from("customers")
-    .select("id, code, name, mobile, area, status")
-    .or(orParts.join(","))
-    .limit(5);
+  const [mobileResult, nameResult] = await Promise.all([
+    trimmedMobile
+      ? supabase.from("customers").select("id, code, name, mobile, area, status").eq("mobile", trimmedMobile).limit(5)
+      : Promise.resolve({ data: [], error: null }),
+    trimmedName
+      ? supabase.from("customers").select("id, code, name, mobile, area, status").ilike("name", trimmedName).limit(5)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  const queryError = mobileResult.error || nameResult.error;
+  if (queryError) return { error: queryError.message, matches: [] };
+  const byId = new Map();
+  [...(mobileResult.data || []), ...(nameResult.data || [])].forEach((row) => byId.set(row.id, row));
+  const data = [...byId.values()].slice(0, 5);
 
   return {
     matches: (data || []).map((c) => ({
@@ -244,10 +249,13 @@ export async function createCustomer(formData) {
   const { supabase, user } = await requireUser();
   const role = await getUserRole(supabase, user);
   const canManageFinancial = FINANCIAL_ROLES.includes(role);
+  const businessId = await getUserBusinessId(supabase, user.id);
+  if (!businessId) return { error: "Your account is not assigned to a business. Ask the Owner to update your employee profile." };
 
   const { data: nextCode } = await supabase.rpc("fn_next_customer_code");
   const payload = {
     code: nextCode || genCode("CUST"),
+    business_id: businessId,
     ...customerBasicsFromForm(formData),
     is_active: (formData.get("status") || "active") === "active",
     created_by: user.id,
