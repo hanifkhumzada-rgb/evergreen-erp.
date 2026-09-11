@@ -5,6 +5,7 @@ import Sidebar, { SidebarProvider, SidebarToggleButton } from "@/components/Side
 import GlobalSearch from "@/components/GlobalSearch";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import StaffLocationTracker from "@/components/StaffLocationTracker";
+import QuickAdd from "@/components/QuickAdd";
 import { Bell, Command } from "lucide-react";
 
 export default async function AppLayout({ children }) {
@@ -67,6 +68,7 @@ export default async function AppLayout({ children }) {
           </div>
         </header>
         <main className="page-stage p-4 sm:p-6 lg:p-8 overflow-y-auto"><div className="mx-auto w-full max-w-[1600px]">{children}</div></main>
+        <QuickAdd role={profile.roles?.key} />
       </div>
     </div>
     </SidebarProvider>
