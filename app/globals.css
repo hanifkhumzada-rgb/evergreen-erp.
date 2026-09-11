@@ -141,6 +141,9 @@ table tr.hover\:bg-foam:hover {
   from { opacity: 0; transform: translateY(14px) scale(0.985); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+@keyframes water-wave { 0%, 100% { transform: translateX(-6%) rotate(-2deg); } 50% { transform: translateX(6%) rotate(2deg); } }
+@keyframes droplet-float { 0%, 100% { transform: translate(-50%, 2px) scale(.96); } 50% { transform: translate(-50%, -5px) scale(1.04); } }
+@keyframes bubble-rise { 0% { opacity: 0; transform: translateY(9px) scale(.7); } 35%, 75% { opacity: .8; } 100% { opacity: 0; transform: translateY(-18px) scale(1); } }
 .login-card-in {
   animation: login-card-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
