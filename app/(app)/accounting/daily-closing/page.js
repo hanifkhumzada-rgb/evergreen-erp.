@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import CloseDayForm from "@/components/CloseDayForm";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, Th, Td } from "@/components/ui";
+import { Badge, Th, Td, KPI } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 function todayISO() { return new Date().toISOString().slice(0, 10); }
@@ -23,17 +23,31 @@ function parseClosing(txn) {
 
 export default async function DailyClosingPage() {
   const supabase = await createClient();
-  const { data: txns } = await supabase.from("cash_transactions").select("*").eq("reference_type", "daily_closing").order("txn_date", { ascending: false }).limit(30);
+  const today = todayISO();
+  const [{ data: txns }, { data: todayPayments }, { data: todayExpenses }] = await Promise.all([
+    supabase.from("cash_transactions").select("*").eq("reference_type", "daily_closing").order("txn_date", { ascending: false }).limit(30),
+    supabase.from("payments").select("amount").eq("payment_date", today).eq("voided", false),
+    supabase.from("expenses").select("amount").eq("expense_date", today).in("status", ["approved", "paid"]),
+  ]);
   const closings = (txns || []).map(parseClosing);
   const lastClosing = closings?.[0];
   const defaultOpening = lastClosing ? Number(lastClosing.actual_cash || lastClosing.expected_cash) : 0;
-  const today = todayISO();
   const alreadyClosed = closings?.find((c) => c.close_date === today);
+  const collectionsToday = (todayPayments || []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const expensesToday = (todayExpenses || []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const expectedToday = defaultOpening + collectionsToday - expensesToday;
 
   return (
     <div>
       <h2 className="font-display text-2xl font-semibold mb-1">Daily Closing</h2>
       <p className="text-slate text-sm mb-5">Reconcile cash in hand against sales, collections and expenses for the day.</p>
+
+      <div className="mb-5 flex flex-wrap gap-3.5">
+        <KPI label="OPENING CASH" value={pkr(defaultOpening)} tone="navy" />
+        <KPI label="COLLECTIONS" value={pkr(collectionsToday)} tone="green" />
+        <KPI label="EXPENSES" value={pkr(expensesToday)} tone="amber" />
+        <KPI label="EXPECTED CASH" value={pkr(expectedToday)} tone="aqua" sub="opening + collections − expenses" />
+      </div>
 
       {alreadyClosed ? (
         <div className="border border-line rounded-2xl p-5 max-w-md">
