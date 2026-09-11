@@ -3,6 +3,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import CustomerStatementDocument from "@/lib/pdf/CustomerStatementDocument";
 import { getBusinessBranding } from "@/lib/pdf/business";
+import { pdfContentDisposition } from "@/lib/pdf/response";
 
 export async function GET(request, { params }) {
   const supabase = await createClient();
@@ -98,7 +99,7 @@ export async function GET(request, { params }) {
   return new NextResponse(buffer, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="statement-${customer.name.replace(/\s+/g, "-").toLowerCase()}.pdf"`,
+      "Content-Disposition": pdfContentDisposition(request, `statement-${customer.name.replace(/\s+/g, "-").toLowerCase()}.pdf`),
     },
   });
 }

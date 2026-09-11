@@ -3,6 +3,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import InvoiceDocument from "@/lib/pdf/InvoiceDocument";
 import { getBusinessBranding } from "@/lib/pdf/business";
+import { pdfContentDisposition } from "@/lib/pdf/response";
 
 export async function GET(request, { params }) {
   const supabase = await createClient();
@@ -32,7 +33,7 @@ export async function GET(request, { params }) {
   return new NextResponse(buffer, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="invoice-${invoice.invoice_no}.pdf"`,
+      "Content-Disposition": pdfContentDisposition(request, `invoice-${invoice.invoice_no}.pdf`),
     },
   });
 }

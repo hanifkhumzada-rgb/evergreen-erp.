@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, FileDown, Loader2 } from "lucide-react";
+import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, FileDown, Loader2, Eye } from "lucide-react";
 
 export function Badge({ text, tone = "slate" }) {
   const map = {
@@ -100,10 +100,16 @@ export function ExportExcelButton({ rows, sheetName = "Sheet1", reportTitle, bra
 // streams back a real PDF, not window.print(). Every other page keeps its
 // existing PrintButton untouched.
 export function DownloadPdfButton({ href, label = "Download PDF" }) {
+  const previewHref = `${href}${href.includes("?") ? "&" : "?"}preview=1`;
   return (
-    <a href={href} className={TOOLBAR_BTN}>
-      <FileDown size={14} /> {label}
-    </a>
+    <span className="no-print inline-flex items-center gap-1.5">
+      <a href={previewHref} target="_blank" rel="noopener noreferrer" className={TOOLBAR_BTN} title="Open PDF without downloading">
+        <Eye size={14} /> Preview
+      </a>
+      <a href={href} className={TOOLBAR_BTN}>
+        <FileDown size={14} /> {label}
+      </a>
+    </span>
   );
 }
 

@@ -213,7 +213,16 @@ export default async function DeliveriesPage({ searchParams }) {
           <h2 className="font-display text-2xl font-semibold mb-1">Today&apos;s Deliveries</h2>
           <p className="text-slate text-sm">{fmtDate(today)} · {todayAbbr}</p>
         </div>
-        <DeliveryForm customers={formCustomers} products={products || []} riders={riders || []} currentUserId={user.id} initialCustomerId={sp.customer || ""} />
+        <div className="flex flex-wrap items-center gap-2">
+          <BulkImportButton
+            label="Bulk Delivery Import"
+            columnsHint="Phone (or Name), Qty, CashCollected, Date, Product (optional), Returned (optional)"
+            action={bulkImportDeliveries}
+            sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Qty: 5, CashCollected: 600, Date: "2026-08-31", Product: "19L", Returned: 5 }}
+            previewType="deliveries"
+          />
+          <DeliveryForm customers={formCustomers} products={products || []} riders={riders || []} currentUserId={user.id} initialCustomerId={sp.customer || ""} />
+        </div>
       </div>
 
       <div className="no-print flex flex-wrap gap-3.5 mb-5">
@@ -313,13 +322,6 @@ export default async function DeliveriesPage({ searchParams }) {
             <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Filter</button>
             {hasHistoryFilters && <Link href="/deliveries" className="text-xs text-slate hover:text-aqua">Clear</Link>}
             <div className="flex-1" />
-            <BulkImportButton
-              label="Bulk Import"
-              columnsHint="Phone (or Name), Qty, CashCollected, Date, Product (optional — size/sku, defaults to 19L), Returned (optional — empties collected, defaults to Qty)"
-              action={bulkImportDeliveries}
-              sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Qty: 5, CashCollected: 600, Date: "2026-08-31", Product: "19L", Returned: 5 }}
-              previewType="deliveries"
-            />
             <ExportExcelButton rows={exportRows} sheetName="Deliveries" reportTitle="Deliveries" branding={branding} />
             <PrintButton />
           </form>

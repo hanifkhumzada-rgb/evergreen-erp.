@@ -3,6 +3,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import DailySalesDocument from "@/lib/pdf/DailySalesDocument";
 import { getBusinessBranding } from "@/lib/pdf/business";
+import { pdfContentDisposition } from "@/lib/pdf/response";
 
 export async function GET(request) {
   const supabase = await createClient();
@@ -25,7 +26,7 @@ export async function GET(request) {
   return new NextResponse(buffer, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="daily-sales-${date}.pdf"`,
+      "Content-Disposition": pdfContentDisposition(request, `daily-sales-${date}.pdf`),
     },
   });
 }
