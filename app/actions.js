@@ -1660,6 +1660,8 @@ async function resolveRiderByName(supabase, value) {
 // createCustomer/updateCustomer's gate.
 export async function bulkImportCustomers(rows) {
   const { supabase, user } = await requireUser();
+  const businessId = await getUserBusinessId(supabase, user.id);
+  if (!businessId) return { error: "Your account is not assigned to a business.", imported: 0, failed: rows.length };
   const role = await getUserRole(supabase, user);
   const canManageFinancial = FINANCIAL_ROLES.includes(role);
   let imported = 0, failed = 0, duplicateCodesReassigned = 0;
@@ -1710,6 +1712,7 @@ export async function bulkImportCustomers(rows) {
 
     const payload = {
       code,
+      business_id: businessId,
       name,
       business_name: r.Company || r.company || r["Business Name"] || null,
       contact_person: r["Contact Person"] || r.ContactPerson || null,
@@ -2021,6 +2024,8 @@ export async function bulkImportSales(rows) {
 // collected, exactly as if a rider had completed it via the app.
 export async function bulkImportDeliveries(rows) {
   const { supabase, user } = await requireUser();
+  const businessId = await getUserBusinessId(supabase, user.id);
+  if (!businessId) return { error: "Your account is not assigned to a business.", imported: 0, failed: rows.length };
   let imported = 0, failed = 0;
   for (const r of rows) {
     const customerId = await findCustomerId(supabase, r);
@@ -2038,6 +2043,7 @@ export async function bulkImportDeliveries(rows) {
 
     const { data: delivery, error } = await supabase.from("deliveries").insert({
       delivery_no: deliveryNo,
+      business_id: businessId,
       customer_id: customerId,
       delivery_date: deliveryDate,
       status: "delivered",
@@ -2047,7 +2053,11 @@ export async function bulkImportDeliveries(rows) {
       delivered_at: new Date().toISOString(),
       created_by: user.id,
     }).select("id").single();
-    if (error) { failed++; continue; }
+    if (error) {
+      console.error("[bulkImportDeliveries] row failed", { code: error.code, message: error.message, customerId, deliveryDate });
+      failed++;
+      continue;
+    }
 
     await supabase.from("delivery_items").insert({
       delivery_id: delivery.id, product_id: productId, expected_qty: qty, delivered_qty: qty, returned_qty: returnedQty, unit_price: rate,
