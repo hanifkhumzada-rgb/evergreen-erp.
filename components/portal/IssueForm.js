@@ -2,9 +2,9 @@
 import { useState } from "react";
 import { submitCustomerIssue } from "@/app/portal/actions";
 
-const ISSUE_TYPES = ["Missed Delivery", "Wrong Quantity", "Quality Issue", "Billing Discrepancy", "Bottle Return Dispute", "Other"];
+const ISSUE_TYPES = ["Extra Order Request", "Pause Delivery", "Resume Delivery", "Missed Delivery", "Wrong Quantity", "Quality Issue", "Billing Discrepancy", "Bottle Return Dispute", "Other"];
 
-export default function IssueForm({ deliveries, defaultDeliveryId }) {
+export default function IssueForm({ deliveries, defaultDeliveryId, defaultType }) {
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
 
@@ -22,7 +22,7 @@ export default function IssueForm({ deliveries, defaultDeliveryId }) {
       <h2 className="text-sm font-bold">Report an Issue</h2>
       <label className="block">
         <span className="text-xs font-semibold text-slate block mb-1.5">Issue Type</span>
-        <select name="issue_type" required className="w-full px-3 py-2.5 rounded-xl border border-line bg-card text-sm">
+        <select name="issue_type" required defaultValue={ISSUE_TYPES.includes(defaultType) ? defaultType : ISSUE_TYPES[0]} className="w-full px-3 py-2.5 rounded-xl border border-line bg-card text-sm">
           {ISSUE_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
       </label>
