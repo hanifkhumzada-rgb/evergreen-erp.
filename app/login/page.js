@@ -177,7 +177,7 @@ export default function LoginPage() {
                     <input
                       type="email" required value={email} onChange={(e) => setEmail(e.target.value)}
                       className="w-full pl-10 pr-3.5 py-3 rounded-2xl border border-line bg-card text-sm outline-none focus:border-aqua focus:ring-4 focus:ring-aqua/15 transition-all"
-                      placeholder="owner@evergreenplus.pk"
+                      placeholder="owner@yourcompany.com"
                     />
                   </div>
                 </label>
@@ -241,7 +241,7 @@ export default function LoginPage() {
                       <input
                         type="email" required value={resetEmail} onChange={(e) => setResetEmail(e.target.value)}
                         className="w-full pl-10 pr-3.5 py-3 rounded-2xl border border-line bg-card text-sm outline-none focus:border-aqua focus:ring-4 focus:ring-aqua/15 transition-all"
-                        placeholder="owner@evergreenplus.pk"
+                        placeholder="owner@yourcompany.com"
                       />
                     </div>
                   </label>
