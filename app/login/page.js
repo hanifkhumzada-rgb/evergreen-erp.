@@ -15,13 +15,16 @@ const MAX_ATTEMPTS = 5;
 const LOCKOUT_SECONDS = 30;
 
 function BrandMark({ size = 40 }) {
-  return <Image src="/ew-mark.svg" width={size} height={size} alt="Evergreen Water" className="rounded-xl shadow-lg flex-shrink-0" priority />;
+  // Bundled PNG avoids the broken-image icon seen in older cached login views.
+  return <Image src="/icon-192.png" width={size} height={size} alt="Evergreen Water" className="rounded-xl shadow-lg flex-shrink-0" priority />;
 }
 
 function WaterBottleMotion() {
-  return <div className="water-orb absolute right-5 bottom-2 w-24 h-32 rounded-[48%_48%_38%_38%] border border-white/10 bg-white/5 opacity-70" aria-hidden="true">
-    <div className="absolute left-1/2 -translate-x-1/2 top-[-12px] w-10 h-5 rounded-t-lg bg-white/10 border border-white/10" />
-    <Droplet size={30} className="absolute left-1/2 top-8 -translate-x-1/2 text-[#9EF0D0]" />
+  return <div className="water-orb absolute right-5 bottom-2 w-24 h-32 rounded-[48%_48%_38%_38%] border border-white/20 bg-gradient-to-br from-white/15 to-aqua/10 shadow-[inset_-8px_-12px_20px_rgba(0,0,0,.18),0_10px_30px_rgba(0,0,0,.14)] opacity-80" aria-hidden="true">
+    <div className="absolute left-1/2 -translate-x-1/2 top-[-12px] w-10 h-5 rounded-t-lg bg-white/15 border border-white/20" />
+    <div className="absolute inset-x-0 bottom-0 h-14 rounded-[40%_40%_35%_35%] bg-[#66D5C1]/20 animate-[water-wave_3s_ease-in-out_infinite]" />
+    <Droplet size={30} className="absolute left-1/2 top-8 -translate-x-1/2 text-[#9EF0D0] animate-[droplet-float_2.8s_ease-in-out_infinite]" />
+    {["left-4 top-20", "right-4 top-24", "left-8 top-14"].map((position, index) => <span key={index} className={`absolute ${position} h-1.5 w-1.5 rounded-full bg-[#C7FFF2]/70 animate-[bubble-rise_2.6s_ease-in-out_infinite]`} style={{ animationDelay: `${index * 500}ms` }} />)}
   </div>;
 }
 
