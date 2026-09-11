@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
+import { ExportExcelButton, PrintButton, Th, Td, KPI } from "@/components/ui";
 import EmployeeAdvanceForm from "@/components/EmployeeAdvanceForm";
 import EmployeeEditForm from "@/components/EmployeeEditForm";
 import AttendanceButtons from "@/components/AttendanceButtons";
@@ -18,7 +18,7 @@ export default async function EmployeesPage() {
   const [branding, { data: employees }, { data: deliveries }, { data: zones }, { data: vehicles }, { data: advances }, { data: attendanceToday }] = await Promise.all([
     getBrandingLite(supabase),
     supabase.from("profiles").select("*, roles!inner(name, key), zones(name), vehicles(registration_no)").neq("roles.key", "customer"),
-    supabase.from("deliveries").select("rider_id, status, amount_collected"),
+    supabase.from("deliveries").select("rider_id, status, amount_collected").eq("delivery_date", today),
     supabase.from("zones").select("id, name").order("name"),
     supabase.from("vehicles").select("id, registration_no").eq("is_active", true).order("registration_no"),
     supabase.from("employee_advances").select("employee_id, amount, repaid"),
@@ -44,11 +44,17 @@ export default async function EmployeesPage() {
     Zone: r.zones?.name, Vehicle: r.vehicles?.registration_no, Status: r.is_active ? "Active" : "Inactive",
     DeliveriesAssigned: r.assigned, Completed: r.done, CashCollected: r.cash, OutstandingAdvance: r.outstandingAdvance,
   }));
+  const presentCount = perf.filter((e) => e.attendanceToday === "present").length;
+  const assignedToday = perf.reduce((sum, e) => sum + e.assigned, 0);
+  const completedToday = perf.reduce((sum, e) => sum + e.done, 0);
+  const cashToday = perf.reduce((sum, e) => sum + e.cash, 0);
 
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Employees" meta={`${perf.length} employees\nGenerated ${fmtDate(today)}`} />
-      <h2 className="no-print font-display text-2xl font-semibold mb-4">Employees</h2>
+      <h2 className="no-print font-display text-2xl font-semibold mb-1">Team Command Center</h2>
+      <p className="no-print mb-5 text-sm text-slate">Attendance, route execution, cash collection and employee accounts—focused on today.</p>
+      <div className="no-print mb-5 flex flex-wrap gap-3.5"><KPI label="ACTIVE TEAM" value={perf.filter((e) => e.is_active).length} tone="navy"/><KPI label="PRESENT TODAY" value={presentCount} tone="green"/><KPI label="DELIVERIES" value={`${completedToday}/${assignedToday}`} tone="aqua" sub="completed / assigned"/><KPI label="CASH COLLECTED" value={pkr(cashToday)} tone="green"/></div>
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <EmployeeAdvanceForm employees={perf} />
