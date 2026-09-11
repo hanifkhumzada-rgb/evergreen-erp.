@@ -264,7 +264,10 @@ export async function createCustomer(formData) {
   await syncLegacyRouteText(supabase, payload);
 
   const { data: created, error } = await supabase.from("customers").insert(payload).select("id").single();
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("[createCustomer] customer insert failed", { code: error.code, message: error.message, userId: user.id, businessId });
+    return { error: error.message };
+  }
 
   // Special/customer rate is stored as a customer_prices override, same as
   // the standard per-product pricing — not a duplicate column on customers.
@@ -516,7 +519,6 @@ export async function createPayment(formData) {
   // Best-effort, after the payment transaction above has already fully
   // committed. automationKey gates it on the "Payment Receipt Messages"
   // row (Automation Center) being turned on.
-  const businessId = await getUserBusinessId(supabase, user.id);
   if (businessId) {
     const { data: custRow } = await supabase.from("customers").select("name").eq("id", customerId).maybeSingle();
     await notifyBestEffort({
@@ -565,6 +567,8 @@ export async function voidPayment(paymentId, reason) {
 // form and the Today's Deliveries workspace's per-customer Deliver sheet.
 export async function createDelivery(formData) {
   const { supabase, user } = await requireUser();
+  const businessId = await getUserBusinessId(supabase, user.id);
+  if (!businessId) return { error: "Your account is not assigned to a business. Ask the Owner to update your employee profile." };
   const customerId = formData.get("customer_id");
   const productId = formData.get("product_id");
   const deliveredQty = Number(formData.get("delivered_qty"));
@@ -610,6 +614,7 @@ export async function createDelivery(formData) {
   } else {
     ({ data: delivery, error } = await supabase.from("deliveries").insert({
       delivery_no: deliveryNo,
+      business_id: businessId,
       customer_id: customerId,
       rider_id: riderId,
       delivery_date: deliveryDate,
@@ -621,7 +626,10 @@ export async function createDelivery(formData) {
       created_by: user.id,
     }).select("id").single());
   }
-  if (error) return { error: error.message };
+  if (error) {
+    console.error("[createDelivery] delivery insert failed", { code: error.code, message: error.message, userId: user.id, customerId });
+    return { error: error.message };
+  }
 
   // Same reuse-over-duplicate logic for the line item the cron's placeholder
   // already has (expected_qty = the customer's regular_qty, delivered_qty 0).
@@ -659,7 +667,6 @@ export async function createDelivery(formData) {
   // committed — see notifyBestEffort's own comment for why this can never
   // roll anything back. automationKey gates it on the "Delivery
   // Confirmation Messages" row (Automation Center) being turned on.
-  const businessId = await getUserBusinessId(supabase, user.id);
   if (businessId) {
     const { data: custRow } = await supabase.from("customers").select("name").eq("id", customerId).maybeSingle();
     await notifyBestEffort({

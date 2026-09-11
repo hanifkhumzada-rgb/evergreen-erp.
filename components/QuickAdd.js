@@ -32,7 +32,7 @@ export default function QuickAdd({ role }) {
 
   if (!actions.length) return null;
   return (
-    <div ref={rootRef} className="no-print fixed bottom-5 right-5 z-50 sm:bottom-7 sm:right-7">
+    <div ref={rootRef} className="no-print fixed bottom-5 right-5 z-40 sm:bottom-7 sm:right-7">
       {open && (
         <div className="mb-3 w-64 overflow-hidden rounded-2xl border border-line bg-card p-2 shadow-2xl shadow-navy/20">
           <div className="flex items-center justify-between px-2 py-1.5">
