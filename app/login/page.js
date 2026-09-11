@@ -15,8 +15,11 @@ const MAX_ATTEMPTS = 5;
 const LOCKOUT_SECONDS = 30;
 
 function BrandMark({ size = 40 }) {
-  // Bundled PNG avoids the broken-image icon seen in older cached login views.
-  return <Image src="/icon-192.png" width={size} height={size} alt="Evergreen Water" className="rounded-xl shadow-lg flex-shrink-0" priority />;
+  const [failed, setFailed] = useState(false);
+  // Bypass the image optimizer/cache for this tiny bundled asset and keep a
+  // bundled SVG fallback, so a stale optimizer response can never leave a
+  // broken-image icon on the login screen.
+  return <Image src={failed ? "/ew-mark.svg" : "/icon-192.png"} width={size} height={size} alt="Evergreen Water" className="rounded-xl shadow-lg flex-shrink-0" priority unoptimized onError={() => setFailed(true)} />;
 }
 
 function WaterBottleMotion() {
