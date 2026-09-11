@@ -100,7 +100,7 @@ export default async function DeliveriesPage({ searchParams }) {
       .select("customer_id, delivery_date, amount_collected, delivery_items(delivered_qty, returned_qty)")
       .eq("status", "delivered").order("delivery_date", { ascending: false }).limit(500),
     supabase.from("customers")
-      .select("id, code, name, mobile, route, route_id, routes(name), zone_id, zones(name), default_product_id, payment_frequency, regular_qty, preferred_days, delivery_frequency, status, is_active"),
+      .select("id, code, name, mobile, route, route_id, routes(name), zone_id, zones(name), default_product_id, payment_frequency, regular_qty, preferred_days, delivery_frequency, assigned_rider_id, status, is_active"),
     supabase.from("zones").select("*"),
     supabase.from("routes").select("id, name").eq("is_active", true).order("name"),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
@@ -208,8 +208,13 @@ export default async function DeliveriesPage({ searchParams }) {
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Today's Deliveries" meta={`${todayCustomers.length} customers due today\n${historyRows.length} of ${allRows.length} in history\nGenerated ${fmtDate(today)}`} />
-      <h2 className="no-print font-display text-2xl font-semibold mb-1">Today&apos;s Deliveries</h2>
-      <p className="no-print text-slate text-sm mb-4">{fmtDate(today)} · {todayAbbr}</p>
+      <div className="no-print flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+        <div>
+          <h2 className="font-display text-2xl font-semibold mb-1">Today&apos;s Deliveries</h2>
+          <p className="text-slate text-sm">{fmtDate(today)} · {todayAbbr}</p>
+        </div>
+        <DeliveryForm customers={formCustomers} products={products || []} riders={riders || []} currentUserId={user.id} initialCustomerId={sp.customer || ""} />
+      </div>
 
       <div className="no-print flex flex-wrap gap-3.5 mb-5">
         <KPI label="CUSTOMERS TODAY" value={todayCustomers.length} tone="navy" />
@@ -236,15 +241,6 @@ export default async function DeliveriesPage({ searchParams }) {
         <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Filter</button>
         {hasTodayFilters && <Link href="/deliveries" className="text-xs text-slate hover:text-aqua">Clear</Link>}
       </form>
-      {/* Sibling <div>, not inside the filter <form> above — DeliveryForm's
-          trigger button has no type="button" set, so nesting it in a form
-          makes clicking "New Delivery" also submit that form (same bug
-          class fixed on /customers). */}
-      <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
-        <div className="flex-1" />
-        <DeliveryForm customers={formCustomers} products={products || []} riders={riders || []} currentUserId={user.id} initialCustomerId={sp.customer || ""} />
-      </div>
-
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-8">
         {todayCustomers.length === 0 && <p className="text-sm text-slate col-span-full text-center py-8 border border-line rounded-2xl">No customers due today match these filters.</p>}
         {todayCustomers.map((c) => (
