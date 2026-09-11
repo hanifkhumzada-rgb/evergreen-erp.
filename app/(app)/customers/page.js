@@ -132,8 +132,13 @@ export default async function CustomersPage({ searchParams }) {
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Customers" meta={`${rows.length} of ${allRows.length} customers\nGenerated ${fmtDate(new Date().toISOString())}`} />
-      <h2 className="no-print font-display text-2xl font-semibold mb-1">Customers</h2>
-      <p className="no-print text-slate text-sm mb-4">Customer workspace — book, balances, and quick actions in one place.</p>
+      <div className="no-print flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
+        <div>
+          <h2 className="font-display text-2xl font-semibold mb-1">Customers</h2>
+          <p className="text-slate text-sm">Customer workspace — book, balances, and quick actions in one place.</p>
+        </div>
+        <CustomerForm mode="create" {...formProps} />
+      </div>
 
       <div className="no-print flex flex-wrap gap-3.5 mb-5">
         <KPI label="TOTAL CUSTOMERS" value={allRows.length} tone="navy" />
@@ -184,7 +189,6 @@ export default async function CustomersPage({ searchParams }) {
         />
         <ExportExcelButton rows={exportRows} sheetName="Customers" reportTitle="Customers" branding={branding} />
         <PrintButton />
-        <CustomerForm mode="create" {...formProps} />
       </div>
       <p className="no-print text-xs text-slate mb-2">{rows.length} of {allRows.length} customers</p>
       <div className="overflow-x-auto border border-line rounded-2xl">
