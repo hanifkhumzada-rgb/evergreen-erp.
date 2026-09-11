@@ -13,6 +13,8 @@
   --amberSoft: #FDF0DD;
   --coralSoft: #FCE4E2;
   --greenSoft: #E1F6E8;
+  --surface-raised: rgba(255,255,255,.82);
+  --navy-rgb: 7,59,58;
 }
 
 .dark {
@@ -36,6 +38,32 @@ body {
   background: var(--foam);
   transition: background-color 0.2s ease, color 0.2s ease;
 }
+
+/* SaaS shell */
+.app-shell-bg {
+  background:
+    radial-gradient(circle at 82% -10%, rgba(5,150,105,.09), transparent 30rem),
+    var(--foam);
+}
+.glass-bar {
+  background: color-mix(in srgb, var(--card) 88%, transparent);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+.page-stage { animation: page-stage-in .28s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes page-stage-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+
+/* Small branded water motion. Transform-only animation keeps it cheap. */
+.water-orb { position: relative; isolation: isolate; overflow: hidden; }
+.water-orb::after {
+  content: ""; position: absolute; width: 150%; height: 75%; left: -25%; top: 52%;
+  border-radius: 42%; background: rgba(158,240,208,.28); z-index: -1;
+  animation: water-turn 7s linear infinite;
+}
+@keyframes water-turn { to { transform: rotate(360deg); } }
+.nav-scroll { scrollbar-width: none; }
+.nav-scroll::-webkit-scrollbar { display: none; }
+.content-auto { content-visibility: auto; contain-intrinsic-size: 1px 600px; }
 .font-display { font-family: 'Fraunces', serif; }
 .font-mono-num { font-family: 'IBM Plex Mono', monospace; }
 
@@ -104,7 +132,7 @@ table tr.hover\:bg-foam:hover {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .skeleton-shimmer, .skeleton-mark-pulse { animation: none; }
+  .skeleton-shimmer, .skeleton-mark-pulse, .water-orb, .page-stage { animation: none; }
 }
 
 /* Login card entrance — a soft rise-and-fade so the page feels alive on

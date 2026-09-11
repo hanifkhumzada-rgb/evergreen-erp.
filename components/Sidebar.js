@@ -4,12 +4,14 @@ import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import { signOut } from "@/app/actions";
 import ThemeToggle from "@/components/ThemeToggle";
+import Image from "next/image";
 import {
   Home, Users, Truck, Droplet, Package, Wallet, Receipt, ReceiptText,
   BookOpen, UserCog, BarChart3, Settings, LogOut, Landmark, FileText,
   Scale, TrendingUp, ClipboardCheck, Car, Bot, Bell, MapPin, Menu, X,
   ChevronRight, ChevronLeft, Factory, FolderInput, ShieldCheck, Navigation, Zap, MessageSquare,
   LifeBuoy, Star,
+  Megaphone, Files, BriefcaseBusiness, ChevronDown,
 } from "lucide-react";
 
 const SidebarContext = createContext(null);
@@ -51,19 +53,35 @@ const OWNER_ROLES = ["owner", "admin"];
 
 const NAV = [
   { type: "link", href: "/dashboard", label: "Dashboard", icon: Home, roles: [...OWNER_ROLES, "manager", "accountant"] },
-  { type: "link", href: "/customers", label: "Customers", icon: Users, roles: [...OWNER_ROLES, "manager"] },
-  { type: "link", href: "/deliveries", label: "Deliveries", icon: Truck, roles: [...OWNER_ROLES, "manager", "rider"] },
-  { type: "link", href: "/bottle-ledger", label: "Bottle Inventory", icon: Droplet, roles: [...OWNER_ROLES, "manager"] },
-  { type: "link", href: "/production", label: "Production & Filling", icon: Factory, roles: [...OWNER_ROLES, "manager", "accountant"] },
-  { type: "link", href: "/payments", label: "Payments", icon: Receipt, roles: [...OWNER_ROLES, "accountant"] },
-  { type: "link", href: "/expenses", label: "Expenses", icon: Wallet, roles: [...OWNER_ROLES, "manager", "accountant"] },
-  { type: "link", href: "/ledger", label: "Customer Ledger", icon: BookOpen, roles: [...OWNER_ROLES, "accountant"] },
-  { type: "link", href: "/invoices", label: "Invoices", icon: ReceiptText, roles: [...OWNER_ROLES, "manager", "accountant"] },
-  { type: "link", href: "/fleet", label: "Fleet", icon: Car, roles: [...OWNER_ROLES, "manager"] },
-  { type: "link", href: "/tracking", label: "Live Tracking", icon: Navigation, roles: [...OWNER_ROLES, "manager"] },
-  { type: "link", href: "/employees", label: "Employees", icon: UserCog, roles: [...OWNER_ROLES, "manager"] },
-  { type: "link", href: "/zones", label: "Zones & Routes", icon: MapPin, roles: [...OWNER_ROLES, "manager"] },
-  { type: "link", href: "/inventory", label: "Inventory", icon: Package, roles: [...OWNER_ROLES, "manager"] },
+  {
+    type: "group", key: "operations", label: "Operations", icon: Truck,
+    items: [
+      { href: "/customers", label: "Customers", icon: Users, roles: [...OWNER_ROLES, "manager"] },
+      { href: "/deliveries", label: "Deliveries", icon: Truck, roles: [...OWNER_ROLES, "manager", "rider"] },
+      { href: "/bottle-ledger", label: "Bottle Inventory", icon: Droplet, roles: [...OWNER_ROLES, "manager"] },
+      { href: "/production", label: "Production & Filling", icon: Factory, roles: [...OWNER_ROLES, "manager", "accountant"] },
+      { href: "/inventory", label: "Purchases & Stock", icon: Package, roles: [...OWNER_ROLES, "manager"] },
+      { href: "/zones", label: "Zones & Routes", icon: MapPin, roles: [...OWNER_ROLES, "manager"] },
+    ],
+  },
+  {
+    type: "group", key: "money", label: "Sales & Finance", icon: Wallet,
+    items: [
+      { href: "/sales", label: "Sales", icon: ReceiptText, roles: [...OWNER_ROLES, "manager", "accountant"] },
+      { href: "/invoices", label: "Invoices & Billing", icon: ReceiptText, roles: [...OWNER_ROLES, "manager", "accountant"] },
+      { href: "/payments", label: "Payments", icon: Receipt, roles: [...OWNER_ROLES, "accountant"] },
+      { href: "/expenses", label: "Expenses", icon: Wallet, roles: [...OWNER_ROLES, "manager", "accountant"] },
+      { href: "/ledger", label: "Customer Ledger", icon: BookOpen, roles: [...OWNER_ROLES, "accountant"] },
+    ],
+  },
+  {
+    type: "group", key: "team-fleet", label: "Team & Fleet", icon: BriefcaseBusiness,
+    items: [
+      { href: "/employees", label: "Employees", icon: UserCog, roles: [...OWNER_ROLES, "manager"] },
+      { href: "/fleet", label: "Fleet", icon: Car, roles: [...OWNER_ROLES, "manager"] },
+      { href: "/tracking", label: "Live Tracking", icon: Navigation, roles: [...OWNER_ROLES, "manager"] },
+    ],
+  },
   {
     type: "group", key: "accounting-finance", label: "Accounting & Finance", icon: Landmark,
     items: [
@@ -77,14 +95,16 @@ const NAV = [
     ],
   },
   {
-    type: "group", key: "intelligence", label: "Intelligence", icon: Bot,
+    type: "group", key: "growth", label: "Growth & Automation", icon: Zap,
     items: [
       { href: "/ai", label: "Evergreen AI", icon: Bot, roles: [...OWNER_ROLES, "manager", "accountant"] },
+      { href: "/marketing", label: "Marketing Studio", icon: Megaphone, roles: [...OWNER_ROLES, "manager"] },
       { href: "/notifications", label: "Alerts & Notifications", icon: Bell, roles: [...OWNER_ROLES, "manager", "accountant"] },
       { href: "/automation", label: "Automation Center", icon: Zap, roles: OWNER_ROLES },
       { href: "/communication", label: "Communication Center", icon: MessageSquare, roles: OWNER_ROLES },
       { href: "/issues", label: "Customer Issues", icon: LifeBuoy, roles: [...OWNER_ROLES, "manager"] },
       { href: "/customer-feedback", label: "Customer Feedback", icon: Star, roles: [...OWNER_ROLES, "manager"] },
+      { href: "/documents", label: "Files & Preview", icon: Files, roles: [...OWNER_ROLES, "manager", "accountant"] },
     ],
   },
   {
@@ -124,22 +144,30 @@ function NotifBadge({ count }) {
 // Full labeled nav list — used by the mobile off-canvas drawer, and by the
 // desktop rail when pinned open.
 function NavList({ entries, pathname, unreadNotifications, onNavigate }) {
+  const activeGroup = entries.find((entry) => entry.type === "group" && isEntryActive(entry, pathname))?.key;
+  const [opened, setOpened] = useState(activeGroup || "operations");
   return (
-    <div className="flex flex-col gap-3 flex-1 overflow-y-auto pr-1">
+    <div className="nav-scroll flex flex-col gap-1.5 flex-1 overflow-y-auto pr-1">
       {entries.map((entry) => {
         const items = entry.type === "link" ? [entry] : entry.items;
+        const expanded = entry.type === "group" && (opened === entry.key || isEntryActive(entry, pathname));
+        const EntryIcon = entry.icon;
         return (
           <div key={entry.type === "link" ? entry.href : entry.key}>
             {entry.type === "group" && (
-              <div className="text-[10px] font-bold tracking-wider text-[#5F8B87] px-2.5 mb-1">{entry.label.toUpperCase()}</div>
+              <button type="button" onClick={() => setOpened(expanded ? null : entry.key)}
+                className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-semibold transition-colors ${isEntryActive(entry, pathname) ? "bg-white/10 text-white" : "text-[#A8CBC7] hover:bg-white/5"}`}>
+                <EntryIcon size={16} /><span className="flex-1 text-left">{entry.label}</span>
+                <ChevronDown size={14} className={`transition-transform ${expanded ? "rotate-180" : ""}`} />
+              </button>
             )}
-            <div className="flex flex-col gap-0.5">
+            <div className={`${entry.type === "group" && !expanded ? "hidden" : "flex"} flex-col gap-0.5 ${entry.type === "group" ? "pl-2 mt-1" : ""}`}>
               {items.map((n) => {
                 const Icon = n.icon;
                 const active = pathname.startsWith(n.href);
                 return (
                   <Link key={n.href} href={n.href} onClick={onNavigate}
-                    className={`relative flex items-center gap-2.5 px-2.5 py-1.75 rounded-lg text-[12.5px] font-semibold transition-colors duration-150 ${active ? "bg-aqua text-white" : "text-[#C7DEDC] hover:bg-white/5"}`}>
+                    className={`relative flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-[12.5px] font-semibold transition-colors duration-150 ${active ? "bg-gradient-to-r from-aqua to-[#087C69] text-white shadow-md shadow-black/10" : "text-[#C7DEDC] hover:bg-white/5"}`}>
                     {active && <span className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full bg-[#047857]" />}
                     <Icon size={15} /> <span className="flex-1">{n.label}</span>
                     {n.href === "/notifications" && <NotifBadge count={unreadNotifications} />}
@@ -247,7 +275,7 @@ export default function Sidebar({ role, unreadNotifications = 0 }) {
       {open && <div className="no-print fixed inset-0 bg-navy/40 z-40 md:hidden" onClick={() => setOpen(false)} />}
       <div className={`no-print md:hidden w-[230px] flex-shrink-0 bg-navy text-white flex flex-col p-3 fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 ease-in-out ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex items-center gap-2 px-1.5 pb-4">
-          <img src="/icon-192.png" alt="Evergreen Water" className="w-8 h-8 rounded-lg flex-shrink-0" />
+          <Image src="/ew-mark.svg" width={36} height={36} alt="Evergreen Water" className="rounded-xl flex-shrink-0" priority />
           <span className="font-display font-semibold text-sm leading-tight flex-1">Evergreen Water</span>
           <ThemeToggle className="text-[#C7DEDC] hover:bg-white/10" />
         </div>
@@ -264,7 +292,7 @@ export default function Sidebar({ role, unreadNotifications = 0 }) {
       {expanded ? (
         <div className="no-print hidden md:flex md:flex-col w-[230px] flex-shrink-0 bg-navy text-white p-3">
           <div className="flex items-center gap-2 px-1.5 pb-4">
-            <img src="/icon-192.png" alt="Evergreen Water" className="w-8 h-8 rounded-lg flex-shrink-0" />
+            <Image src="/ew-mark.svg" width={36} height={36} alt="Evergreen Water" className="rounded-xl flex-shrink-0" priority />
             <span className="font-display font-semibold text-sm leading-tight flex-1">Evergreen Water</span>
             <ThemeToggle className="text-[#C7DEDC] hover:bg-white/10" />
             <button type="button" onClick={togglePinned} title="Collapse sidebar" className="w-7 h-7 flex items-center justify-center rounded-lg text-[#C7DEDC] hover:bg-white/10 flex-shrink-0">
@@ -280,7 +308,7 @@ export default function Sidebar({ role, unreadNotifications = 0 }) {
         </div>
       ) : (
         <div className="no-print hidden md:flex md:flex-col items-center w-16 flex-shrink-0 bg-navy text-white py-3">
-          <img src="/icon-192.png" alt="Evergreen Water" className="w-8 h-8 rounded-lg flex-shrink-0 mb-1.5" />
+          <Image src="/ew-mark.svg" width={36} height={36} alt="Evergreen Water" className="rounded-xl flex-shrink-0 mb-1.5" priority />
           <button type="button" onClick={togglePinned} title="Pin sidebar open" className="w-8 h-8 flex items-center justify-center rounded-lg text-[#C7DEDC] hover:bg-white/10 mb-3 flex-shrink-0">
             <ChevronRight size={16} />
           </button>

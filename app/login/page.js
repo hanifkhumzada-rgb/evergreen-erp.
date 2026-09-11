@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { REMEMBER_ME_COOKIE, REMEMBER_ME_MAX_AGE } from "@/lib/rememberMe";
 import { User, Lock, Eye, EyeOff, Check, Mail, Droplet, MessageCircleHeart, BarChart3, ShieldCheck } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
+import Image from "next/image";
 
 // Supabase Auth already rate-limits sign-in attempts server-side (per
 // project, not configurable from app code) — this is an additional
@@ -14,7 +15,14 @@ const MAX_ATTEMPTS = 5;
 const LOCKOUT_SECONDS = 30;
 
 function BrandMark({ size = 40 }) {
-  return <img src="/icon-192.png" alt="Evergreen Water" style={{ width: size, height: size }} className="rounded-xl shadow-lg flex-shrink-0" />;
+  return <Image src="/ew-mark.svg" width={size} height={size} alt="Evergreen Water" className="rounded-xl shadow-lg flex-shrink-0" priority />;
+}
+
+function WaterBottleMotion() {
+  return <div className="water-orb absolute right-5 bottom-2 w-24 h-32 rounded-[48%_48%_38%_38%] border border-white/10 bg-white/5 opacity-70" aria-hidden="true">
+    <div className="absolute left-1/2 -translate-x-1/2 top-[-12px] w-10 h-5 rounded-t-lg bg-white/10 border border-white/10" />
+    <Droplet size={30} className="absolute left-1/2 top-8 -translate-x-1/2 text-[#9EF0D0]" />
+  </div>;
 }
 
 const HERO_FEATURES = [
@@ -132,6 +140,7 @@ export default function LoginPage() {
           <svg className="absolute left-0 right-0 bottom-0 w-full h-24 opacity-[0.08] pointer-events-none" viewBox="0 0 400 100" preserveAspectRatio="none">
             <path d="M0,50 C60,90 140,10 200,50 C260,90 340,10 400,50 L400,100 L0,100 Z" fill="#FFFFFF" />
           </svg>
+          <WaterBottleMotion />
           <div className="relative">
             <div className="flex items-center gap-2.5">
               <BrandMark size={44} />
@@ -221,8 +230,7 @@ export default function LoginPage() {
                   {isLocked ? `Try again in ${lockCountdown}s` : loading ? "Signing in…" : "Sign In"}
                 </button>
               </form>
-              <p className="text-xs text-slate mt-5">No account yet? Run <code>npm run seed</code> from the project to create the first Owner login.</p>
-              <p className="text-center text-[11px] text-slate mt-9">Powered by <span className="font-semibold text-ink">Evergreen Water</span></p>
+              <div className="mt-7 pt-5 border-t border-line flex items-center justify-between text-[11px] text-slate"><span>Secure business workspace</span><span className="inline-flex items-center gap-1"><ShieldCheck size={12} className="text-aqua"/> Role protected</span></div>
             </>
           ) : (
             <>
