@@ -3,6 +3,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import JournalVoucherDocument from "@/lib/pdf/JournalVoucherDocument";
 import { getBusinessBranding } from "@/lib/pdf/business";
+import { pdfContentDisposition } from "@/lib/pdf/response";
 
 export async function GET(request, { params }) {
   const supabase = await createClient();
@@ -18,7 +19,7 @@ export async function GET(request, { params }) {
   return new NextResponse(buffer, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="voucher-${entry.entry_no}.pdf"`,
+      "Content-Disposition": pdfContentDisposition(request, `voucher-${entry.entry_no}.pdf`),
     },
   });
 }
