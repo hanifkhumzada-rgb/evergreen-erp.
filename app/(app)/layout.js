@@ -5,7 +5,7 @@ import Sidebar, { SidebarProvider, SidebarToggleButton } from "@/components/Side
 import GlobalSearch from "@/components/GlobalSearch";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import StaffLocationTracker from "@/components/StaffLocationTracker";
-import { Bell } from "lucide-react";
+import { Bell, Command } from "lucide-react";
 
 export default async function AppLayout({ children }) {
   const { supabase, user, profile } = await getCurrentProfile();
@@ -37,18 +37,18 @@ export default async function AppLayout({ children }) {
 
   return (
     <SidebarProvider>
-    <div className="min-h-screen bg-foam flex">
+    <div className="min-h-screen app-shell-bg flex">
       <Sidebar role={profile.roles?.key} unreadNotifications={unreadNotifications} />
       <div className="flex-1 min-w-0 flex flex-col">
-        <div className="no-print flex items-center justify-between px-6 py-3.5 border-b border-line bg-card">
+        <header className="no-print sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 py-3 border-b border-line glass-bar">
           <div className="flex items-center gap-3">
             <SidebarToggleButton />
-            <div className="text-sm text-slate hidden sm:block">Live data — Evergreen Water</div>
+            <div className="hidden lg:flex items-center gap-2 text-xs text-slate"><span className="w-2 h-2 rounded-full bg-green animate-pulse" /> Live workspace</div>
             <StaffLocationTracker />
           </div>
           <div className="flex items-center gap-4">
             <OfflineIndicator />
-            <GlobalSearch />
+            <div className="hidden sm:flex items-center gap-2 rounded-xl border border-line bg-foam/70 px-2 py-1"><Command size={13} className="text-slate" /><GlobalSearch /></div>
             <Link href="/notifications" className="relative p-1.5 -m-1.5 rounded-lg hover:bg-foam transition-colors" aria-label="Notifications">
               <Bell size={17} className="text-slate" />
               {unreadNotifications > 0 && (
@@ -65,8 +65,8 @@ export default async function AppLayout({ children }) {
               </div>
             </div>
           </div>
-        </div>
-        <div className="p-8 overflow-y-auto">{children}</div>
+        </header>
+        <main className="page-stage p-4 sm:p-6 lg:p-8 overflow-y-auto"><div className="mx-auto w-full max-w-[1600px]">{children}</div></main>
       </div>
     </div>
     </SidebarProvider>
