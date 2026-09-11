@@ -158,6 +158,9 @@ export default async function DashboardPage({ searchParams }) {
   const outstanding = receivables;
   const activeCustomers = activeCustomersRes.count || 0;
   const grossProfit = salesAmt - bottlesDelivered * 55;
+  const completedDeliveries = (todayDeliveries || []).filter((d) => d.status === "delivered").length;
+  const missedDeliveries = (todayDeliveries || []).filter((d) => ["missed", "failed", "cancelled"].includes(d.status)).length;
+  const pendingDeliveries = (todayDeliveries || []).filter((d) => !["delivered", "missed", "failed", "cancelled"].includes(d.status)).length;
 
   // Previous-period figures
   const ySalesAmt = (yesterdayInvoices || []).reduce((a, s) => a + Number(s.net_amount), 0);
@@ -293,8 +296,17 @@ export default async function DashboardPage({ searchParams }) {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-0.5">{greeting()}, {firstName} 👋</h2>
-      <p className="text-slate text-sm mb-5">{new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })} · here's how the business looks right now</p>
+      <div className="mb-5 rounded-3xl border border-aqua/20 bg-gradient-to-r from-[#073F3A] via-[#07564D] to-[#087C69] p-5 text-white shadow-lg shadow-aqua/10 sm:p-7">
+        <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#A9DDD7]">Evergreen executive workspace</p>
+        <h2 className="font-display text-2xl font-semibold sm:text-3xl">Owner Control Room</h2>
+        <p className="mt-1 text-sm text-[#D7EFEC]">{greeting()}, {firstName} · {new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</p>
+        <div className="mt-4 flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full bg-white/10 px-3 py-1.5">{completedDeliveries} completed</span>
+          <span className="rounded-full bg-white/10 px-3 py-1.5">{pendingDeliveries} pending</span>
+          <span className={`rounded-full px-3 py-1.5 ${missedDeliveries ? "bg-coral text-white" : "bg-white/10"}`}>{missedDeliveries} missed</span>
+          <span className="rounded-full bg-white/10 px-3 py-1.5">{lowStock.length + overBottleLimitCustomers.length} bottle/stock alerts</span>
+        </div>
+      </div>
 
       <div className="no-print grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 mb-6 max-w-2xl">
         {QUICK_ACTIONS.map((a) => {
@@ -355,6 +367,8 @@ export default async function DashboardPage({ searchParams }) {
       <h4 className="text-xs font-bold tracking-wide text-slate mb-2 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-aqua" />TODAY AT A GLANCE</h4>
       <div className="flex flex-wrap gap-3.5 mb-6">
         <KPI label="TODAY'S SALES" value={pkr(salesAmt)} tone="navy" sub={`${(todayInvoices || []).length} invoices`} trend={calcTrend(salesAmt, ySalesAmt)} href="/sales" />
+        <KPI label="COLLECTIONS" value={pkr(todayPaymentsAmt)} tone="green" sub="received today" href="/payments" />
+        <KPI label="DELIVERIES" value={completedDeliveries} tone="aqua" sub={`${pendingDeliveries} pending · ${missedDeliveries} missed`} href="/deliveries" />
         <KPI label="BOTTLES DELIVERED" value={bottlesDelivered} tone="aqua" />
         <KPI label="OUTSTANDING" value={pkr(outstanding)} tone="coral" trend={calcTrend(outstanding, yReceivables, true)} href="/ledger" />
         <KPI label="TODAY'S EXPENSES" value={pkr(expAmt)} tone="amber" trend={calcTrend(expAmt, yExpAmt, true)} href="/expenses" />
