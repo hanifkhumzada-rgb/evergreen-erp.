@@ -3,6 +3,7 @@ import { renderToBuffer } from "@react-pdf/renderer";
 import { createClient } from "@/lib/supabase/server";
 import BankPaymentVoucherDocument from "@/lib/pdf/BankPaymentVoucherDocument";
 import { getBusinessBranding } from "@/lib/pdf/business";
+import { pdfContentDisposition } from "@/lib/pdf/response";
 
 const EXPENSE_TX_TYPE_FALLBACK = "Expense Payment";
 
@@ -64,7 +65,7 @@ export async function GET(request, { params }) {
   return new NextResponse(buffer, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="bpv-${bpvNo}.pdf"`,
+      "Content-Disposition": pdfContentDisposition(request, `bpv-${bpvNo}.pdf`),
     },
   });
 }
