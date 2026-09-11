@@ -50,8 +50,11 @@ body {
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
 }
-.page-stage { animation: page-stage-in .28s cubic-bezier(.2,.8,.2,1) both; }
-@keyframes page-stage-in { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: none; } }
+/* Keep the route transition opacity-only. A transformed ancestor becomes the
+   containing block for position:fixed descendants; on mobile that pushed
+   Customer/Delivery and every other modal outside the viewport. */
+.page-stage { animation: page-stage-in .22s ease-out both; }
+@keyframes page-stage-in { from { opacity: 0; } to { opacity: 1; } }
 
 /* Small branded water motion. Transform-only animation keeps it cheap. */
 .water-orb { position: relative; isolation: isolate; overflow: hidden; }
