@@ -11,7 +11,7 @@ import {
   Scale, TrendingUp, ClipboardCheck, Car, Bot, Bell, MapPin, Menu, X,
   ChevronRight, ChevronLeft, Factory, FolderInput, ShieldCheck, Navigation, Zap, MessageSquare,
   LifeBuoy, Star,
-  Megaphone, Files, BriefcaseBusiness, ChevronDown,
+  Megaphone, Files, BriefcaseBusiness, ChevronDown, Search,
 } from "lucide-react";
 
 const SidebarContext = createContext(null);
@@ -146,11 +146,26 @@ function NotifBadge({ count }) {
 function NavList({ entries, pathname, unreadNotifications, onNavigate }) {
   const activeGroup = entries.find((entry) => entry.type === "group" && isEntryActive(entry, pathname))?.key;
   const [opened, setOpened] = useState(activeGroup || "operations");
+  const [query, setQuery] = useState("");
+  const filteredEntries = query.trim()
+    ? entries.map((entry) => {
+        const matches = (value) => value.toLowerCase().includes(query.trim().toLowerCase());
+        if (entry.type === "link") return matches(entry.label) ? entry : null;
+        const items = entry.items.filter((item) => matches(item.label) || matches(entry.label));
+        return items.length ? { ...entry, items } : null;
+      }).filter(Boolean)
+    : entries;
   return (
-    <div className="nav-scroll flex flex-col gap-1.5 flex-1 overflow-y-auto pr-1">
-      {entries.map((entry) => {
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <label className="relative block px-0.5">
+        <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8FB8B3]" />
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Find a workspace…"
+          className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-8 pr-3 text-xs text-white outline-none placeholder:text-[#8FB8B3] focus:border-aqua/60 focus:bg-white/10" />
+      </label>
+      <div className="nav-scroll flex flex-1 flex-col gap-1.5 overflow-y-auto pr-1">
+      {filteredEntries.map((entry) => {
         const items = entry.type === "link" ? [entry] : entry.items;
-        const expanded = entry.type === "group" && (opened === entry.key || isEntryActive(entry, pathname));
+        const expanded = entry.type === "group" && (query.trim() || opened === entry.key || isEntryActive(entry, pathname));
         const EntryIcon = entry.icon;
         return (
           <div key={entry.type === "link" ? entry.href : entry.key}>
@@ -178,6 +193,8 @@ function NavList({ entries, pathname, unreadNotifications, onNavigate }) {
           </div>
         );
       })}
+      {filteredEntries.length === 0 && <p className="px-3 py-5 text-center text-xs text-[#8FB8B3]">No workspace found.</p>}
+      </div>
     </div>
   );
 }
