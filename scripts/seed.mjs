@@ -1,4 +1,4 @@
-// Creates the first Owner login + a couple of demo Delivery Boy logins.
+// Creates the first Owner login from environment variables.
 // Run: npm run seed
 import { createClient } from "@supabase/supabase-js";
 import { readFileSync } from "fs";
@@ -33,26 +33,27 @@ async function upsertUser({ email, password, full_name, role }) {
 }
 
 async function main() {
-  console.log("Seeding Evergreen Water logins...\n");
-  await upsertUser({ email: "owner@evergreenplus.pk", password: "Evergreen@123", full_name: "Hanif (Owner)", role: "owner" });
-  await upsertUser({ email: "manager@evergreenplus.pk", password: "Evergreen@123", full_name: "Operations Manager", role: "manager" });
-  await upsertUser({ email: "accountant@evergreenplus.pk", password: "Evergreen@123", full_name: "Accountant", role: "accountant" });
-  const boy = await upsertUser({ email: "faisal@evergreenplus.pk", password: "Evergreen@123", full_name: "Faisal Nadeem", role: "delivery_boy" });
+  const email = process.env.INITIAL_OWNER_EMAIL?.trim().toLowerCase();
+  const password = process.env.INITIAL_OWNER_PASSWORD;
+  const fullName = process.env.INITIAL_OWNER_NAME?.trim() || "Evergreen Water Owner";
 
-  if (boy) {
-    const { data: existingEmp } = await admin.from("employees").select("id").eq("user_id", boy.id).maybeSingle();
-    if (!existingEmp) {
-      await admin.from("employees").insert({ user_id: boy.id, name: "Faisal Nadeem", phone: "03001234567", role: "Delivery Boy", status: "Active" });
-      console.log("Linked employee record for Faisal Nadeem");
-    }
+  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY in .env.local");
+  }
+  if (!email || !email.includes("@")) {
+    throw new Error("Set a valid INITIAL_OWNER_EMAIL in .env.local");
+  }
+  if (!password || password.length < 12) {
+    throw new Error("INITIAL_OWNER_PASSWORD must contain at least 12 characters");
   }
 
-  console.log("\nDone. Login with:");
-  console.log("  owner@evergreenplus.pk / Evergreen@123");
-  console.log("  manager@evergreenplus.pk / Evergreen@123");
-  console.log("  accountant@evergreenplus.pk / Evergreen@123");
-  console.log("  faisal@evergreenplus.pk / Evergreen@123  (Delivery Boy)");
-  console.log("\n⚠ Change these passwords immediately after first login.");
+  console.log("Creating the initial Evergreen Water owner account...");
+  const owner = await upsertUser({ email, password, full_name: fullName, role: "owner" });
+  if (!owner) process.exitCode = 1;
+  else console.log(`Owner account is ready: ${email}`);
 }
 
-main();
+main().catch((error) => {
+  console.error(error.message);
+  process.exitCode = 1;
+});
