@@ -58,8 +58,10 @@ export default function CustomerForm({ mode = "create", customer, zones, product
     if (mode === "create") {
       setBusy(true);
       try {
-        const { matches } = await checkDuplicateCustomer(formData.get("phone"), formData.get("name"));
+        const duplicateResult = await checkDuplicateCustomer(formData.get("phone"), formData.get("name"));
         setBusy(false);
+        if (duplicateResult?.error) { setError(duplicateResult.error); return; }
+        const { matches } = duplicateResult;
         if (matches?.length) { setDuplicates({ matches, formData }); return; }
       } catch {
         setBusy(false);

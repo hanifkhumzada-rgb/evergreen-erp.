@@ -4,6 +4,7 @@ import { Plus, X, Search } from "lucide-react";
 import { createDelivery } from "@/app/actions";
 import { pkr } from "@/lib/format";
 import Toast from "@/components/Toast";
+import { useOfflineSubmit } from "@/lib/useOfflineSubmit";
 
 // customers here already carry everything the search needs to show
 // pre-submit — zone/route/rate/bottle balance/outstanding/payment frequency
@@ -14,11 +15,13 @@ export default function DeliveryForm({ customers, products, riders = [], current
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
-  const [busy, setBusy] = useState(false);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(null);
   const [productId, setProductId] = useState(products?.[0]?.id || "");
   const formRef = useRef();
+  const { submit, busy } = useOfflineSubmit("delivery", createDelivery, {
+    label: (payload) => `Delivery — ${customers.find((c) => c.id === payload.customer_id)?.name || "customer"}`,
+  });
 
   // A per-row "Deliver" quick action elsewhere (e.g. the Customers workspace)
   // links here with ?customer=<id> instead of duplicating this form's rate/
@@ -57,17 +60,14 @@ export default function DeliveryForm({ customers, products, riders = [], current
 
   const handleSubmit = async (formData) => {
     setError("");
-    setBusy(true);
     try {
-      const res = await createDelivery(formData);
-      setBusy(false);
+      const res = await submit(formData);
       if (res?.error) { setError(res.error); return; }
       setOpen(false);
       reset();
-      setToast({ type: "success", message: "Delivery recorded." });
+      setToast({ type: "success", message: res?.offline ? "Delivery saved offline — it will sync automatically when internet returns." : "Delivery recorded." });
     } catch {
-      setBusy(false);
-      setError("Network error — please check your connection and try again.");
+      setError("Could not save this delivery. Please try again.");
     }
   };
 
@@ -126,6 +126,7 @@ export default function DeliveryForm({ customers, products, riders = [], current
             <label className="block mb-3">
               <span className="text-xs font-semibold text-slate block mb-1">Bottle size *</span>
               <select name="product_id" required className="in" value={productId} onChange={(e) => setProductId(e.target.value)}>
+                {!products?.length && <option value="">No active bottle product configured</option>}
                 {(products || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
             </label>
@@ -160,7 +161,7 @@ export default function DeliveryForm({ customers, products, riders = [], current
               </select>
             </label>
 
-            <button type="submit" disabled={busy || !selected} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">
+            <button type="submit" disabled={busy || !selected || !productId} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">
               {busy ? "Saving…" : "Save Delivery"}
             </button>
           </form>
