@@ -24,7 +24,7 @@ export default function DeliverSheet({ customer, riders = [], currentUserId }) {
 
   const defaultQty = customer.regularQty > 0 ? customer.regularQty : 1;
   const [deliveredQty, setDeliveredQty] = useState(defaultQty);
-  const [cashCollected, setCashCollected] = useState(Math.round(defaultQty * (customer.rate || 0)));
+  const [cashCollected, setCashCollected] = useState(customer.collectOnDelivery ? Math.round(defaultQty * (customer.rate || 0)) : 0);
 
   const handleSubmit = async (formData) => {
     setError("");
@@ -73,7 +73,11 @@ export default function DeliverSheet({ customer, riders = [], currentUserId }) {
                 <span className="text-xs font-semibold text-slate block mb-1">Bottles delivered *</span>
                 <input
                   name="delivered_qty" type="number" min={1} value={deliveredQty} required className="in"
-                  onChange={(e) => { const v = Number(e.target.value) || 0; setDeliveredQty(v); setCashCollected(Math.round(v * (customer.rate || 0))); }}
+                  onChange={(e) => {
+                    const v = Number(e.target.value) || 0;
+                    setDeliveredQty(v);
+                    setCashCollected(customer.collectOnDelivery ? Math.round(v * (customer.rate || 0)) : 0);
+                  }}
                 />
               </label>
               <label className="block">
@@ -84,7 +88,7 @@ export default function DeliverSheet({ customer, riders = [], currentUserId }) {
 
             <div className="grid grid-cols-2 gap-3 mb-3">
               <label className="block">
-                <span className="text-xs font-semibold text-slate block mb-1">Cash collected</span>
+                <span className="text-xs font-semibold text-slate block mb-1">Cash collected {customer.collectOnDelivery ? "" : "(optional)"}</span>
                 <input name="cash_collected" type="number" min={0} step="0.01" value={cashCollected} onChange={(e) => setCashCollected(Number(e.target.value) || 0)} className="in" />
               </label>
               <label className="block">
@@ -104,6 +108,10 @@ export default function DeliverSheet({ customer, riders = [], currentUserId }) {
               <span>Bottle balance: {customer.bottleBalance ?? 0}</span>
               <span className={customer.outstanding > 0 ? "text-coral" : "text-green"}>Outstanding: {pkr(customer.outstanding || 0)}</span>
             </div>
+            <p className="text-[11px] text-slate -mt-3 mb-4">
+              Payment plan: <strong className="text-ink">{customer.paymentFrequency}</strong>
+              {!customer.collectOnDelivery && " — delivery charge will stay in outstanding until payment is recorded."}
+            </p>
 
             <button type="submit" disabled={busy} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">
               {busy ? "Saving…" : "Save Delivery"}
