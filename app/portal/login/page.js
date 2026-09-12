@@ -34,6 +34,11 @@ export default function PortalLoginPage() {
     const res = await requestPortalOtp(customerCode, mobile);
     setLoading(false);
     if (!res.ok) { setError(res.error); return; }
+    if (res.testingMode) {
+      router.replace("/portal");
+      router.refresh();
+      return;
+    }
     setStep("otp");
     startResendTimer();
   };
@@ -66,7 +71,7 @@ export default function PortalLoginPage() {
       <div className="login-card-in w-full max-w-sm bg-card rounded-[30px] shadow-2xl p-7 relative overflow-hidden">
         <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-aqua via-[#9EF0D0] to-aqua" />
         <div className="flex flex-col items-center text-center mb-6">
-          <Image src="/ew-mark.svg" width={60} height={60} alt="Evergreen Water" className="rounded-2xl shadow-lg mb-3" priority />
+          <Image src="/ew-mark.svg" width={60} height={60} alt="Evergreen Water" className="rounded-2xl shadow-lg mb-3" priority unoptimized />
           <h1 className="font-display text-xl font-semibold">My Evergreen Water</h1>
           <p className="text-xs text-slate mt-1 max-w-[260px]">Deliveries, payments, bottles and statements—securely in your pocket.</p>
         </div>
@@ -95,13 +100,14 @@ export default function PortalLoginPage() {
                 />
               </div>
             </label>
-            <p className="text-[11px] text-slate mb-4">Your number must match the one registered with Evergreen Water.</p>
+            <p className="text-[11px] text-slate mb-2">Your number must match the one registered with Evergreen Water.</p>
+            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg mb-4">Testing mode: SMS verification is temporarily disabled.</p>
             {error && <p className="text-coral text-xs mb-3 bg-coralSoft px-3 py-2 rounded-lg">{error}</p>}
             <button
               disabled={loading} type="submit"
               className="w-full py-3 rounded-full bg-gradient-to-r from-navy to-navyLight hover:shadow-xl text-white font-bold text-sm disabled:opacity-60 shadow-lg transition-all"
             >
-              {loading ? "Sending code…" : "Send verification code"}
+              {loading ? "Opening portal…" : "Open customer portal"}
             </button>
           </form>
         ) : (
