@@ -483,11 +483,14 @@ export async function voidInvoice(invoiceId, reason) {
 
 export async function createPayment(formData) {
   const { supabase, user } = await requireUser();
+  const businessId = await getUserBusinessId(supabase, user.id);
+  if (!businessId) return { error: "Your account is not assigned to a business." };
   const { data: receiptNo } = await supabase.rpc("fn_next_receipt_no");
   const methodMap = { Cash: "cash", "Bank Transfer": "bank", JazzCash: "jazzcash", Easypaisa: "easypaisa" };
   const method = methodMap[formData.get("method")] || "cash";
   const customerId = formData.get("customer_id");
   const amount = Number(formData.get("amount"));
+  if (!customerId || !Number.isFinite(amount) || amount <= 0) return { error: "Pick a customer and enter a valid payment amount." };
 
   // Duplicate-submission guard — same pattern createDelivery already uses.
   // Without this, a double-tapped "Record Payment" button or a retried
@@ -502,6 +505,7 @@ export async function createPayment(formData) {
 
   const { data: payment, error } = await supabase.from("payments").insert({
     receipt_no: receiptNo,
+    business_id: businessId,
     customer_id: customerId,
     amount,
     method,
@@ -584,16 +588,17 @@ export async function createDelivery(formData) {
   const amount = deliveredQty * rate;
   const cashRaw = formData.get("cash_collected");
   const cashCollected = cashRaw != null && cashRaw !== "" ? Number(cashRaw) : 0;
+  const requestId = String(formData.get("request_id") || "").trim() || null;
+  if (!Number.isFinite(cashCollected) || cashCollected < 0) return { error: "Cash collected cannot be negative." };
 
-  // Duplicate-submission guard — a double-tapped Deliver button or a retried
-  // network request within a few seconds resolves to the already-created
-  // delivery instead of double-charging/double-posting bottles for the
-  // same customer.
-  const { data: recentDup } = await supabase.from("deliveries")
-    .select("id").eq("customer_id", customerId).eq("delivery_date", deliveryDate).eq("status", "delivered")
-    .gte("created_at", new Date(Date.now() - 20000).toISOString())
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
-  if (recentDup) return { ok: true, duplicate: true };
+  // Idempotency is tied to this exact form submission, not customer/date.
+  // That protects offline retries and double taps while still allowing two
+  // legitimate same-day deliveries for the same customer.
+  if (requestId) {
+    const { data: previousRequest } = await supabase.from("deliveries")
+      .select("id").eq("business_id", businessId).eq("request_id", requestId).maybeSingle();
+    if (previousRequest) return { ok: true, duplicate: true };
+  }
 
   // The daily recurring-order cron (app/api/cron/recurring-orders) may
   // already have created a "pending" placeholder for this customer today —
@@ -610,6 +615,7 @@ export async function createDelivery(formData) {
     ({ data: delivery, error } = await supabase.from("deliveries").update({
       rider_id: riderId, status: "delivered", amount, amount_collected: cashCollected,
       payment_method: "cash", delivered_at: new Date().toISOString(),
+      request_id: requestId,
     }).eq("id", existingPending.id).select("id").single());
   } else {
     ({ data: delivery, error } = await supabase.from("deliveries").insert({
@@ -624,9 +630,11 @@ export async function createDelivery(formData) {
       payment_method: "cash",
       delivered_at: new Date().toISOString(),
       created_by: user.id,
+      request_id: requestId,
     }).select("id").single());
   }
   if (error) {
+    if (error.code === "23505" && requestId) return { ok: true, duplicate: true };
     console.error("[createDelivery] delivery insert failed", { code: error.code, message: error.message, userId: user.id, customerId });
     return { error: error.message };
   }

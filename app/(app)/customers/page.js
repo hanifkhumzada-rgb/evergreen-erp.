@@ -8,6 +8,7 @@ import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { bulkImportCustomers, deleteCustomer } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
+import CustomerSearchForm from "@/components/CustomerSearchForm";
 import { Truck, Wallet, FilePlus, UserCircle2 } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -79,7 +80,7 @@ const CUSTOMER_TYPES_FILTER = ["Home", "Office", "Corporate", "Shop", "Other"];
 
 export default async function CustomersPage({ searchParams }) {
   const sp = (await searchParams) || {};
-  const q = (sp.q || "").trim().toLowerCase();
+  const q = (sp.q || "").trim();
   const zoneFilter = sp.zone || "";
   const statusFilter = sp.status || "";
   const typeFilter = sp.type || "";
@@ -115,9 +116,12 @@ export default async function CustomersPage({ searchParams }) {
     if (statusFilter && c.status !== statusFilter) return false;
     if (typeFilter && c.customer_type !== typeFilter) return false;
     if (q) {
-      const haystack = [c.code, c.name, c.mobile, c.alternate_phone, c.whatsapp_number, c.route, c.zones?.name]
-        .filter(Boolean).join(" ").toLowerCase();
-      if (!haystack.includes(q)) return false;
+      const normalize = (value) => String(value || "").normalize("NFKD").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+      const compact = (value) => normalize(value).replace(/\s+/g, "");
+      const haystack = [c.code, c.name, c.company_name, c.contact_person, c.mobile, c.alternate_phone, c.whatsapp_number, c.email, c.address, c.area, c.route, c.zones?.name]
+        .filter(Boolean).join(" ");
+      const words = normalize(q).split(/\s+/).filter(Boolean);
+      if (!words.every((word) => normalize(haystack).includes(word)) && !compact(haystack).includes(compact(q))) return false;
     }
     return true;
   });
@@ -147,27 +151,8 @@ export default async function CustomersPage({ searchParams }) {
         <KPI label="CUSTOMERS DUE" value={customersDue} tone="amber" sub="with an outstanding balance" />
       </div>
 
-      <form className="no-print flex flex-wrap gap-2.5 mb-4 items-center" action="/customers">
-        <input
-          type="text" name="q" defaultValue={sp.q || ""}
-          placeholder="Search name, ID, phone, route…"
-          className="px-3 py-2 rounded-xl border border-line bg-card text-xs w-56"
-        />
-        <select name="zone" defaultValue={zoneFilter} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
-          <option value="">All zones</option>
-          {(zones || []).map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
-        </select>
-        <select name="type" defaultValue={typeFilter} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
-          <option value="">All types</option>
-          {CUSTOMER_TYPES_FILTER.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
-        <select name="status" defaultValue={statusFilter} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
-          <option value="">All statuses</option>
-          {Object.entries(STATUS_BADGE).map(([v, b]) => <option key={v} value={v}>{b.text}</option>)}
-        </select>
-        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Filter</button>
-        {hasFilters && <Link href="/customers" className="text-xs text-slate hover:text-aqua">Clear</Link>}
-      </form>
+      <CustomerSearchForm initialQuery={q} zone={zoneFilter} type={typeFilter} status={statusFilter} zones={zones || []} types={CUSTOMER_TYPES_FILTER} />
+      {hasFilters && <Link href="/customers" className="no-print inline-block text-xs text-slate hover:text-aqua -mt-2 mb-3">Clear all filters</Link>}
       {/* Deliberately a sibling <div>, not inside the filter <form> above —
           every trigger button here (BulkImportButton/ExportExcelButton/
           PrintButton/CustomerForm's "New Customer") is a plain <button>
