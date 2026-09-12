@@ -6,6 +6,7 @@ import GlobalSearch from "@/components/GlobalSearch";
 import OfflineIndicator from "@/components/OfflineIndicator";
 import StaffLocationTracker from "@/components/StaffLocationTracker";
 import QuickAdd from "@/components/QuickAdd";
+import NavigationControls from "@/components/NavigationControls";
 import { Bell, Command } from "lucide-react";
 
 export default async function AppLayout({ children }) {
@@ -45,6 +46,7 @@ export default async function AppLayout({ children }) {
         <header className="no-print sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 py-3 border-b border-line glass-bar">
           <div className="flex items-center gap-3">
             <SidebarToggleButton />
+            <NavigationControls />
             <div className="hidden lg:flex items-center gap-2 text-xs text-slate"><span className="w-2 h-2 rounded-full bg-green animate-pulse" /> Live workspace</div>
             <StaffLocationTracker />
           </div>

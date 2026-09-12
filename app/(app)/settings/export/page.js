@@ -1,7 +1,8 @@
 import { createClient } from "@/lib/supabase/server";
-import { ExportExcelButton } from "@/components/ui";
+import { ExportExcelButton, ExportCsvButton } from "@/components/ui";
 import { getBrandingLite } from "@/lib/pdf/business";
-import { FileSpreadsheet } from "lucide-react";
+import Link from "next/link";
+import { FileSpreadsheet, Upload, Truck, Users } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -78,8 +79,13 @@ export default async function ExportDataPage() {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-1">Export Data</h2>
-      <p className="text-slate text-sm mb-5">Download any dataset as Excel in one place, instead of visiting each page individually.</p>
+      <h2 className="font-display text-2xl font-semibold mb-1">Import / Export Center</h2>
+      <p className="text-slate text-sm mb-5">Data ko preview karke import karein, ya CSV aur branded coloured Excel backup download karein.</p>
+      <div className="grid sm:grid-cols-2 gap-3 mb-6 max-w-3xl">
+        <Link href="/customers" className="rounded-2xl border border-line bg-aquaSoft/50 p-4 flex items-center gap-3 hover:border-aqua/40"><div className="w-10 h-10 rounded-xl bg-card grid place-items-center text-aqua"><Users size={18} /></div><div><p className="text-sm font-semibold">Import Customers</p><p className="text-xs text-slate">Excel/CSV preview, validation and import</p></div><Upload size={16} className="ml-auto text-slate" /></Link>
+        <Link href="/deliveries" className="rounded-2xl border border-line bg-aquaSoft/50 p-4 flex items-center gap-3 hover:border-aqua/40"><div className="w-10 h-10 rounded-xl bg-card grid place-items-center text-aqua"><Truck size={18} /></div><div><p className="text-sm font-semibold">Import Deliveries</p><p className="text-xs text-slate">Bulk delivery preview before saving</p></div><Upload size={16} className="ml-auto text-slate" /></Link>
+      </div>
+      <h3 className="font-display text-lg font-semibold mb-3">Download backups</h3>
       <div className="flex flex-col gap-2 max-w-xl">
         {datasets.map((d) => (
           <div key={d.name} className="flex items-center justify-between border border-line rounded-2xl px-5 py-4">
@@ -90,7 +96,10 @@ export default async function ExportDataPage() {
                 <div className="text-xs text-slate">{d.rows.length} row{d.rows.length === 1 ? "" : "s"}</div>
               </div>
             </div>
-            <ExportExcelButton rows={d.rows} sheetName={d.sheetName} reportTitle={d.name} branding={branding} />
+            <div className="flex flex-wrap justify-end gap-2">
+              <ExportCsvButton rows={d.rows} reportTitle={d.name} />
+              <ExportExcelButton rows={d.rows} sheetName={d.sheetName} reportTitle={d.name} branding={branding} />
+            </div>
           </div>
         ))}
       </div>
