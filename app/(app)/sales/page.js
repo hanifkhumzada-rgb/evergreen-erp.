@@ -7,12 +7,14 @@ import BulkImportButton from "@/components/BulkImportButton";
 import { bulkImportSales } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
+import { Search } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 const STATUS_LABEL = { paid: "Paid", partially_paid: "Partially Paid", sent: "Pending", draft: "Draft", overdue: "Overdue", void: "Void" };
 const STATUS_TONE = { paid: "green", partially_paid: "amber", sent: "coral", draft: "slate", overdue: "coral", void: "slate" };
 
-export default async function SalesPage() {
+export default async function SalesPage({ searchParams }) {
+  const sp = (await searchParams) || {};
   const supabase = await createClient();
   const [branding, { data: invoices }, { data: customers }, { data: products }] = await Promise.all([
     getBrandingLite(supabase),
@@ -22,7 +24,9 @@ export default async function SalesPage() {
   ]);
 
   const qtyOf = (s) => (s.invoice_items || []).reduce((a, i) => a + Number(i.quantity), 0);
-  const exportRows = (invoices || []).map((s) => ({
+  const q = (sp.q || "").trim().toLowerCase();
+  const rows = (invoices || []).filter((s) => !q || `${s.invoice_no || ""} ${s.customers?.name || ""} ${s.invoice_date || ""}`.toLowerCase().includes(q));
+  const exportRows = rows.map((s) => ({
     Invoice: s.invoice_no, Date: s.invoice_date, Customer: s.customers?.name, Qty: qtyOf(s), Total: s.net_amount, Status: STATUS_LABEL[s.status] || s.status,
   }));
 
@@ -32,6 +36,7 @@ export default async function SalesPage() {
     <div>
       <DocumentPrintHeader branding={branding} title="Sales" meta={`${(invoices || []).length} invoices\nGenerated ${fmtDate(today)}`} />
       <h2 className="no-print font-display text-2xl font-semibold mb-4">Sales</h2>
+      <form className="no-print flex flex-wrap gap-2.5 mb-4" action="/sales"><input type="search" name="q" defaultValue={sp.q || ""} placeholder="Search invoice, customer or date…" className="px-3 py-2 rounded-xl border border-line bg-card text-xs w-64" /><button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-bold"><Search size={14} /> Search</button>{q ? <Link href="/sales" className="self-center text-xs text-slate">Clear</Link> : null}</form>
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <BulkImportButton
@@ -50,8 +55,8 @@ export default async function SalesPage() {
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>Invoice #</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Total</Th><Th>Status</Th></tr></thead>
           <tbody>
-            {(invoices || []).length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate">No sales yet.</td></tr>}
-            {(invoices || []).map((s) => (
+            {rows.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate">No sales match.</td></tr>}
+            {rows.map((s) => (
               <tr key={s.id} className="hover:bg-foam">
                 <Td><Link href={`/sales/${s.id}`} className="font-semibold text-navy hover:text-aqua">{s.invoice_no}</Link></Td>
                 <Td>{fmtDate(s.invoice_date)}</Td>
