@@ -43,6 +43,9 @@ export async function middleware(request) {
   // same as /login, or the client-side code that processes the link would
   // never get to run.
   const isPasswordReset = pathname.startsWith("/reset-password");
+  // Short-lived, token-protected owner recovery route. This exception is
+  // removed immediately after the owner password has been restored.
+  const isOwnerRecovery = pathname.startsWith("/owner-recovery");
   // Customer Portal ("My Evergreen Water") lives entirely under /portal —
   // its own login, its own session (a real Supabase Auth session, but for
   // a profile whose role is 'customer'), completely separate from the
@@ -52,7 +55,7 @@ export async function middleware(request) {
   // other's routes.
   const isPortalRoute = pathname.startsWith("/portal");
   const isPortalLogin = pathname === "/portal/login";
-  const isAppRoute = !isAuthRoute && !isPasswordReset && !isPortalRoute && pathname !== "/";
+  const isAppRoute = !isAuthRoute && !isPasswordReset && !isOwnerRecovery && !isPortalRoute && pathname !== "/";
 
   if (!user && isAppRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
