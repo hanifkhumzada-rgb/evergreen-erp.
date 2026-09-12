@@ -160,3 +160,17 @@ table tr.hover\:bg-foam:hover {
 @media (prefers-reduced-motion: reduce) {
   .login-card-in { animation: none; }
 }
+/* Customer Portal — lightweight 3D water scene (CSS only). */
+.portal-water-scene { position: absolute; inset: 0; pointer-events: none; perspective: 900px; overflow: hidden; }
+.portal-orb { position: absolute; border-radius: 999px; background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.8), rgba(158,240,208,.22) 28%, rgba(7,124,105,.08) 65%, transparent 70%); box-shadow: inset -12px -18px 30px rgba(2,38,37,.16), 0 18px 45px rgba(0,0,0,.12); animation: portalFloat 7s ease-in-out infinite; }
+.portal-orb-one { width: 92px; height: 92px; left: 5%; top: 11%; }
+.portal-orb-two { width: 54px; height: 54px; right: 7%; bottom: 12%; animation-delay: -3s; }
+.portal-bottle { position: absolute; right: clamp(-28px, 2vw, 28px); top: 28%; width: 92px; height: 190px; border: 3px solid rgba(255,255,255,.34); border-radius: 28px 28px 34px 34px; background: linear-gradient(110deg, rgba(255,255,255,.3), rgba(158,240,208,.08) 44%, rgba(0,0,0,.08)); box-shadow: inset 14px 0 22px rgba(255,255,255,.16), inset -10px 0 20px rgba(0,0,0,.12), 0 28px 50px rgba(0,0,0,.2); transform: rotateY(-18deg) rotateZ(7deg); animation: portalBottle 6s ease-in-out infinite; overflow: hidden; opacity: .72; }
+.portal-bottle-cap { position: absolute; width: 42px; height: 18px; top: -14px; left: 22px; border-radius: 7px 7px 3px 3px; background: linear-gradient(90deg,#063d3b,#21b88f,#063d3b); }
+.portal-bottle-label { position: absolute; z-index: 2; inset: 68px 14px auto; height: 52px; display: grid; place-items: center; border-radius: 14px; color: white; font-weight: 800; font-size: 24px; background: linear-gradient(135deg,rgba(6,61,59,.9),rgba(8,124,105,.82)); box-shadow: 0 8px 20px rgba(0,0,0,.15); }
+.portal-bottle-wave { position: absolute; left: -25%; bottom: -35px; width: 150%; height: 112px; border-radius: 42%; background: linear-gradient(180deg,rgba(158,240,208,.6),rgba(8,124,105,.52)); animation: portalWave 4s linear infinite; }
+@keyframes portalFloat { 0%,100%{transform:translate3d(0,0,0) scale(1)} 50%{transform:translate3d(8px,-18px,24px) scale(1.06)} }
+@keyframes portalBottle { 0%,100%{transform:rotateY(-18deg) rotateZ(7deg) translateY(0)} 50%{transform:rotateY(12deg) rotateZ(2deg) translateY(-16px)} }
+@keyframes portalWave { to{transform:rotate(360deg)} }
+@media (max-width:640px){.portal-bottle{right:-48px;opacity:.34}.portal-orb-one{left:-28px}.portal-orb-two{right:-12px}}
+@media (prefers-reduced-motion:reduce){.portal-orb,.portal-bottle,.portal-bottle-wave{animation:none}}
