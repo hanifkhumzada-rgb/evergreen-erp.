@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Eye, File, FileSpreadsheet, UploadCloud, X } from "lucide-react";
+import { Download, Eye, File, FileSpreadsheet, Printer, UploadCloud, X } from "lucide-react";
 
 const MAX_BYTES = 15 * 1024 * 1024;
 
@@ -39,10 +39,19 @@ export default function DocumentPreview() {
   };
 
   const clear = () => { if (url) URL.revokeObjectURL(url); setFile(null); setUrl(""); setSheet(null); setError(""); };
+  const printFile = () => {
+    if (!url) return;
+    if (kind === "pdf" || kind === "image") {
+      const popup = window.open(url, "_blank", "noopener,noreferrer");
+      if (popup) popup.addEventListener("load", () => popup.print(), { once: true });
+      return;
+    }
+    window.print();
+  };
 
   return (
     <div className="grid lg:grid-cols-[320px_1fr] gap-5">
-      <section className="rounded-2xl border bg-card p-5 h-fit">
+      <section className="no-print rounded-2xl border bg-card p-5 h-fit">
         <div className="w-11 h-11 rounded-2xl bg-aquaSoft text-aqua flex items-center justify-center mb-4"><UploadCloud size={22} /></div>
         <h2 className="font-display text-lg font-semibold">Open a document</h2>
         <p className="text-xs text-slate mt-1 mb-5">PDF, image, Excel ya CSV ko upload se pehle safely preview karein.</p>
@@ -53,7 +62,7 @@ export default function DocumentPreview() {
           <span className="block text-[11px] text-slate mt-1">Maximum 15MB</span>
         </label>
         {error ? <p className="text-xs text-coral bg-coralSoft rounded-xl p-3 mt-4">{error}</p> : null}
-        {file ? <div className="mt-4 flex items-center gap-3 rounded-xl border p-3"><File size={18} className="text-aqua" /><div className="min-w-0 flex-1"><p className="text-xs font-semibold truncate">{file.name}</p><p className="text-[10px] text-slate">{(file.size / 1024).toFixed(0)} KB</p></div><button type="button" onClick={clear} aria-label="Close preview"><X size={16} /></button></div> : null}
+        {file ? <><div className="mt-4 flex items-center gap-3 rounded-xl border p-3"><File size={18} className="text-aqua" /><div className="min-w-0 flex-1"><p className="text-xs font-semibold truncate">{file.name}</p><p className="text-[10px] text-slate">{(file.size / 1024).toFixed(0)} KB</p></div><button type="button" onClick={clear} aria-label="Close preview"><X size={16} /></button></div><div className="grid grid-cols-2 gap-2 mt-3"><a href={url} download={file.name} className="flex items-center justify-center gap-1.5 rounded-xl bg-aqua text-white py-2.5 text-xs font-bold"><Download size={14} /> Download</a><button type="button" onClick={printFile} className="flex items-center justify-center gap-1.5 rounded-xl border border-line py-2.5 text-xs font-bold"><Printer size={14} /> Print</button></div></> : null}
       </section>
 
       <section className="rounded-2xl border bg-card overflow-hidden min-h-[560px]">
