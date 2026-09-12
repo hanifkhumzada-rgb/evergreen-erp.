@@ -77,7 +77,7 @@ export default function PortalLoginPage() {
       <div className="login-card-in w-full max-w-sm bg-card rounded-[30px] shadow-2xl p-7 relative overflow-hidden">
         <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-aqua via-[#9EF0D0] to-aqua" />
         <div className="flex flex-col items-center text-center mb-6">
-          <Image src="/ew-mark.svg" width={60} height={60} alt="Evergreen Water" className="rounded-2xl shadow-lg mb-3" priority unoptimized />
+          <Image src="/icon-192.png" width={60} height={60} alt="Evergreen Water" className="rounded-2xl shadow-lg mb-3" priority unoptimized />
           <h1 className="font-display text-xl font-semibold">My Evergreen Water</h1>
           <p className="text-xs text-slate mt-1 max-w-[260px]">Deliveries, payments, bottles and statements—securely in your pocket.</p>
         </div>
