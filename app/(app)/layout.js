@@ -9,13 +9,13 @@ import QuickAdd from "@/components/QuickAdd";
 import { Bell, Command } from "lucide-react";
 
 export default async function AppLayout({ children }) {
-  const { supabase, user, profile } = await getCurrentProfile();
+  const { supabase, user, profile, roleKey } = await getCurrentProfile();
   if (!user) redirect("/login");
   // A customer-portal session (role 'customer') landing on a staff route —
   // sent to /portal instead. This used to be middleware's job via its own
   // extra `profiles` query on every navigation; doing it here instead
   // reuses getCurrentProfile()'s own fetch, at zero extra cost.
-  if (profile?.roles?.key === "customer") redirect("/portal");
+  if (roleKey === "customer") redirect("/portal");
 
   const unreadNotificationsRes = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("is_read", false);
   const unreadNotifications = unreadNotificationsRes.count || 0;
@@ -34,12 +34,13 @@ export default async function AppLayout({ children }) {
     );
   }
 
-  const roleLabel = profile.roles?.name || "—";
+  const embeddedRole = Array.isArray(profile.roles) ? profile.roles[0] : profile.roles;
+  const roleLabel = embeddedRole?.name || (roleKey ? roleKey[0].toUpperCase() + roleKey.slice(1) : "—");
 
   return (
     <SidebarProvider>
     <div className="min-h-screen app-shell-bg flex">
-      <Sidebar role={profile.roles?.key} unreadNotifications={unreadNotifications} />
+      <Sidebar role={roleKey} unreadNotifications={unreadNotifications} />
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="no-print sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 py-3 border-b border-line glass-bar">
           <div className="flex items-center gap-3">
@@ -68,7 +69,7 @@ export default async function AppLayout({ children }) {
           </div>
         </header>
         <main className="page-stage p-4 sm:p-6 lg:p-8 overflow-y-auto"><div className="mx-auto w-full max-w-[1600px]">{children}</div></main>
-        <QuickAdd role={profile.roles?.key} />
+        <QuickAdd role={roleKey} />
       </div>
     </div>
     </SidebarProvider>
