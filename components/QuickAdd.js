@@ -6,7 +6,7 @@ import { Plus, UserPlus, Truck, Receipt, Wallet, FilePlus2, ClipboardCheck, X } 
 
 const ACTIONS = [
   { label: "New customer", href: "/customers?quick=new", icon: UserPlus, roles: ["owner", "admin", "manager"] },
-  { label: "Record delivery", href: "/deliveries?quick=new", icon: Truck, roles: ["owner", "admin", "manager", "rider"] },
+  { label: "Record delivery", href: "/deliveries?quick=new", icon: Truck, roles: ["owner", "admin", "manager"] },
   { label: "Receive payment", href: "/payments?quick=new", icon: Receipt, roles: ["owner", "admin", "accountant"] },
   { label: "Add expense", href: "/expenses?quick=new", icon: Wallet, roles: ["owner", "admin", "manager", "accountant"] },
   { label: "Create invoice", href: "/invoices?quick=new", icon: FilePlus2, roles: ["owner", "admin", "manager", "accountant"] },
@@ -32,7 +32,7 @@ export default function QuickAdd({ role }) {
 
   if (!actions.length) return null;
   return (
-    <div ref={rootRef} className="no-print fixed bottom-5 right-5 z-40 sm:bottom-7 sm:right-7">
+    <div ref={rootRef} className="quick-add-root no-print fixed bottom-5 right-5 z-40 sm:bottom-7 sm:right-7">
       {open && (
         <div className="mb-3 w-64 overflow-hidden rounded-2xl border border-line bg-card p-2 shadow-2xl shadow-navy/20">
           <div className="flex items-center justify-between px-2 py-1.5">
@@ -53,6 +53,7 @@ export default function QuickAdd({ role }) {
         className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-aqua to-[#087C69] px-4 py-3 text-sm font-bold text-white shadow-xl shadow-aqua/25 transition hover:-translate-y-0.5 hover:shadow-2xl">
         <Plus size={19} className={`transition-transform ${open ? "rotate-45" : ""}`} /> Quick Add
       </button>
+      <style jsx global>{`.pdf-preview-open .quick-add-root { display: none !important; }`}</style>
     </div>
   );
 }

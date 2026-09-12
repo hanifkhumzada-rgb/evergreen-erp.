@@ -1,7 +1,10 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, FileDown, Loader2, Eye, FileText, X } from "lucide-react";
+
+const PdfCanvasPreview = dynamic(() => import("@/components/PdfCanvasPreview"), { ssr: false });
 
 export function Badge({ text, tone = "slate" }) {
   const map = {
@@ -132,9 +135,11 @@ export function DownloadPdfButton({ href, label = "Download PDF" }) {
     const previousOverflow = document.body.style.overflow;
     const closeOnEscape = (event) => { if (event.key === "Escape") setPreviewOpen(false); };
     document.body.style.overflow = "hidden";
+    document.body.classList.add("pdf-preview-open");
     window.addEventListener("keydown", closeOnEscape);
     return () => {
       document.body.style.overflow = previousOverflow;
+      document.body.classList.remove("pdf-preview-open");
       window.removeEventListener("keydown", closeOnEscape);
     };
   }, [previewOpen]);
@@ -159,7 +164,7 @@ export function DownloadPdfButton({ href, label = "Download PDF" }) {
             <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate">Document Preview</span>
             <a href={href} className="inline-flex items-center gap-1 rounded-xl border border-line px-3 py-2 text-xs font-bold"><FileDown size={14} /><span className="hidden sm:inline">Download</span></a>
           </div>
-          <iframe title="PDF preview" src={previewHref} className="min-h-0 flex-1 border-0 bg-white" />
+          <PdfCanvasPreview src={previewHref} />
         </div>
       </div>
     ) : null}

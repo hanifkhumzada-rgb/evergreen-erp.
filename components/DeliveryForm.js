@@ -11,8 +11,8 @@ import { useOfflineSubmit } from "@/lib/useOfflineSubmit";
 // — all computed server-side in deliveries/page.js so this stays a plain
 // client-side filter (no round trip) matching AddSaleForm/AddPaymentForm's
 // "pass the full list as props" pattern used across the app.
-export default function DeliveryForm({ customers, products, riders = [], currentUserId, initialCustomerId }) {
-  const [open, setOpen] = useState(false);
+export default function DeliveryForm({ customers, products, riders = [], currentUserId, initialCustomerId, initialOpen = false }) {
+  const [open, setOpen] = useState(initialOpen);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
   const [query, setQuery] = useState("");

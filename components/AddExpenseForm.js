@@ -7,8 +7,8 @@ import { useOfflineSubmit } from "@/lib/useOfflineSubmit";
 
 const CATS = ["Bottle Purchase","Caps","Delivery Expenses","Electricity","Fuel","Labour","Marketing","Office","Packaging","Rent","Repairs","Salaries","Vehicle Maintenance","Other"];
 
-export default function AddExpenseForm() {
-  const [open, setOpen] = useState(false);
+export default function AddExpenseForm({ initialOpen = false }) {
+  const [open, setOpen] = useState(initialOpen);
   const [toast, setToast] = useState(null);
   const formRef = useRef();
   const { submit, busy } = useOfflineSubmit("expense", createExpense, {

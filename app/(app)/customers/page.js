@@ -141,7 +141,7 @@ export default async function CustomersPage({ searchParams }) {
           <h2 className="font-display text-2xl font-semibold mb-1">Customers</h2>
           <p className="text-slate text-sm">Customer workspace — book, balances, and quick actions in one place.</p>
         </div>
-        <CustomerForm mode="create" {...formProps} />
+        <CustomerForm mode="create" initialOpen={sp.quick === "new"} {...formProps} />
       </div>
 
       <div className="no-print flex flex-wrap gap-3.5 mb-5">

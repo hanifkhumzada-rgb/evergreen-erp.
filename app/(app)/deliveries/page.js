@@ -231,7 +231,7 @@ export default async function DeliveriesPage({ searchParams }) {
             sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Qty: 5, CashCollected: 600, Date: "2026-08-31", Product: "19L", Returned: 5 }}
             previewType="deliveries"
           />
-          <DeliveryForm customers={formCustomers} products={products || []} riders={riders || []} currentUserId={user.id} initialCustomerId={sp.customer || ""} />
+          <DeliveryForm customers={formCustomers} products={products || []} riders={riders || []} currentUserId={user.id} initialCustomerId={sp.customer || ""} initialOpen={sp.quick === "new"} />
         </div>
       </div>
 
