@@ -1,7 +1,7 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, FileDown, Loader2, Eye, FileText } from "lucide-react";
+import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, FileDown, Loader2, Eye, FileText, ExternalLink, X } from "lucide-react";
 
 export function Badge({ text, tone = "slate" }) {
   const map = {
@@ -125,15 +125,44 @@ export function ExportCsvButton({ rows, reportTitle = "Report" }) {
 // existing PrintButton untouched.
 export function DownloadPdfButton({ href, label = "Download PDF" }) {
   const previewHref = `${href}${href.includes("?") ? "&" : "?"}preview=1`;
+  const [previewOpen, setPreviewOpen] = useState(false);
+
+  useEffect(() => {
+    if (!previewOpen) return undefined;
+    const closeOnBack = () => setPreviewOpen(false);
+    window.history.pushState({ ...(window.history.state || {}), evergreenPdfPreview: true }, "");
+    window.addEventListener("popstate", closeOnBack);
+    return () => window.removeEventListener("popstate", closeOnBack);
+  }, [previewOpen]);
+
+  const closePreview = () => {
+    if (window.history.state?.evergreenPdfPreview) window.history.back();
+    else setPreviewOpen(false);
+  };
+
   return (
+    <>
     <span className="no-print inline-flex items-center gap-1.5">
-      <a href={previewHref} target="_blank" rel="noopener noreferrer" className={TOOLBAR_BTN} title="Open PDF without downloading">
+      <button type="button" onClick={() => setPreviewOpen(true)} className={TOOLBAR_BTN} title="Preview inside ERP">
         <Eye size={14} /> Preview
-      </a>
+      </button>
       <a href={href} className={TOOLBAR_BTN}>
         <FileDown size={14} /> {label}
       </a>
     </span>
+    {previewOpen ? (
+      <div className="no-print fixed inset-0 z-[100] bg-navy/70 p-2 sm:p-5" role="dialog" aria-modal="true" aria-label="PDF preview">
+        <div className="mx-auto flex h-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
+          <div className="flex items-center gap-2 border-b border-line px-3 py-2.5 sm:px-4">
+            <button type="button" onClick={closePreview} className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-xs font-bold"><X size={15} /> Back to ERP</button>
+            <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate">Document Preview</span>
+            <a href={previewHref} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-xl border border-line px-3 py-2 text-xs font-bold"><ExternalLink size={14} /><span className="hidden sm:inline">Open separately</span></a>
+          </div>
+          <iframe title="PDF preview" src={previewHref} className="min-h-0 flex-1 border-0 bg-white" />
+        </div>
+      </div>
+    ) : null}
+    </>
   );
 }
 
