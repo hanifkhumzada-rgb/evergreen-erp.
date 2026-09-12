@@ -2,6 +2,17 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
+  experimental: {
+    // @react-pdf/renderer loads PDFKit's built-in fonts dynamically.
+    // Next's file tracer cannot discover those runtime paths on its own,
+    // so Vercel previously omitted them and every PDF preview returned 500.
+    outputFileTracingIncludes: {
+      "/api/pdf/**": [
+        "./node_modules/pdfkit/js/standard-fonts/**/*",
+        "./node_modules/pdfkit/js/data/**/*",
+      ],
+    },
+  },
   async headers() {
     return [
       {
