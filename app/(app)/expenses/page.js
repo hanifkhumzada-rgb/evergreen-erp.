@@ -133,7 +133,7 @@ export default async function ExpensesPage({ searchParams }) {
         />
         <ExportExcelButton rows={exportRows} sheetName="Expenses" reportTitle="Expenses" branding={branding} />
         <PrintButton />
-        <AddExpenseForm />
+        <AddExpenseForm initialOpen={sp.quick === "new"} />
       </div>
       <p className="no-print text-xs text-slate mb-2">{rows.length} of {allRows.length} expenses</p>
       <div className="overflow-x-auto border border-line rounded-2xl">

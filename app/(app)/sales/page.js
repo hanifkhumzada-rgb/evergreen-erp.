@@ -49,7 +49,7 @@ export default async function SalesPage({ searchParams }) {
         <ExportExcelButton rows={exportRows} sheetName="Sales" reportTitle="Sales" branding={branding} />
         <DownloadPdfButton href={`/api/pdf/daily-sales?date=${new Date().toISOString().slice(0, 10)}`} label="Download Today's PDF" />
         <PrintButton />
-        <AddSaleForm customers={customers || []} products={products || []} />
+        <AddSaleForm customers={customers || []} products={products || []} initialOpen={sp.quick === "new"} />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">

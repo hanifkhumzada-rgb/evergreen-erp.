@@ -4,8 +4,8 @@ import { Plus, X } from "lucide-react";
 import { createSale } from "@/app/actions";
 import Toast from "@/components/Toast";
 
-export default function AddSaleForm({ customers, products, initialCustomerId }) {
-  const [open, setOpen] = useState(false);
+export default function AddSaleForm({ customers, products, initialCustomerId, initialOpen = false }) {
+  const [open, setOpen] = useState(initialOpen);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
   const [busy, setBusy] = useState(false);

@@ -96,7 +96,7 @@ export default async function InvoicesPage({ searchParams }) {
         <ExportExcelButton rows={exportRows} sheetName="Invoices" reportTitle="Invoice Center" branding={branding} />
         <DownloadPdfButton href={`/api/pdf/daily-sales?date=${today}`} label="Download Today's PDF" />
         <PrintButton />
-        <AddSaleForm customers={customers || []} products={products || []} initialCustomerId={sp.customer || ""} />
+        <AddSaleForm customers={customers || []} products={products || []} initialCustomerId={sp.customer || ""} initialOpen={sp.quick === "new"} />
       </div>
       <p className="no-print text-xs text-slate mb-2">{rows.length} of {allRows.length} invoices</p>
       <div className="overflow-x-auto border border-line rounded-2xl">

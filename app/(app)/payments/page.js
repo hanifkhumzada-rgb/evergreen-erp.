@@ -218,6 +218,7 @@ export default async function PaymentsPage({ searchParams }) {
           customers={(balances || []).map((b) => ({ id: b.customer_id, name: b.name, balance: b.balance, frequency: freqMap[b.customer_id] }))}
           collectors={collectors || []}
           initialCustomerId={sp.customer || ""}
+          initialOpen={sp.quick === "new"}
         />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">

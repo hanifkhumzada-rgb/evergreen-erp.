@@ -21,8 +21,8 @@ const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 // form covering the full Customer Master, matching how the customers table
 // is actually structured (permanent info here; sales/deliveries/payments/
 // bottle movements are transactions elsewhere that feed the AUTO fields).
-export default function CustomerForm({ mode = "create", customer, zones, products, vehicles, riders, routes = [], canManageFinancial, trigger }) {
-  const [open, setOpen] = useState(false);
+export default function CustomerForm({ mode = "create", customer, zones, products, vehicles, riders, routes = [], canManageFinancial, trigger, initialOpen = false }) {
+  const [open, setOpen] = useState(initialOpen);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
   const [busy, setBusy] = useState(false);
