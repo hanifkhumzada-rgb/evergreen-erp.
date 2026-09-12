@@ -43,9 +43,6 @@ export async function middleware(request) {
   // same as /login, or the client-side code that processes the link would
   // never get to run.
   const isPasswordReset = pathname.startsWith("/reset-password");
-  // Short-lived, token-protected owner recovery route. This exception is
-  // removed immediately after the owner password has been restored.
-  const isOwnerRecovery = pathname.startsWith("/owner-recovery");
   // Customer Portal ("My Evergreen Water") lives entirely under /portal —
   // its own login, its own session (a real Supabase Auth session, but for
   // a profile whose role is 'customer'), completely separate from the
@@ -55,7 +52,7 @@ export async function middleware(request) {
   // other's routes.
   const isPortalRoute = pathname.startsWith("/portal");
   const isPortalLogin = pathname === "/portal/login";
-  const isAppRoute = !isAuthRoute && !isPasswordReset && !isOwnerRecovery && !isPortalRoute && pathname !== "/";
+  const isAppRoute = !isAuthRoute && !isPasswordReset && !isPortalRoute && pathname !== "/";
 
   if (!user && isAppRoute) {
     return NextResponse.redirect(new URL("/login", request.url));
@@ -95,7 +92,7 @@ export const config = {
   // <img>/<link> tag requesting one from an unauthenticated page (the login
   // page itself, or the PWA manifest before first login) got back the
   // /login HTML page instead of the actual asset. Listed explicitly rather
-  // than by a generic extension pattern — a regex like `.*\.[\w]+$` inside
+  // than by a generic extension pattern — a regex like `.*\\.[\\w]+$` inside
   // this negative lookahead also matches _next/static's own hashed .js/.css
   // chunk requests in a way path-to-regexp doesn't resolve the same as a
   // plain JS RegExp would, which broke the app entirely (confirmed live).
