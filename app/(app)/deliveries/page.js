@@ -100,7 +100,7 @@ export default async function DeliveriesPage({ searchParams }) {
       .select("customer_id, delivery_date, amount_collected, delivery_items(delivered_qty, returned_qty)")
       .eq("status", "delivered").order("delivery_date", { ascending: false }).limit(500),
     supabase.from("customers")
-      .select("id, code, name, mobile, route, route_id, routes(name), zone_id, zones(name), default_product_id, payment_frequency, regular_qty, preferred_days, delivery_frequency, assigned_rider_id, status, is_active"),
+      .select("id, code, name, mobile, route, route_id, routes(name), zone_id, zones(name), default_product_id, payment_frequency, payment_terms, regular_qty, preferred_days, delivery_frequency, assigned_rider_id, status, is_active"),
     supabase.from("zones").select("*"),
     supabase.from("routes").select("id, name").eq("is_active", true).order("name"),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
@@ -176,6 +176,8 @@ export default async function DeliveriesPage({ searchParams }) {
       id: c.id, code: c.code, name: c.name, mobile: c.mobile, zoneName: c.zones?.name, routeName: c.routes?.name || c.route,
       rate: rateMap[c.id] || 0, regularQty: Number(c.regular_qty) || 0, defaultProductId: c.default_product_id,
       bottleBalance: bottleBalanceMap[c.id] || 0, outstanding: balanceMap[c.id] || 0,
+      paymentFrequency: c.payment_frequency || "Monthly",
+      collectOnDelivery: c.payment_frequency === "Daily" || /cash\s*on\s*delivery|\bcash\b/i.test(c.payment_terms || ""),
       status, deliveredToday: todayRow, lastDelivery: lastDeliveryMap[c.id],
     };
   });
@@ -276,13 +278,14 @@ export default async function DeliveriesPage({ searchParams }) {
                 {c.lastDelivery && (
                   <OneTapDeliverButton
                     variant="repeat" label="Repeat Last" customer={c} currentUserId={user.id}
-                    deliveredQty={c.lastDelivery.deliveredQty} returnedQty={c.lastDelivery.returnedQty} cashCollected={c.lastDelivery.cashCollected}
+                    deliveredQty={c.lastDelivery.deliveredQty} returnedQty={c.lastDelivery.returnedQty}
+                    cashCollected={c.collectOnDelivery ? Math.round(c.lastDelivery.deliveredQty * c.rate) : 0}
                   />
                 )}
                 {!c.lastDelivery && c.regularQty > 0 && (
                   <OneTapDeliverButton
                     variant="complete" label="Complete" customer={c} currentUserId={user.id}
-                    deliveredQty={c.regularQty} returnedQty={c.regularQty} cashCollected={Math.round(c.regularQty * c.rate)}
+                    deliveredQty={c.regularQty} returnedQty={c.regularQty} cashCollected={c.collectOnDelivery ? Math.round(c.regularQty * c.rate) : 0}
                   />
                 )}
                 <SkipDeliveryButton customerId={c.id} />
