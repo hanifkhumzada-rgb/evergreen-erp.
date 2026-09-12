@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, FileDown, Loader2, Eye, FileText, ExternalLink, X } from "lucide-react";
+import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, FileDown, Loader2, Eye, FileText, X } from "lucide-react";
 
 export function Badge({ text, tone = "slate" }) {
   const map = {
@@ -129,16 +129,17 @@ export function DownloadPdfButton({ href, label = "Download PDF" }) {
 
   useEffect(() => {
     if (!previewOpen) return undefined;
-    const closeOnBack = () => setPreviewOpen(false);
-    window.history.pushState({ ...(window.history.state || {}), evergreenPdfPreview: true }, "");
-    window.addEventListener("popstate", closeOnBack);
-    return () => window.removeEventListener("popstate", closeOnBack);
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event) => { if (event.key === "Escape") setPreviewOpen(false); };
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      window.removeEventListener("keydown", closeOnEscape);
+    };
   }, [previewOpen]);
 
-  const closePreview = () => {
-    if (window.history.state?.evergreenPdfPreview) window.history.back();
-    else setPreviewOpen(false);
-  };
+  const closePreview = () => setPreviewOpen(false);
 
   return (
     <>
@@ -154,9 +155,9 @@ export function DownloadPdfButton({ href, label = "Download PDF" }) {
       <div className="no-print fixed inset-0 z-[100] bg-navy/70 p-2 sm:p-5" role="dialog" aria-modal="true" aria-label="PDF preview">
         <div className="mx-auto flex h-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-card shadow-2xl">
           <div className="flex items-center gap-2 border-b border-line px-3 py-2.5 sm:px-4">
-            <button type="button" onClick={closePreview} className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-xs font-bold"><X size={15} /> Back to ERP</button>
+            <button type="button" onClick={closePreview} className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-xs font-bold"><X size={15} /> Close Preview</button>
             <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate">Document Preview</span>
-            <a href={previewHref} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 rounded-xl border border-line px-3 py-2 text-xs font-bold"><ExternalLink size={14} /><span className="hidden sm:inline">Open separately</span></a>
+            <a href={href} className="inline-flex items-center gap-1 rounded-xl border border-line px-3 py-2 text-xs font-bold"><FileDown size={14} /><span className="hidden sm:inline">Download</span></a>
           </div>
           <iframe title="PDF preview" src={previewHref} className="min-h-0 flex-1 border-0 bg-white" />
         </div>
