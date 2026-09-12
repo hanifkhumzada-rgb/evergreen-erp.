@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, FileDown, Loader2, Eye } from "lucide-react";
+import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, FileDown, Loader2, Eye, FileText } from "lucide-react";
 
 export function Badge({ text, tone = "slate" }) {
   const map = {
@@ -95,6 +95,30 @@ export function ExportExcelButton({ rows, sheetName = "Sheet1", reportTitle, bra
   );
 }
 
+function csvCell(value) {
+  const text = String(value ?? "").replace(/"/g, '""');
+  return `"${text}"`;
+}
+
+export function ExportCsvButton({ rows, reportTitle = "Report" }) {
+  const handleExport = () => {
+    if (!rows?.length) { alert("No data to export."); return; }
+    const columns = Object.keys(rows[0]);
+    const csv = [columns.map(csvCell).join(","), ...rows.map((row) => columns.map((column) => csvCell(row[column])).join(","))].join("\r\n");
+    const blob = new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    const slug = reportTitle.trim().replace(/[^\w\s-]/g, "").replace(/\s+/g, "_");
+    anchor.href = url;
+    anchor.download = `Evergreen_Water_${slug}_${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  };
+  return <button type="button" onClick={handleExport} className={TOOLBAR_BTN}><FileText size={14} /> Export CSV</button>;
+}
+
 // Server-generated branded PDF download (Customer Statement, Daily Sales,
 // Outstanding/Receivables only) — a plain link to a route handler that
 // streams back a real PDF, not window.print(). Every other page keeps its
@@ -116,7 +140,7 @@ export function DownloadPdfButton({ href, label = "Download PDF" }) {
 export function PrintButton() {
   return (
     <button type="button" onClick={() => window.print()} className={TOOLBAR_BTN}>
-      <Printer size={14} /> Export PDF
+      <Printer size={14} /> Print / Save PDF
     </button>
   );
 }
