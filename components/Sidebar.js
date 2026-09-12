@@ -120,9 +120,11 @@ const NAV = [
 ];
 
 function visibleEntries(role) {
+  const normalizedRole = (Array.isArray(role) ? role[0]?.key : role?.key || role)
+    ?.toString().trim().toLowerCase();
   return NAV.map((entry) => {
-    if (entry.type === "link") return entry.roles.includes(role) ? entry : null;
-    const items = entry.items.filter((i) => i.roles.includes(role));
+    if (entry.type === "link") return entry.roles.includes(normalizedRole) ? entry : null;
+    const items = entry.items.filter((i) => i.roles.includes(normalizedRole));
     return items.length ? { ...entry, items } : null;
   }).filter(Boolean);
 }
