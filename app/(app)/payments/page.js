@@ -9,6 +9,7 @@ import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { bulkImportPayments, voidPayment } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
+import { Search } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -60,7 +61,9 @@ export default async function PaymentsPage({ searchParams }) {
     // Outstanding cutoff, instead of a second hardcoded threshold.
     supabase.from("automation_rules").select("threshold_value").eq("key", "outstanding_balance").maybeSingle(),
   ]);
-  const exportRows = (payments || []).map((p) => ({ Date: p.payment_date, Customer: p.customers?.name, Amount: p.amount, Method: p.method, Collector: p.profiles?.full_name, Reference: p.reference }));
+  const historyQuery = (sp.hq || "").trim().toLowerCase();
+  const paymentRows = (payments || []).filter((p) => !historyQuery || `${p.customers?.name || ""} ${p.payment_date || ""} ${p.method || ""} ${p.reference || ""} ${p.profiles?.full_name || ""}`.toLowerCase().includes(historyQuery));
+  const exportRows = paymentRows.map((p) => ({ Date: p.payment_date, Customer: p.customers?.name, Amount: p.amount, Method: p.method, Collector: p.profiles?.full_name, Reference: p.reference }));
   const highOutstandingThreshold = Number(highRule?.threshold_value) || 10000;
 
   const lastPaymentMap = {};
@@ -196,6 +199,11 @@ export default async function PaymentsPage({ searchParams }) {
       <p className="text-[11px] text-slate mb-6">Due dates are estimated from each customer&apos;s payment frequency and last payment date — not a stored due-date field. Priority is a follow-up sort aid (days overdue + outstanding amount + payment history), not a financial figure.</p>
 
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
+        <form action="/payments" className="flex items-center gap-2">
+          <input type="search" name="hq" defaultValue={sp.hq || ""} placeholder="Search payment history…" className="px-3 py-2 rounded-xl border border-line bg-card text-xs w-52" />
+          <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-bold"><Search size={14} /> Search</button>
+          {historyQuery ? <Link href="/payments" className="text-xs text-slate">Clear</Link> : null}
+        </form>
         <div className="flex-1" />
         <BulkImportButton
           label="Bulk Import"
@@ -216,8 +224,8 @@ export default async function PaymentsPage({ searchParams }) {
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Amount</Th><Th>Method</Th><Th>Collected By</Th><Th>Reference</Th><Th>Status</Th><Th>&nbsp;</Th></tr></thead>
           <tbody>
-            {(payments || []).length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate">No payments yet.</td></tr>}
-            {(payments || []).map((p) => (
+            {paymentRows.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate">No payments match.</td></tr>}
+            {paymentRows.map((p) => (
               <tr key={p.id} className={`hover:bg-foam ${p.voided ? "opacity-60" : ""}`}>
                 <Td>{fmtDate(p.payment_date)}</Td><Td>{p.customers?.name}</Td><Td>{pkr(p.amount)}</Td><Td>{p.method}</Td><Td>{p.profiles?.full_name || "—"}</Td><Td className="text-slate">{p.reference || "—"}</Td>
                 <Td>{p.voided ? <><Badge text="Voided" tone="coral" />{p.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{p.void_reason}</div>}</> : <Badge text="Active" tone="green" />}</Td>

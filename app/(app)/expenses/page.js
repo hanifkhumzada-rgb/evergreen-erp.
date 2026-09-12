@@ -9,7 +9,7 @@ import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { bulkImportExpenses, voidExpense } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
-import { Tag } from "lucide-react";
+import { Search, Tag } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -66,15 +66,17 @@ export default async function ExpensesPage({ searchParams }) {
   const statusFilter = sp.status || "";
   const fromDate = sp.from || "";
   const toDate = sp.to || "";
+  const q = (sp.q || "").trim().toLowerCase();
   const allRows = expenses || [];
   const rows = allRows.filter((e) => {
+    if (q && !`${e.description || ""} ${e.expense_categories?.name || ""} ${e.payment_method || ""} ${e.profiles?.full_name || ""} ${e.receipt_reference || ""}`.toLowerCase().includes(q)) return false;
     if (categoryFilter && e.expense_categories?.name !== categoryFilter) return false;
     if (statusFilter && e.status !== statusFilter) return false;
     if (fromDate && e.expense_date < fromDate) return false;
     if (toDate && e.expense_date > toDate) return false;
     return true;
   });
-  const hasFilters = categoryFilter || statusFilter || fromDate || toDate;
+  const hasFilters = q || categoryFilter || statusFilter || fromDate || toDate;
   const exportRows = rows.map((e) => ({ Date: e.expense_date, Category: e.expense_categories?.name, Description: e.description, Amount: e.amount, Method: e.payment_method, Status: e.status, EnteredBy: e.profiles?.full_name, Receipt: e.receipt_reference }));
 
   return (
@@ -106,6 +108,7 @@ export default async function ExpensesPage({ searchParams }) {
 
       {isOwner && <PendingApprovals expenses={pendingExpenses} />}
       <form className="no-print flex flex-wrap gap-2.5 mb-2 items-center" action="/expenses">
+        <input type="search" name="q" defaultValue={sp.q || ""} placeholder="Search expense…" className="px-3 py-2 rounded-xl border border-line bg-card text-xs w-48" />
         <select name="category" defaultValue={categoryFilter} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
           <option value="">All categories</option>
           {(categories || []).map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
@@ -116,7 +119,7 @@ export default async function ExpensesPage({ searchParams }) {
         </select>
         <input type="date" name="from" defaultValue={fromDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
         <input type="date" name="to" defaultValue={toDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
-        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Filter</button>
+        <button type="submit" className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold"><Search size={14} /> Search</button>
         {hasFilters && <Link href="/expenses" className="text-xs text-slate hover:text-aqua">Clear</Link>}
       </form>
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">

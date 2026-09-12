@@ -13,7 +13,7 @@ import WhatsAppButton from "@/components/WhatsAppButton";
 import { bulkImportDeliveries, voidDelivery } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
-import { Phone, MessageCircle } from "lucide-react";
+import { Phone, MessageCircle, Search } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 function todayISO() { return new Date().toISOString().slice(0, 10); }
@@ -82,6 +82,11 @@ export default async function DeliveriesPage({ searchParams }) {
   }
 
   const today = todayISO();
+  const historyMonth = /^\d{4}-\d{2}$/.test(sp.month || "") ? sp.month : today.slice(0, 7);
+  const historyFrom = `${historyMonth}-01`;
+  const historyUntilDate = new Date(`${historyFrom}T00:00:00Z`);
+  historyUntilDate.setUTCMonth(historyUntilDate.getUTCMonth() + 1);
+  const historyUntil = historyUntilDate.toISOString().slice(0, 10);
   const [
     branding,
     { data: deliveries }, { data: todayDeliveries }, { data: lastDeliveredRaw },
@@ -91,8 +96,9 @@ export default async function DeliveriesPage({ searchParams }) {
   ] = await Promise.all([
     getBrandingLite(supabase),
     supabase.from("deliveries")
-      .select("*, customers(name, zone_id), profiles!deliveries_rider_id_fkey(id, full_name), delivery_items(expected_qty)")
-      .order("delivery_date", { ascending: false }).limit(200),
+      .select("*, customers(name, code, mobile, zone_id), profiles!deliveries_rider_id_fkey(id, full_name), delivery_items(expected_qty)")
+      .gte("delivery_date", historyFrom).lt("delivery_date", historyUntil)
+      .order("delivery_date", { ascending: false }).limit(5000),
     supabase.from("deliveries")
       .select("id, customer_id, status, amount, amount_collected, rider_remarks, profiles!deliveries_rider_id_fkey(full_name), delivery_items(delivered_qty)")
       .eq("delivery_date", today),
@@ -195,8 +201,10 @@ export default async function DeliveriesPage({ searchParams }) {
   const fromDate = sp.from || "";
   const toDate = sp.to || "";
   const historyRider = sp.hrider || "";
+  const historyQuery = (sp.hq || "").trim().toLowerCase();
   const allRows = (deliveries || []);
   const historyRows = allRows.filter((d) => {
+    if (historyQuery && !`${d.customers?.name || ""} ${d.customers?.code || ""} ${d.customers?.mobile || ""}`.toLowerCase().includes(historyQuery)) return false;
     if (statusFilter && d.status !== statusFilter) return false;
     if (historyRider && d.rider_id !== historyRider) return false;
     if (fromDate && d.delivery_date < fromDate) return false;
@@ -249,7 +257,7 @@ export default async function DeliveriesPage({ searchParams }) {
           <option value="">All delivery boys</option>
           {(riders || []).map((r) => <option key={r.id} value={r.id}>{r.full_name}</option>)}
         </select>
-        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Filter</button>
+        <button type="submit" className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold"><Search size={14} /> Search</button>
         {hasTodayFilters && <Link href="/deliveries" className="text-xs text-slate hover:text-aqua">Clear</Link>}
       </form>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-8">
@@ -303,10 +311,12 @@ export default async function DeliveriesPage({ searchParams }) {
         ))}
       </div>
 
-      <details className="mb-4">
-        <summary className="no-print cursor-pointer font-display text-base font-semibold mb-3">Delivery History</summary>
-        <div className="mt-3">
+      <section className="mb-4">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2"><div><h3 className="font-display text-lg font-semibold">Delivery History</h3><p className="text-xs text-slate">Har delivery apni original date aur quantity ke saath separate record hai.</p></div><Badge text={historyMonth} tone="aqua" /></div>
+        <div>
           <form className="no-print flex flex-wrap gap-2.5 mb-2 items-center" action="/deliveries">
+            <input type="search" name="hq" defaultValue={sp.hq || ""} placeholder="Search history by customer…" className="px-3 py-2 rounded-xl border border-line bg-card text-xs w-56" />
+            <input type="month" name="month" defaultValue={historyMonth} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
             <select name="hrider" defaultValue={historyRider} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
               <option value="">All delivery boys</option>
               {(riders || []).map((r) => <option key={r.id} value={r.id}>{r.full_name}</option>)}
@@ -322,8 +332,8 @@ export default async function DeliveriesPage({ searchParams }) {
             </select>
             <input type="date" name="from" defaultValue={fromDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
             <input type="date" name="to" defaultValue={toDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
-            <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Filter</button>
-            {hasHistoryFilters && <Link href="/deliveries" className="text-xs text-slate hover:text-aqua">Clear</Link>}
+            <button type="submit" className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold"><Search size={14} /> Search</button>
+            {(hasHistoryFilters || historyQuery || sp.month) && <Link href="/deliveries" className="text-xs text-slate hover:text-aqua">Clear</Link>}
             <div className="flex-1" />
             <ExportExcelButton rows={exportRows} sheetName="Deliveries" reportTitle="Deliveries" branding={branding} />
             <PrintButton />
@@ -353,7 +363,7 @@ export default async function DeliveriesPage({ searchParams }) {
             </table>
           </div>
         </div>
-      </details>
+      </section>
       <DocumentPrintFooter />
     </div>
   );

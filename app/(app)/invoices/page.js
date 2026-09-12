@@ -8,6 +8,7 @@ import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { bulkImportSales, voidInvoice } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
+import { Search } from "lucide-react";
 
 // Invoice Center. Invoices in this schema ARE the invoices table
 // (createSale/bulkImportSales generate one per sale; sales/[id]/page.js is
@@ -76,7 +77,7 @@ export default async function InvoicesPage({ searchParams }) {
           <option value="">All statuses</option>
           {Object.entries(STATUS_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
-        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
+        <button type="submit" className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold"><Search size={14} /> Search</button>
         {hasFilters && <a href="/invoices" className="text-xs text-slate hover:text-aqua">Clear</a>}
       </form>
       {/* Sibling <div>, not inside the filter <form> above — AddSaleForm's
