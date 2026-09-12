@@ -17,6 +17,7 @@ export default function DeliverSheet({ customer, riders = [], currentUserId }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
+  const [requestId, setRequestId] = useState("");
   const formRef = useRef();
   const router = useRouter();
   const { submit, busy } = useOfflineSubmit("delivery", createDelivery, { label: () => `Delivery — ${customer.name}` });
@@ -31,6 +32,7 @@ export default function DeliverSheet({ customer, riders = [], currentUserId }) {
       const res = await submit(formData);
       if (res?.error) { setError(res.error); return; }
       setOpen(false);
+      setRequestId(crypto.randomUUID());
       if (res?.offline) {
         setToast({ type: "success", message: "Saved offline — will sync when back online." });
       } else if (res?.duplicate) {
@@ -46,7 +48,7 @@ export default function DeliverSheet({ customer, riders = [], currentUserId }) {
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-aqua text-white text-xs font-semibold">
+      <button type="button" onClick={() => { setRequestId(crypto.randomUUID()); setOpen(true); }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-aqua text-white text-xs font-semibold">
         <Truck size={14} /> Deliver
       </button>
       {open && (
@@ -64,6 +66,7 @@ export default function DeliverSheet({ customer, riders = [], currentUserId }) {
 
             <input type="hidden" name="customer_id" value={customer.id} />
             <input type="hidden" name="product_id" value={customer.defaultProductId || ""} />
+            <input type="hidden" name="request_id" value={requestId} />
 
             <div className="grid grid-cols-2 gap-3 mb-3">
               <label className="block">
