@@ -75,7 +75,7 @@ export default function CustomerForm({ mode = "create", customer, zones, product
   return (
     <>
       {trigger ? (
-        <span onClick={() => setOpen(true)}>{trigger}</span>
+        <button type="button" onClick={() => setOpen(true)} className="contents">{trigger}</button>
       ) : (
         <button type="button" onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold">
           <Plus size={15} /> New Customer
@@ -278,7 +278,7 @@ function Field({ label, children }) {
 
 export function EditCustomerTrigger() {
   return (
-    <span className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold cursor-pointer hover:bg-foam">
+    <span className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-white/30 bg-white text-navy text-xs font-bold cursor-pointer hover:bg-aquaSoft">
       <Pencil size={14} /> Edit
     </span>
   );
