@@ -18,6 +18,7 @@ export default function DeliveryForm({ customers, products, riders = [], current
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(null);
   const [productId, setProductId] = useState(products?.[0]?.id || "");
+  const [requestId, setRequestId] = useState("");
   const formRef = useRef();
   const { submit, busy } = useOfflineSubmit("delivery", createDelivery, {
     label: (payload) => `Delivery — ${customers.find((c) => c.id === payload.customer_id)?.name || "customer"}`,
@@ -31,6 +32,7 @@ export default function DeliveryForm({ customers, products, riders = [], current
     const c = customers.find((x) => x.id === initialCustomerId);
     if (!c) return;
     setSelected(c);
+    setRequestId(crypto.randomUUID());
     setQuery(c.name);
     if (c.default_product_id) setProductId(c.default_product_id);
     setOpen(true);
@@ -55,6 +57,7 @@ export default function DeliveryForm({ customers, products, riders = [], current
     setSelected(null);
     setQuery("");
     setProductId(products?.[0]?.id || "");
+    setRequestId(crypto.randomUUID());
     formRef.current?.reset();
   };
 
@@ -73,7 +76,7 @@ export default function DeliveryForm({ customers, products, riders = [], current
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold">
+      <button type="button" onClick={() => { setRequestId(crypto.randomUUID()); setOpen(true); }} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold">
         <Plus size={15} /> New Delivery
       </button>
       {open && (
@@ -84,6 +87,7 @@ export default function DeliveryForm({ customers, products, riders = [], current
               <button type="button" onClick={() => { setOpen(false); reset(); }}><X size={18} /></button>
             </div>
             {error && <p className="text-coral text-xs mb-3">{error}</p>}
+            <input type="hidden" name="request_id" value={requestId} />
 
             <label className="block mb-1 relative">
               <span className="text-xs font-semibold text-slate block mb-1">Customer *</span>
