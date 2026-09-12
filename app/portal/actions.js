@@ -59,10 +59,10 @@ async function startPortalSession(admin, customerId) {
   return { ok: true };
 }
 
-export async function requestPortalOtp(customerCode, mobile) {
-  const trimmedCode = String(customerCode || "").trim().toUpperCase();
+export async function requestPortalOtp(customerIdentifier, mobile) {
+  const trimmedIdentifier = String(customerIdentifier || "").trim();
   const trimmed = String(mobile || "").trim();
-  if (!trimmedCode) return { ok: false, error: "Enter your Customer ID." };
+  if (!trimmedIdentifier) return { ok: false, error: "Enter your Customer ID or name." };
   if (trimmed.replace(/\D/g, "").length < 7) return { ok: false, error: "Enter a valid mobile number." };
 
   let admin;
@@ -79,19 +79,31 @@ export async function requestPortalOtp(customerCode, mobile) {
   // normalization as fn_request_customer_otp() itself, since
   // customers.mobile is stored inconsistently across rows.
   const digits = trimmed.replace(/\D/g, "").slice(-10);
-  const normalizedCode = trimmedCode.replace(/\s+/g, "");
-  const { data: candidate, error: lookupError } = await admin
-    .from("customers")
-    .select("id, mobile, is_active")
-    .ilike("code", normalizedCode)
-    .maybeSingle();
+  const normalizedCode = trimmedIdentifier.toUpperCase().replace(/\s+/g, "");
+  let { data: candidate, error: lookupError } = await admin
+    .from("customers").select("id, mobile, is_active")
+    .ilike("code", normalizedCode).maybeSingle();
+
+  // If no customer code matched, accept an exact customer name. Names
+  // are only usable when unique; duplicate names must use Customer ID so
+  // one customer's registered mobile can never select another account.
+  if (!lookupError && !candidate) {
+    const { data: nameMatches, error: nameError } = await admin
+      .from("customers").select("id, mobile, is_active")
+      .ilike("name", trimmedIdentifier).eq("is_active", true).limit(2);
+    lookupError = nameError;
+    if (nameMatches?.length > 1) {
+      return { ok: false, error: "More than one customer has this name. Please use your Customer ID." };
+    }
+    candidate = nameMatches?.[0] || null;
+  }
   if (lookupError) {
     console.error("[portal OTP] customer lookup failed", { code: lookupError.code, message: lookupError.message });
     return { ok: false, error: "Customer Portal could not verify your account right now. Please try again shortly." };
   }
   const candidateDigits = (candidate?.mobile || "").replace(/\D/g, "").slice(-10);
   if (!candidate || !candidate.is_active || !digits || candidateDigits !== digits) {
-    return { ok: false, error: "Customer ID and mobile number don't match our records." };
+    return { ok: false, error: "Customer ID/name and mobile number don't match our records." };
   }
 
   const { data, error } = await admin.rpc("fn_request_customer_otp", { p_mobile: trimmed });
