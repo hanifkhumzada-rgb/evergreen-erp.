@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { Droplet, Phone, KeyRound, ArrowLeft } from "lucide-react";
+import { Droplet, Phone, KeyRound, ArrowLeft, UserRound } from "lucide-react";
 import { requestPortalOtp, verifyPortalOtpAndSignIn } from "@/app/portal/actions";
 import Image from "next/image";
 
@@ -9,6 +9,7 @@ export default function PortalLoginPage() {
   const router = useRouter();
   const [step, setStep] = useState("identify"); // "identify" | "otp"
   const [customerCode, setCustomerCode] = useState("");
+  const [customerName, setCustomerName] = useState("");
   const [mobile, setMobile] = useState("");
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -31,7 +32,7 @@ export default function PortalLoginPage() {
     e.preventDefault();
     setError("");
     setLoading(true);
-    const res = await requestPortalOtp(customerCode, mobile);
+    const res = await requestPortalOtp(customerCode, customerName, mobile);
     setLoading(false);
     if (!res.ok) { setError(res.error); return; }
     if (res.testingMode) {
@@ -47,7 +48,7 @@ export default function PortalLoginPage() {
     if (resendIn > 0) return;
     setError("");
     setLoading(true);
-    const res = await requestPortalOtp(customerCode, mobile);
+    const res = await requestPortalOtp(customerCode, customerName, mobile);
     setLoading(false);
     if (!res.ok) { setError(res.error); return; }
     startResendTimer();
@@ -68,6 +69,11 @@ export default function PortalLoginPage() {
     <div className="min-h-screen relative flex items-center justify-center bg-gradient-to-br from-navy via-[#064C48] to-[#052625] p-5 overflow-hidden">
       <div className="absolute -top-32 -right-20 w-96 h-96 rounded-full bg-[#9EF0D0]/10 blur-3xl" />
       <div className="absolute -bottom-32 -left-20 w-96 h-96 rounded-full bg-aqua/15 blur-3xl" />
+      <div className="portal-water-scene" aria-hidden="true">
+        <div className="portal-orb portal-orb-one" />
+        <div className="portal-orb portal-orb-two" />
+        <div className="portal-bottle"><span className="portal-bottle-cap" /><span className="portal-bottle-label">EW</span><span className="portal-bottle-wave" /></div>
+      </div>
       <div className="login-card-in w-full max-w-sm bg-card rounded-[30px] shadow-2xl p-7 relative overflow-hidden">
         <div className="absolute inset-x-0 top-0 h-1.5 bg-gradient-to-r from-aqua via-[#9EF0D0] to-aqua" />
         <div className="flex flex-col items-center text-center mb-6">
@@ -79,13 +85,24 @@ export default function PortalLoginPage() {
         {step === "identify" ? (
           <form onSubmit={handleRequestOtp}>
             <label className="block mb-4">
-              <span className="text-xs font-semibold text-slate block mb-1.5">Customer ID or Name</span>
+              <span className="text-xs font-semibold text-slate block mb-1.5">Customer ID</span>
               <div className="relative">
                 <Droplet size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate pointer-events-none" />
                 <input
                   required value={customerCode} onChange={(e) => setCustomerCode(e.target.value)}
                   className="w-full pl-10 pr-3.5 py-3 rounded-2xl border border-line bg-card text-sm outline-none focus:border-aqua focus:ring-4 focus:ring-aqua/15 transition-all"
-                  placeholder="e.g. EW-0042 or customer name"
+                  placeholder="e.g. EW-0042"
+                />
+              </div>
+            </label>
+            <label className="block mb-4">
+              <span className="text-xs font-semibold text-slate block mb-1.5">Customer Name</span>
+              <div className="relative">
+                <UserRound size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate pointer-events-none" />
+                <input
+                  required value={customerName} onChange={(e) => setCustomerName(e.target.value)}
+                  className="w-full pl-10 pr-3.5 py-3 rounded-2xl border border-line bg-card text-sm outline-none focus:border-aqua focus:ring-4 focus:ring-aqua/15 transition-all"
+                  placeholder="Registered customer name"
                 />
               </div>
             </label>
