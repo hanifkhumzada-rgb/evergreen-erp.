@@ -11,7 +11,7 @@ import {
   Scale, TrendingUp, ClipboardCheck, Car, Bot, Bell, MapPin, Menu, X,
   ChevronRight, ChevronLeft, Factory, FolderInput, ShieldCheck, Navigation, Zap, MessageSquare,
   LifeBuoy, Star,
-  Megaphone, Files, BriefcaseBusiness, ChevronDown, Search,
+  Megaphone, Files, BriefcaseBusiness, ChevronDown, Search, CalendarCheck,
 } from "lucide-react";
 
 const SidebarContext = createContext(null);
@@ -56,6 +56,7 @@ const NAV = [
   {
     type: "group", key: "operations", label: "Operations", icon: Truck,
     items: [
+      { href: "/operations", label: "Daily Operations", icon: CalendarCheck, roles: [...OWNER_ROLES, "manager", "accountant"] },
       { href: "/customers", label: "Customers", icon: Users, roles: [...OWNER_ROLES, "manager"] },
       { href: "/deliveries", label: "Deliveries", icon: Truck, roles: [...OWNER_ROLES, "manager", "rider"] },
       { href: "/bottle-ledger", label: "Bottle Inventory", icon: Droplet, roles: [...OWNER_ROLES, "manager"] },
