@@ -79,13 +79,13 @@ export default function PortalLoginPage() {
         {step === "identify" ? (
           <form onSubmit={handleRequestOtp}>
             <label className="block mb-4">
-              <span className="text-xs font-semibold text-slate block mb-1.5">Customer ID</span>
+              <span className="text-xs font-semibold text-slate block mb-1.5">Customer ID or Name</span>
               <div className="relative">
                 <Droplet size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate pointer-events-none" />
                 <input
                   required value={customerCode} onChange={(e) => setCustomerCode(e.target.value)}
                   className="w-full pl-10 pr-3.5 py-3 rounded-2xl border border-line bg-card text-sm outline-none focus:border-aqua focus:ring-4 focus:ring-aqua/15 transition-all"
-                  placeholder="e.g. EW-0042"
+                  placeholder="e.g. EW-0042 or customer name"
                 />
               </div>
             </label>
