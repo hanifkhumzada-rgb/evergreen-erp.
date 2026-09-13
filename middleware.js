@@ -13,12 +13,6 @@ export async function middleware(request) {
       cookies: {
         get(name) { return request.cookies.get(name)?.value; },
         set(name, value, options) {
-          // Drop maxAge/expires so the session cookie is browser-session-only
-          // (cleared when the browser fully closes) instead of persisting
-          // login — UNLESS the login page set the "remember me" cookie, in
-          // which case a capped, reasonable maxAge is kept instead (see
-          // lib/rememberMe.js). This runs on every request, so a token
-          // refreshed here keeps the same lifetime the sign-in call chose.
           if (remembered) {
             const { expires, maxAge, ...rest } = options || {};
             response.cookies.set({ name, value, ...rest, maxAge: Math.min(maxAge || REMEMBER_ME_MAX_AGE, REMEMBER_ME_MAX_AGE) });
@@ -37,64 +31,18 @@ export async function middleware(request) {
   const { data: { user } } = await supabase.auth.getUser();
   const pathname = request.nextUrl.pathname;
   const isAuthRoute = pathname.startsWith("/login");
-  // The password-recovery email link lands here with a token that only the
-  // browser (not this server-side check) can see and exchange for a
-  // session — so this route has to be reachable while still unauthenticated,
-  // same as /login, or the client-side code that processes the link would
-  // never get to run.
   const isPasswordReset = pathname.startsWith("/reset-password");
-  // Customer Portal ("My Evergreen Water") lives entirely under /portal —
-  // its own login, its own session (a real Supabase Auth session, but for
-  // a profile whose role is 'customer'), completely separate from the
-  // staff-facing app below. RLS (migration 0033) is the actual isolation
-  // boundary; these redirects are a second, server-side layer on top —
-  // not just hiding nav links — so neither audience can even land on the
-  // other's routes.
   const isPortalRoute = pathname.startsWith("/portal");
   const isPortalLogin = pathname === "/portal/login";
   const isAppRoute = !isAuthRoute && !isPasswordReset && !isPortalRoute && pathname !== "/";
 
-  if (!user && isAppRoute) {
-    return NextResponse.redirect(new URL("/login", request.url));
-  }
-  if (!user && isPortalRoute && !isPortalLogin) {
-    return NextResponse.redirect(new URL("/portal/login", request.url));
-  }
-  if (user && isAuthRoute) {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
-
-  // The customer-vs-staff cross-boundary redirect (a customer landing on
-  // a staff route or vice versa) used to live here too, via its own
-  // `profiles` query — a SECOND full Supabase round-trip on every single
-  // authenticated navigation, on top of the auth.getUser() call above.
-  // Moved into app/(app)/layout.js and app/portal/(main)/layout.js
-  // instead, which already fetch this exact same role/customer-id data
-  // for their own normal per-page needs (getCurrentProfile() and
-  // fn_current_customer_id() respectively) — reusing it there costs
-  // nothing, instead of a duplicate query costing something on every
-  // navigation. RLS remains the actual isolation boundary either way;
-  // this was always a second, UX-layer redirect on top of it, so moving
-  // where it's decided changes nothing about what's actually enforced.
-  // The one edge case this drops: a customer or staff member manually
-  // navigating to /portal/login while already signed in sees the login
-  // form instead of being bounced immediately — harmless (not a hot
-  // navigation path, not a security concern), so not worth a third
-  // query here just to also cover it.
+  if (!user && isAppRoute) return NextResponse.redirect(new URL("/login", request.url));
+  if (!user && isPortalRoute && !isPortalLogin) return NextResponse.redirect(new URL("/portal/login", request.url));
+  if (user && isAuthRoute) return NextResponse.redirect(new URL("/dashboard", request.url));
 
   return response;
 }
 
 export const config = {
-  // favicon.ico was the only public/ file excluded here — every other file
-  // in public/ (icon-192.png, icon-512.png, manifest.json, sw.js) fell
-  // through to the "no session -> redirect to /login" branch above, so an
-  // <img>/<link> tag requesting one from an unauthenticated page (the login
-  // page itself, or the PWA manifest before first login) got back the
-  // /login HTML page instead of the actual asset. Listed explicitly rather
-  // than by a generic extension pattern — a regex like `.*\\.[\\w]+$` inside
-  // this negative lookahead also matches _next/static's own hashed .js/.css
-  // chunk requests in a way path-to-regexp doesn't resolve the same as a
-  // plain JS RegExp would, which broke the app entirely (confirmed live).
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon-192.png|icon-512.png|manifest.json|sw.js).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon-192.png|icon-512.png|ew-mark.svg|manifest.json|sw.js).*)"],
 };
