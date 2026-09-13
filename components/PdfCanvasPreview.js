@@ -21,8 +21,11 @@ export default function PdfCanvasPreview({ src }) {
         const pdfModule = await import("pdfjs-dist/legacy/build/pdf.js");
         const pdfjs = pdfModule.default?.getDocument ? pdfModule.default : pdfModule;
         pdfjs.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/legacy/build/pdf.worker.min.js", import.meta.url).toString();
-        const response = await fetch(src, { credentials: "same-origin" });
-        if (!response.ok) throw new Error(`PDF request failed (${response.status})`);
+        const response = await fetch(src, { credentials: "same-origin", cache: "no-store" });
+        if (!response.ok) {
+          const serverMessage = (await response.text().catch(() => "")).trim();
+          throw new Error(serverMessage ? `${serverMessage} (${response.status})` : `PDF request failed (${response.status})`);
+        }
         const task = pdfjs.getDocument({ data: await response.arrayBuffer() });
         const pdf = await task.promise;
         if (!active) { pdf.destroy(); return; }
