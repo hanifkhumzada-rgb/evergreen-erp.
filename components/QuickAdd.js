@@ -18,7 +18,13 @@ export default function QuickAdd({ role, permissions = [] }) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef(null);
   const permissionSet = new Set(permissions || []);
-  const actions = ACTIONS.filter((action) => action.roles.includes(role) || permissionSet.has(action.permission));
+
+  // Effective permission is authoritative. Role is only a safe fallback for
+  // legacy sessions where the permission RPC has not returned a list yet.
+  const actions = ACTIONS.filter((action) => {
+    if (permissions?.length) return permissionSet.has(action.permission);
+    return action.roles.includes(role);
+  });
 
   useEffect(() => {
     const close = (event) => {
