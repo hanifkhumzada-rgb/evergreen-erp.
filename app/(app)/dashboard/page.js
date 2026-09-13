@@ -300,7 +300,8 @@ export default async function DashboardPage({ searchParams }) {
 
   return (
     <div>
-      <div className="mb-5 rounded-3xl border border-aqua/20 bg-gradient-to-r from-[#073F3A] via-[#07564D] to-[#087C69] p-5 text-white shadow-lg shadow-aqua/10 sm:p-7">
+      <div className="water-orb relative mb-5 overflow-hidden rounded-3xl border border-aqua/20 bg-gradient-to-r from-[#073F3A] via-[#07564D] to-[#087C69] p-5 text-white shadow-lg shadow-aqua/10 sm:p-7">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-6 -top-10 h-40 w-28 rotate-12 rounded-[35%_35%_42%_42%] border border-white/15 bg-gradient-to-br from-white/20 to-aqua/10 shadow-2xl"><span className="absolute inset-x-3 top-16 grid h-12 place-items-center rounded-xl bg-navy/45 font-display text-xl font-bold">EW</span></div>
         <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#A9DDD7]">Evergreen executive workspace</p>
         <h2 className="font-display text-2xl font-semibold sm:text-3xl">Owner Control Room</h2>
         <p className="mt-1 text-sm text-[#D7EFEC]">{greeting()}, {firstName} · {new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</p>
@@ -337,7 +338,7 @@ export default async function DashboardPage({ searchParams }) {
         })}
       </div>
 
-      <div className="no-print flex flex-wrap items-center gap-2 mb-4">
+      <div className="erp-toolbar no-print flex flex-wrap items-center gap-2 mb-4">
         <span className="text-xs font-semibold text-slate">Business summary:</span>
         {[["today", "Today"], ["7d", "Last 7 Days"], ["month", "This Month"]].map(([k, label]) => (
           <Link key={k} href={`/dashboard?range=${k}`}

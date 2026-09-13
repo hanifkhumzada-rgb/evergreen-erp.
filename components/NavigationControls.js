@@ -5,35 +5,56 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, ArrowRight, LayoutDashboard } from "lucide-react";
 
 const HISTORY_KEY = "evergreen-erp-history";
+const INDEX_KEY = "evergreen-erp-history-index";
 
 export default function NavigationControls() {
   const router = useRouter();
   const pathname = usePathname();
-  const [canGoBack, setCanGoBack] = useState(false);
+  const [state, setState] = useState({ stack: [], index: -1 });
 
   useEffect(() => {
-    const previous = sessionStorage.getItem(HISTORY_KEY);
-    setCanGoBack(Boolean(previous && previous !== pathname));
-    if (previous !== pathname) sessionStorage.setItem(HISTORY_KEY, pathname);
+    let stack = [];
+    try { stack = JSON.parse(sessionStorage.getItem(HISTORY_KEY) || "[]"); } catch { stack = []; }
+    let index = Number(sessionStorage.getItem(INDEX_KEY));
+    if (!Number.isInteger(index) || index < 0 || index >= stack.length) index = stack.length - 1;
+    if (stack[index] !== pathname) {
+      stack = [...stack.slice(0, index + 1), pathname].slice(-30);
+      index = stack.length - 1;
+    }
+    sessionStorage.setItem(HISTORY_KEY, JSON.stringify(stack));
+    sessionStorage.setItem(INDEX_KEY, String(index));
+    setState({ stack, index });
   }, [pathname]);
 
   const goBack = () => {
-    if (window.history.length > 1 && canGoBack) router.back();
-    else router.push("/dashboard");
+    if (state.index > 0) {
+      const index = state.index - 1;
+      sessionStorage.setItem(INDEX_KEY, String(index));
+      setState((current) => ({ ...current, index }));
+      router.push(state.stack[index]);
+    } else router.push("/dashboard");
+  };
+
+  const goForward = () => {
+    if (state.index >= state.stack.length - 1) return;
+    const index = state.index + 1;
+    sessionStorage.setItem(INDEX_KEY, String(index));
+    setState((current) => ({ ...current, index }));
+    router.push(state.stack[index]);
   };
 
   return (
-    <nav className="flex items-center gap-1" aria-label="ERP page history">
+    <nav className="erp-nav-controls flex items-center gap-1" aria-label="ERP page history">
       <button type="button" onClick={goBack} title="Previous ERP page"
-        className="p-1.5 rounded-lg border border-line bg-card hover:bg-aquaSoft hover:text-aqua transition-colors">
-        <ArrowLeft size={16} />
+        className="erp-nav-button">
+        <ArrowLeft size={16} /><span className="hidden xl:inline">Back</span>
       </button>
-      <button type="button" onClick={() => router.forward()} title="Next ERP page"
-        className="p-1.5 rounded-lg border border-line bg-card hover:bg-aquaSoft hover:text-aqua transition-colors">
-        <ArrowRight size={16} />
+      <button type="button" onClick={goForward} disabled={state.index >= state.stack.length - 1} title="Next ERP page"
+        className="erp-nav-button disabled:cursor-not-allowed disabled:opacity-35">
+        <ArrowRight size={16} /><span className="hidden xl:inline">Next</span>
       </button>
       <button type="button" onClick={() => router.push("/dashboard")} title="Dashboard"
-        className="hidden sm:inline-flex p-1.5 rounded-lg border border-line bg-card hover:bg-aquaSoft hover:text-aqua transition-colors">
+        className="erp-nav-button hidden sm:inline-flex">
         <LayoutDashboard size={16} />
       </button>
     </nav>
