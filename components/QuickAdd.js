@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Plus, UserPlus, Truck, Receipt, Wallet, FilePlus2, ClipboardCheck, X } from "lucide-react";
+import { Plus, UserPlus, Truck, Receipt, Wallet, FilePlus2, ClipboardCheck, X, PencilLine } from "lucide-react";
 
 const ACTIONS = [
   { label: "New customer", href: "/customers?quick=new", icon: UserPlus, roles: ["owner", "admin", "manager"] },
   { label: "Record delivery", href: "/deliveries?quick=new", icon: Truck, roles: ["owner", "admin", "manager"] },
+  { label: "Correct delivery", href: "/delivery-corrections", icon: PencilLine, roles: ["owner", "admin", "manager"] },
   { label: "Receive payment", href: "/payments?quick=new", icon: Receipt, roles: ["owner", "admin", "accountant"] },
   { label: "Add expense", href: "/expenses?quick=new", icon: Wallet, roles: ["owner", "admin", "manager", "accountant"] },
   { label: "Create invoice", href: "/invoices?quick=new", icon: FilePlus2, roles: ["owner", "admin", "manager", "accountant"] },
@@ -34,7 +35,7 @@ export default function QuickAdd({ role }) {
   return (
     <div ref={rootRef} className="quick-add-root no-print fixed bottom-5 right-5 z-40 sm:bottom-7 sm:right-7">
       {open && (
-        <div className="mb-3 w-64 overflow-hidden rounded-2xl border border-line bg-card p-2 shadow-2xl shadow-navy/20">
+        <div className="mb-3 w-72 overflow-hidden rounded-2xl border border-line bg-card p-2 shadow-2xl shadow-navy/20">
           <div className="flex items-center justify-between px-2 py-1.5">
             <div><p className="text-sm font-bold">Quick Add</p><p className="text-[11px] text-slate">Start common work instantly</p></div>
             <button type="button" onClick={() => setOpen(false)} className="rounded-lg p-1.5 hover:bg-foam" aria-label="Close quick add"><X size={15} /></button>
