@@ -41,9 +41,25 @@ body {
 
 /* SaaS shell */
 .app-shell-bg {
+  position: relative;
+  isolation: isolate;
   background:
-    radial-gradient(circle at 82% -10%, rgba(5,150,105,.09), transparent 30rem),
+    radial-gradient(circle at 82% -10%, rgba(5,150,105,.13), transparent 30rem),
+    radial-gradient(circle at 8% 58%, rgba(14,165,233,.055), transparent 24rem),
     var(--foam);
+}
+.app-shell-bg::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  opacity: .42;
+  background-image:
+    radial-gradient(circle at center, rgba(8,124,105,.11) 0 1px, transparent 1.5px),
+    linear-gradient(125deg, transparent 48%, rgba(8,124,105,.035) 49%, transparent 51%);
+  background-size: 26px 26px, 120px 120px;
+  mask-image: linear-gradient(to bottom, black, transparent 72%);
 }
 .glass-bar {
   background: color-mix(in srgb, var(--card) 88%, transparent);
@@ -64,6 +80,11 @@ body {
   animation: water-turn 7s linear infinite;
 }
 @keyframes water-turn { to { transform: rotate(360deg); } }
+.erp-nav-controls { padding: 3px; border: 1px solid var(--line); border-radius: 13px; background: color-mix(in srgb, var(--card) 82%, transparent); box-shadow: 0 5px 18px rgba(7,59,58,.06); }
+.erp-nav-button { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 6px 9px; border-radius: 9px; color: var(--slate); font-size: 11px; font-weight: 700; transition: background-color .16s ease, color .16s ease, transform .16s ease; }
+.erp-nav-button:not(:disabled):hover { background: var(--aquaSoft); color: #087C69; transform: translateY(-1px); }
+.erp-toolbar { padding: 10px; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--card) 84%, transparent); box-shadow: 0 8px 26px rgba(7,59,58,.055); }
+.erp-toolbar input, .erp-toolbar select, .erp-toolbar button, .erp-toolbar a { min-height: 36px; }
 .nav-scroll { scrollbar-width: none; }
 .nav-scroll::-webkit-scrollbar { display: none; }
 .content-auto { content-visibility: auto; contain-intrinsic-size: 1px 600px; }

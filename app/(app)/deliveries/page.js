@@ -96,7 +96,7 @@ export default async function DeliveriesPage({ searchParams }) {
   ] = await Promise.all([
     getBrandingLite(supabase),
     supabase.from("deliveries")
-      .select("*, customers(name, code, mobile, zone_id), profiles!deliveries_rider_id_fkey(id, full_name), delivery_items(expected_qty)")
+      .select("*, customers(name, code, mobile, zone_id), profiles!deliveries_rider_id_fkey(id, full_name), delivery_items(expected_qty, delivered_qty, returned_qty)")
       .gte("delivery_date", historyFrom).lt("delivery_date", historyUntil)
       .order("delivery_date", { ascending: false }).limit(5000),
     supabase.from("deliveries")
@@ -118,7 +118,7 @@ export default async function DeliveriesPage({ searchParams }) {
     supabase.rpc("fn_has_permission", { perm_key: "deliveries.delete" }),
   ]);
 
-  const qtyOf = (d) => (d.delivery_items || []).reduce((a, i) => a + Number(i.expected_qty), 0);
+  const qtyOf = (d) => (d.delivery_items || []).reduce((a, i) => a + Number(i.delivered_qty ?? i.expected_qty), 0);
 
   const balanceMap = {};
   (balances || []).forEach((b) => { balanceMap[b.customer_id] = Number(b.balance); });
@@ -210,6 +210,25 @@ export default async function DeliveriesPage({ searchParams }) {
     if (fromDate && d.delivery_date < fromDate) return false;
     if (toDate && d.delivery_date > toDate) return false;
     return true;
+  });
+  const historySort = sp.sort || "name";
+  const monthlyCustomerRows = Object.values(historyRows.filter((d) => d.status === "delivered").reduce((acc, d) => {
+    const id = d.customer_id;
+    const row = acc[id] || { id, code: d.customers?.code || "—", name: d.customers?.name || "Unknown", visits: 0, qty: 0, returned: 0, amount: 0, collected: 0, first: d.delivery_date, latest: d.delivery_date };
+    row.visits += 1;
+    row.qty += qtyOf(d);
+    row.returned += (d.delivery_items || []).reduce((sum, item) => sum + Number(item.returned_qty || 0), 0);
+    row.amount += Number(d.amount || 0);
+    row.collected += Number(d.amount_collected || 0);
+    if (d.delivery_date < row.first) row.first = d.delivery_date;
+    if (d.delivery_date > row.latest) row.latest = d.delivery_date;
+    acc[id] = row;
+    return acc;
+  }, {})).sort((a, b) => {
+    if (historySort === "code") return a.code.localeCompare(b.code, undefined, { numeric: true });
+    if (historySort === "qty") return b.qty - a.qty;
+    if (historySort === "latest") return b.latest.localeCompare(a.latest);
+    return a.name.localeCompare(b.name);
   });
   const exportRows = historyRows.map((d) => ({ Date: d.delivery_date, Customer: d.customers?.name, Qty: qtyOf(d), DeliveryBoy: d.profiles?.full_name, Status: d.status, CashCollected: d.amount_collected }));
   const hasHistoryFilters = statusFilter || historyRider || fromDate || toDate;
@@ -314,7 +333,7 @@ export default async function DeliveriesPage({ searchParams }) {
       <section className="mb-4">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2"><div><h3 className="font-display text-lg font-semibold">Delivery History</h3><p className="text-xs text-slate">Har delivery apni original date aur quantity ke saath separate record hai.</p></div><Badge text={historyMonth} tone="aqua" /></div>
         <div>
-          <form className="no-print flex flex-wrap gap-2.5 mb-2 items-center" action="/deliveries">
+          <form className="erp-toolbar no-print flex flex-wrap gap-2.5 mb-3 items-center" action="/deliveries">
             <input type="search" name="hq" defaultValue={sp.hq || ""} placeholder="Search history by customer…" className="px-3 py-2 rounded-xl border border-line bg-card text-xs w-56" />
             <input type="month" name="month" defaultValue={historyMonth} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
             <select name="hrider" defaultValue={historyRider} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
@@ -330,6 +349,9 @@ export default async function DeliveriesPage({ searchParams }) {
               <option value="cancelled">Cancelled</option>
               <option value="void">Voided</option>
             </select>
+            <select name="sort" defaultValue={historySort} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
+              <option value="name">Sort: Customer name</option><option value="code">Sort: Customer ID</option><option value="qty">Sort: Highest quantity</option><option value="latest">Sort: Latest delivery</option>
+            </select>
             <input type="date" name="from" defaultValue={fromDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
             <input type="date" name="to" defaultValue={toDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
             <button type="submit" className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold"><Search size={14} /> Search</button>
@@ -339,14 +361,21 @@ export default async function DeliveriesPage({ searchParams }) {
             <PrintButton />
           </form>
           <p className="no-print text-xs text-slate mb-2">{historyRows.length} of {allRows.length} deliveries</p>
+          <div className="mb-4 overflow-x-auto rounded-2xl border border-line bg-card">
+            <div className="flex items-center justify-between gap-3 border-b border-line bg-gradient-to-r from-aquaSoft to-card px-4 py-3"><div><h4 className="text-sm font-bold">Customer Monthly Totals</h4><p className="text-[11px] text-slate">Old records remain separate; totals automatically include every delivery in {historyMonth}.</p></div><Badge text={`${monthlyCustomerRows.length} customers`} tone="green" /></div>
+            <table className="w-full min-w-[780px] text-[13px] border-collapse">
+              <thead><tr className="bg-foam"><Th>#</Th><Th>Customer ID</Th><Th>Customer</Th><Th>Visits</Th><Th>Total Qty</Th><Th>Returned</Th><Th>Sales</Th><Th>Collected</Th><Th>First / Latest</Th></tr></thead>
+              <tbody>{monthlyCustomerRows.length === 0 ? <tr><td colSpan={9} className="py-7 text-center text-slate">No completed deliveries in this selection.</td></tr> : monthlyCustomerRows.map((row, index) => <tr key={row.id} className="hover:bg-aquaSoft/40"><Td>{index + 1}</Td><Td>{row.code}</Td><Td>{row.name}</Td><Td>{row.visits}</Td><Td><strong>{row.qty}</strong></Td><Td>{row.returned}</Td><Td>{pkr(row.amount)}</Td><Td>{pkr(row.collected)}</Td><Td>{fmtDate(row.first)} · {fmtDate(row.latest)}</Td></tr>)}</tbody>
+            </table>
+          </div>
           <div className="overflow-x-auto border border-line rounded-2xl">
             <table className="w-full text-[13.5px] border-collapse">
-              <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Delivery Boy</Th><Th>Status</Th><Th>Cash Collected</Th><Th>Notes</Th><Th className="no-print">&nbsp;</Th></tr></thead>
+              <thead><tr className="bg-foam"><Th>#</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Delivery Boy</Th><Th>Status</Th><Th>Cash Collected</Th><Th>Notes</Th><Th className="no-print">&nbsp;</Th></tr></thead>
               <tbody>
-                {historyRows.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate">No deliveries match.</td></tr>}
-                {historyRows.map((d) => (
+                {historyRows.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-slate">No deliveries match.</td></tr>}
+                {historyRows.map((d, index) => (
                   <tr key={d.id} className={`hover:bg-foam ${d.status === "void" ? "opacity-60" : ""}`}>
-                    <Td>{fmtDate(d.delivery_date)}</Td><Td>{d.customers?.name}</Td><Td>{qtyOf(d)}</Td><Td>{d.profiles?.full_name || "—"}</Td>
+                    <Td>{index + 1}</Td><Td>{fmtDate(d.delivery_date)}</Td><Td>{d.customers?.name}</Td><Td>{qtyOf(d)}</Td><Td>{d.profiles?.full_name || "—"}</Td>
                     <Td><Badge text={d.status} tone={STATUS_TONE(d.status)} />{d.status === "void" && d.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{d.void_reason}</div>}</Td>
                     <Td>{pkr(d.amount_collected)}</Td><Td className="max-w-[220px] truncate">{d.rider_remarks || "—"}</Td>
                     <Td className="no-print">
