@@ -5,6 +5,7 @@ import { Badge, KPI, ExportExcelButton, PrintButton, Th, Td } from "@/components
 import CustomerForm from "@/components/CustomerForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
+import RecordPreview from "@/components/RecordPreview";
 import { bulkImportCustomers, deleteCustomer } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
@@ -21,18 +22,6 @@ const STATUS_BADGE = {
   archived: { text: "Archived", tone: "slate" },
 };
 
-// Same field set as the Customer Master form — the template's columns line
-// up 1:1 with CustomerForm.js's sections so a filled-in template needs no
-// extra translation on either side.
-//
-// Required set kept deliberately small for bulk import (unlike the regular
-// New/Edit Customer form, where phone etc. stay required) — the Owner is
-// importing ~200+ real customers at once and most rows won't have every
-// field filled in yet. Only what's needed to place a customer on a route
-// and bill them blocks a row: Name, Address, Area, Zone, Route, Rate, and
-// Payment Frequency. Area and Zone are genuinely different columns here
-// (area is a free-text locality like "Gulberg"; zone_id is the formal
-// operational zone) so both are listed and required separately.
 const CUSTOMER_IMPORT_FIELDS = [
   { key: "Customer Code", label: "Customer Code", required: false },
   { key: "Name", label: "Customer Name", required: true },
@@ -62,11 +51,7 @@ const CUSTOMER_IMPORT_FIELDS = [
   { key: "Status", label: "Status", required: false },
   { key: "Notes", label: "Notes", required: false },
 ];
-// Required columns are marked with a trailing "*" in the header itself —
-// same no-space convention BulkImportButton's columnsHint below already
-// used for Name*/Mobile*. The "*" is stripped out by the column-matching
-// logic's normalize step, so a downloaded-then-reuploaded template still
-// auto-maps correctly.
+
 const CUSTOMER_SAMPLE_ROW = {
   "Customer Code": "", "Name*": "Ali Traders", Company: "Ali Traders", "Contact Person": "Ali Khan",
   Mobile: "03001234567", "Alternate Phone": "", WhatsApp: "03001234567", Email: "", "Customer Type": "Shop",
@@ -103,9 +88,6 @@ export default async function CustomersPage({ searchParams }) {
   const allRows = (customers || []).map((c) => ({ ...c, balance: balanceMap[c.id] || 0 }));
   const canManageFinancial = ["owner", "admin"].includes(profile?.roles?.key);
 
-  // KPI SUMMARY — computed over the full customer set, independent of the
-  // table's active filters (same convention as the Delivery/Payment
-  // workspaces: KPIs describe the whole book, the table below is scoped).
   const monthStartISO = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
   const newThisMonth = allRows.filter((c) => c.created_at >= monthStartISO).length;
   const totalOutstanding = allRows.reduce((a, c) => a + Math.max(c.balance, 0), 0);
@@ -144,6 +126,11 @@ export default async function CustomersPage({ searchParams }) {
         <CustomerForm mode="create" initialOpen={sp.quick === "new"} {...formProps} />
       </div>
 
+      <div className="no-print mb-4">
+        <CustomerSearchForm initialQuery={q} zone={zoneFilter} type={typeFilter} status={statusFilter} zones={zones || []} types={CUSTOMER_TYPES_FILTER} />
+        {hasFilters && <Link href="/customers" className="inline-block text-xs text-slate hover:text-aqua mt-1">Clear all filters</Link>}
+      </div>
+
       <div className="no-print flex flex-wrap gap-3.5 mb-5">
         <KPI label="TOTAL CUSTOMERS" value={allRows.length} tone="navy" />
         <KPI label="NEW THIS MONTH" value={newThisMonth} tone="aqua" />
@@ -151,15 +138,6 @@ export default async function CustomersPage({ searchParams }) {
         <KPI label="CUSTOMERS DUE" value={customersDue} tone="amber" sub="with an outstanding balance" />
       </div>
 
-      <CustomerSearchForm initialQuery={q} zone={zoneFilter} type={typeFilter} status={statusFilter} zones={zones || []} types={CUSTOMER_TYPES_FILTER} />
-      {hasFilters && <Link href="/customers" className="no-print inline-block text-xs text-slate hover:text-aqua -mt-2 mb-3">Clear all filters</Link>}
-      {/* Deliberately a sibling <div>, not inside the filter <form> above —
-          every trigger button here (BulkImportButton/ExportExcelButton/
-          PrintButton/CustomerForm's "New Customer") is a plain <button>
-          without type="button" set at the component level, so nesting it
-          inside a <form> makes clicking it ALSO submit that form (a real
-          navigation to /customers), racing and killing the just-opened
-          modal. That was the cause of "New Customer opens then crashes". */}
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <BulkImportButton
@@ -183,6 +161,36 @@ export default async function CustomersPage({ searchParams }) {
             {rows.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate">No customers match.</td></tr>}
             {rows.map((c) => {
               const badge = STATUS_BADGE[c.status] || (c.is_active ? STATUS_BADGE.active : STATUS_BADGE.inactive);
+              const previewFields = [
+                { label: "Customer ID", value: c.code },
+                { label: "Name", value: c.name, emphasis: true },
+                { label: "Phone", value: c.mobile },
+                { label: "WhatsApp", value: c.whatsapp_number },
+                { label: "Type", value: c.customer_type },
+                { label: "Status", value: badge.text },
+                { label: "Zone", value: c.zones?.name },
+                { label: "Route", value: c.route },
+                { label: "Area", value: c.area },
+                { label: "Payment Frequency", value: c.payment_frequency },
+                { label: "Regular Qty", value: c.regular_qty },
+                { label: "Outstanding", value: pkr(c.balance), emphasis: c.balance > 0 },
+                { label: "Address", value: c.address, fullWidth: true },
+              ];
+              const previewExcel = [{
+                "Customer ID": c.code,
+                Name: c.name,
+                Phone: c.mobile,
+                WhatsApp: c.whatsapp_number,
+                Type: c.customer_type,
+                Zone: c.zones?.name,
+                Route: c.route,
+                Area: c.area,
+                "Payment Frequency": c.payment_frequency,
+                "Regular Qty": c.regular_qty,
+                Outstanding: c.balance,
+                Status: badge.text,
+                Address: c.address,
+              }];
               return (
                 <tr key={c.id} className="hover:bg-foam">
                   <Td className="font-mono-num text-slate">{c.code || "—"}</Td>
@@ -194,6 +202,16 @@ export default async function CustomersPage({ searchParams }) {
                   <Td><Badge text={badge.text} tone={badge.tone} /></Td>
                   <Td className="no-print">
                     <div className="flex gap-1.5">
+                      <RecordPreview
+                        iconOnly
+                        title={`${c.code || "Customer"} · ${c.name}`}
+                        subtitle="Read-only customer preview"
+                        fields={previewFields}
+                        excelRows={previewExcel}
+                        excelTitle={`${c.code || "Customer"}_${c.name}`}
+                        openHref={`/customers/${c.id}`}
+                        openLabel="Open Profile"
+                      />
                       <Link href={`/deliveries?customer=${c.id}`} title="Deliver" className="w-9 h-9 flex items-center justify-center rounded-lg border border-line text-aqua hover:bg-aquaSoft"><Truck size={15} /></Link>
                       <Link href={`/payments?customer=${c.id}`} title="Collect Payment" className="w-9 h-9 flex items-center justify-center rounded-lg border border-line text-green hover:bg-greenSoft"><Wallet size={15} /></Link>
                       <Link href={`/invoices?customer=${c.id}`} title="Create Invoice" className="w-9 h-9 flex items-center justify-center rounded-lg border border-line text-navy hover:bg-foam"><FilePlus size={15} /></Link>
