@@ -69,7 +69,7 @@ export default async function AppLayout({ children }) {
           </div>
         </header>
         <main className="page-stage p-4 sm:p-6 lg:p-8 overflow-y-auto"><div className="mx-auto w-full max-w-[1600px]">{children}</div></main>
-        <QuickAdd role={roleKey} />
+        <QuickAdd role={roleKey} permissions={effectivePermissions} />
       </div>
     </div>
     </SidebarProvider>
