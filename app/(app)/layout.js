@@ -12,14 +12,14 @@ import { Bell, Command } from "lucide-react";
 export default async function AppLayout({ children }) {
   const { supabase, user, profile, roleKey } = await getCurrentProfile();
   if (!user) redirect("/login");
-  // A customer-portal session (role 'customer') landing on a staff route —
-  // sent to /portal instead. This used to be middleware's job via its own
-  // extra `profiles` query on every navigation; doing it here instead
-  // reuses getCurrentProfile()'s own fetch, at zero extra cost.
   if (roleKey === "customer") redirect("/portal");
 
-  const unreadNotificationsRes = await supabase.from("notifications").select("id", { count: "exact", head: true }).eq("is_read", false);
+  const [unreadNotificationsRes, permissionRes] = await Promise.all([
+    supabase.from("notifications").select("id", { count: "exact", head: true }).eq("is_read", false),
+    supabase.rpc("fn_my_permission_keys"),
+  ]);
   const unreadNotifications = unreadNotificationsRes.count || 0;
+  const effectivePermissions = (permissionRes.data || []).map((row) => row.permission_key);
 
   if (!profile) {
     return (
@@ -41,7 +41,7 @@ export default async function AppLayout({ children }) {
   return (
     <SidebarProvider>
     <div className="min-h-screen app-shell-bg flex">
-      <Sidebar role={roleKey} unreadNotifications={unreadNotifications} />
+      <Sidebar role={roleKey} permissions={effectivePermissions} unreadNotifications={unreadNotifications} />
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="no-print sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 py-3 border-b border-line glass-bar">
           <div className="flex items-center gap-3">
@@ -55,9 +55,7 @@ export default async function AppLayout({ children }) {
             <div className="hidden sm:flex items-center gap-2 rounded-xl border border-line bg-foam/70 px-2 py-1"><Command size={13} className="text-slate" /><GlobalSearch /></div>
             <Link href="/notifications" className="relative p-1.5 -m-1.5 rounded-lg hover:bg-foam transition-colors" aria-label="Notifications">
               <Bell size={17} className="text-slate" />
-              {unreadNotifications > 0 && (
-                <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-coral ring-2 ring-card" />
-              )}
+              {unreadNotifications > 0 && <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-coral ring-2 ring-card" />}
             </Link>
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-aqua to-navyLight text-white flex items-center justify-center text-xs font-bold shadow-sm ring-2 ring-card flex-shrink-0">
