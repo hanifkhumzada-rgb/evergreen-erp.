@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
 import { getCurrentProfile } from "@/lib/session";
 import { pkr } from "@/lib/format";
 import { KPI } from "@/components/ui";
@@ -67,8 +66,7 @@ const TONE_BG = { aqua: "bg-aquaSoft text-aqua", navy: "bg-navy/10 text-navy", g
 
 export default async function DashboardPage({ searchParams }) {
   const sp = (await searchParams) || {};
-  const supabase = await createClient();
-  const { profile } = await getCurrentProfile(); // cached — layout.js already paid for this round trip
+  const { supabase, profile } = await getCurrentProfile(); // cached — layout.js already paid for this work
   const firstName = profile?.full_name?.split(" ")[0] || "there";
   const today = todayISO();
   const yesterday = daysAgo(1);
@@ -89,8 +87,8 @@ export default async function DashboardPage({ searchParams }) {
     { data: weekDeliveries }, { data: pendingApprovals },
   ] = await Promise.all([
     supabase.from("invoices").select("net_amount, invoice_items(quantity)").eq("invoice_date", today).neq("status", "void"),
-    supabase.from("deliveries").select("*, delivery_items(delivered_qty, returned_qty)").eq("delivery_date", today),
-    supabase.from("expenses").select("*").eq("expense_date", today).in("status", ["approved", "paid"]),
+    supabase.from("deliveries").select("status, delivery_items(delivered_qty, returned_qty)").eq("delivery_date", today),
+    supabase.from("expenses").select("amount").eq("expense_date", today).in("status", ["approved", "paid"]),
     supabase.from("v_customer_balance").select("balance"),
     supabase.from("products").select("id, name, low_stock_threshold"),
     // widened to 13 days back so the same fetch covers both the 7-day trend chart
@@ -111,7 +109,7 @@ export default async function DashboardPage({ searchParams }) {
     // "yesterday's balance" without one).
     supabase.from("invoices").select("net_amount, invoice_items(quantity)").eq("invoice_date", yesterday).neq("status", "void"),
     supabase.from("expenses").select("amount").eq("expense_date", yesterday).in("status", ["approved", "paid"]),
-    supabase.from("deliveries").select("*, delivery_items(delivered_qty)").eq("delivery_date", yesterday),
+    supabase.from("deliveries").select("status, delivery_items(delivered_qty)").eq("delivery_date", yesterday),
     supabase.from("payments").select("amount").eq("payment_date", today).eq("voided", false),
     supabase.from("purchases").select("purchase_date, purchase_items(quantity, rate, discount)").eq("purchase_date", today),
     supabase.from("cash_transactions").select("amount, cash_accounts(type)").eq("txn_date", today),
