@@ -34,7 +34,11 @@ export async function middleware(request) {
     }
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // Verify the signed JWT locally (JWKS is cached by supabase-js) instead of
+  // making a full Auth API round-trip on every route navigation. Database RLS
+  // still validates the same token for every data query.
+  const { data: { claims } } = await supabase.auth.getClaims();
+  const user = claims?.sub ? { id: claims.sub } : null;
   const pathname = request.nextUrl.pathname;
   const isAuthRoute = pathname.startsWith("/login");
   // The password-recovery email link lands here with a token that only the
