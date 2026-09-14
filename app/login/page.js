@@ -239,6 +239,12 @@ export default function LoginPage() {
               </form>
               <div className="mt-6 flex justify-center"><PwaInstallButton label="Install EW ERP App" /></div>
               <div className="mt-5 pt-5 border-t border-line flex items-center justify-between text-[11px] text-slate"><span>Secure business workspace</span><span className="inline-flex items-center gap-1"><ShieldCheck size={12} className="text-aqua"/> Role protected</span></div>
+              <p className="mt-5 text-center text-[12px] text-slate">
+                Are you a customer?{' '}
+                <a href="/portal/login" className="font-semibold text-aqua transition-colors hover:text-teal-700">
+                  Customer Portal
+                </a>
+              </p>
             </>
           ) : (
             <>
