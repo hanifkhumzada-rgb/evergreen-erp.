@@ -7,7 +7,9 @@ import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentP
 
 export const dynamic = "force-dynamic";
 
-export default async function BottlesPage() {
+export default async function BottlesPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+  const q = (sp.q || "").trim().toLowerCase();
   const supabase = await createClient();
   const [branding, { data: rows }, { data: products }, { data: reconciliation }] = await Promise.all([
     getBrandingLite(supabase),
@@ -28,10 +30,13 @@ export default async function BottlesPage() {
     entry.total += Number(r.bottles_with_customer);
     byCustomer[r.customer_id] = entry;
   });
-  const customers = Object.values(byCustomer);
-  const withCustomers = customers.reduce((a, c) => a + c.total, 0);
+  const allCustomers = Object.values(byCustomer);
+  // KPIs always reflect every customer, even while a search is narrowing
+  // the table below — searching shouldn't make "With customers" look wrong.
+  const withCustomers = allCustomers.reduce((a, c) => a + c.total, 0);
   const totalOwned = Object.values(totalOwnedMap).reduce((a, v) => a + v, 0);
   const full = totalOwned - withCustomers;
+  const customers = q ? allCustomers.filter((c) => c.name?.toLowerCase().includes(q)) : allCustomers;
   const exportRows = customers.map((c) => {
     const row = { Customer: c.name };
     (products || []).forEach((p) => { row[p.name] = c.byProduct[p.id] || 0; });
@@ -52,10 +57,14 @@ export default async function BottlesPage() {
       </div>
 
       <h4 className="text-sm font-bold mb-2.5">Customer bottle balances, by size</h4>
-      <div className="no-print flex gap-2.5 mb-3">
+      <form className="no-print flex flex-wrap gap-2.5 mb-3 items-center" action="/bottles">
+        <input type="text" name="q" defaultValue={sp.q || ""} placeholder="Search customer…" className="in w-52" />
+        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
+        {q && <Link href="/bottles" className="text-xs text-slate hover:text-aqua">Clear</Link>}
+        <div className="flex-1" />
         <ExportExcelButton rows={exportRows} sheetName="Bottles" reportTitle="Bottle Balances" branding={branding} />
         <PrintButton />
-      </div>
+      </form>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
           <thead>

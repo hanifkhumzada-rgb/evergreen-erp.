@@ -6,21 +6,44 @@ import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { voidProductionBatch } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
 function batchCost(b) { return Number(b.total_filling_cost || 0) + Number(b.cap_cost || 0) + Number(b.other_material_cost || 0); }
 
-export default async function ProductionPage() {
+export default async function ProductionPage({ searchParams }) {
+  const sp = (await searchParams) || {};
   const supabase = await createClient();
+  const monthFilter = /^\d{4}-\d{2}$/.test(sp.month || "") ? sp.month : "";
+  const q = (sp.q || "").trim().toLowerCase();
+
+  let batchQuery = supabase.from("production_batches").select("*, products(name)").order("batch_date", { ascending: false });
+  // A month filter scopes to a single month's worth of batches (never more
+  // than a few dozen), so it can safely skip the 200-row cap entirely —
+  // that cap exists only to bound the default "recent activity" view, and
+  // previously made older batches permanently unreachable (even via Export
+  // Excel, since it only ever exported the same capped `rows`).
+  if (monthFilter) {
+    const monthStartDate = new Date(`${monthFilter}-01T00:00:00Z`);
+    const monthEndDate = new Date(monthStartDate);
+    monthEndDate.setUTCMonth(monthEndDate.getUTCMonth() + 1);
+    batchQuery = batchQuery.gte("batch_date", `${monthFilter}-01`).lt("batch_date", monthEndDate.toISOString().slice(0, 10));
+  } else {
+    batchQuery = batchQuery.limit(200);
+  }
+
   const [branding, { data: batches }, { data: products }, { data: canVoid }] = await Promise.all([
     getBrandingLite(supabase),
-    supabase.from("production_batches").select("*, products(name)").order("batch_date", { ascending: false }).limit(200),
+    batchQuery,
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
     supabase.rpc("fn_has_permission", { perm_key: "production.delete" }),
   ]);
 
-  const allRows = batches || [];
+  const monthRowsAll = batches || [];
+  const allRows = q
+    ? monthRowsAll.filter((b) => [b.products?.name, b.supplier].filter(Boolean).join(" ").toLowerCase().includes(q))
+    : monthRowsAll;
   const rows = allRows.filter((b) => !b.voided);
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = today.slice(0, 7) + "-01";
@@ -47,6 +70,16 @@ export default async function ProductionPage() {
         <KPI label="TOTAL COST" value={pkr(totalCost)} tone="coral" sub={totalBottles ? `${pkr(totalCost / totalBottles)}/bottle avg` : undefined} />
       </div>
 
+      <form className="no-print flex flex-wrap gap-2.5 mb-2 items-center" action="/production">
+        <input type="text" name="q" defaultValue={sp.q || ""} placeholder="Search size, supplier…" className="in w-52" />
+        <input type="month" name="month" defaultValue={monthFilter} className="in w-40" />
+        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Filter</button>
+        {(q || monthFilter) && <Link href="/production" className="text-xs text-slate hover:text-aqua">Clear</Link>}
+      </form>
+      {/* Sibling <div>, not inside the search <form> above — a button
+          without type="button" inside a nested form submits/reloads the
+          page instead of opening its modal (the same class of bug fixed
+          on /customers and /ledger). */}
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <ExportExcelButton rows={exportRows} sheetName="Production" reportTitle="Production & Filling" branding={branding} />

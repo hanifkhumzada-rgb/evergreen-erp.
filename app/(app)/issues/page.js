@@ -9,6 +9,12 @@ export const dynamic = "force-dynamic";
 const STATUS_TONE = { open: "amber", under_review: "aqua", resolved: "green", rejected: "coral" };
 const STATUS_LABEL = { open: "Open", under_review: "Under Review", resolved: "Resolved", rejected: "Rejected" };
 
+function buildIssuesHref(status, q) {
+  const params = new URLSearchParams({ ...(status !== "all" && { status }), ...(q && { q }) });
+  const s = params.toString();
+  return s ? `/issues?${s}` : "/issues";
+}
+
 export default async function IssuesPage({ searchParams }) {
   const supabase = await createClient();
   const { data: allowed } = await supabase.rpc("fn_has_permission", { perm_key: "deliveries.edit" });
@@ -17,9 +23,14 @@ export default async function IssuesPage({ searchParams }) {
     return <p className="text-xs text-slate border border-line rounded-2xl p-5 max-w-3xl">Customer issue tickets are managed by delivery-authorized staff.</p>;
   }
 
-  const status = searchParams?.status || "all";
-  let query = supabase.from("customer_issues").select("*, customers(name, code, mobile), deliveries(delivery_no)").order("created_at", { ascending: false }).limit(200);
+  const sp = (await searchParams) || {};
+  const status = sp.status || "all";
+  const q = (sp.q || "").trim();
+  let query = supabase.from("customer_issues").select("*, customers(name, code, mobile), deliveries(delivery_no)").order("created_at", { ascending: false });
   if (status !== "all") query = query.eq("status", status);
+  if (q) query = query.or(`issue_type.ilike.%${q}%,description.ilike.%${q}%`);
+  // A search needs to reach the full history, not just the default recent-200 feed.
+  if (!q) query = query.limit(200);
 
   const [{ data: issues }, { data: allIssues }] = await Promise.all([
     query,
@@ -38,13 +49,21 @@ export default async function IssuesPage({ searchParams }) {
         <KPI label="Rejected" value={counts.rejected} tone="slate" />
       </div>
 
-      <div className="flex gap-2 mb-4">
-        {["all", "open", "under_review", "resolved", "rejected"].map((s) => (
-          <Link key={s} href={s === "all" ? "/issues" : `/issues?status=${s}`}
-            className={`px-3 py-1.5 rounded-full text-xs font-semibold ${status === s ? "bg-navy text-white" : "bg-card border border-line text-slate"}`}>
-            {s === "all" ? "All" : STATUS_LABEL[s]}
-          </Link>
-        ))}
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <div className="flex gap-2">
+          {["all", "open", "under_review", "resolved", "rejected"].map((s) => (
+            <Link key={s} href={buildIssuesHref(s, q)}
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold ${status === s ? "bg-navy text-white" : "bg-card border border-line text-slate"}`}>
+              {s === "all" ? "All" : STATUS_LABEL[s]}
+            </Link>
+          ))}
+        </div>
+        <form action="/issues" className="flex gap-2 items-center">
+          {status !== "all" && <input type="hidden" name="status" value={status} />}
+          <input type="text" name="q" defaultValue={q} placeholder="Search type or description…" className="in w-56" />
+          <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
+          {q && <Link href={buildIssuesHref(status, "")} className="text-xs text-slate hover:text-aqua">Clear</Link>}
+        </form>
       </div>
 
       <div className="bg-card border border-line rounded-2xl overflow-hidden">

@@ -1843,6 +1843,20 @@ export async function refreshAlerts() {
   return { ok: !error, error: error?.message };
 }
 
+export async function markNotificationRead(id) {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.from("notifications").update({ is_read: true }).eq("id", id);
+  revalidatePath("/notifications");
+  return { ok: !error, error: error?.message };
+}
+
+export async function markAllNotificationsRead() {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.from("notifications").update({ is_read: true }).eq("is_read", false);
+  revalidatePath("/notifications");
+  return { ok: !error, error: error?.message };
+}
+
 // Communication Center's Retry button. RLS on notification_logs already
 // restricts the underlying update to settings.manage, so a non-owner
 // reaching this returns the RLS error rather than silently succeeding —
@@ -2151,6 +2165,18 @@ export async function createZone(formData) {
   return { ok: true };
 }
 
+export async function updateZone(zoneId, formData) {
+  const { supabase } = await requireUser();
+  const name = (formData.get("name") || "").toString().trim();
+  if (!name) return { error: "Zone name is required." };
+  const { error } = await supabase.from("zones").update({
+    name, description: formData.get("description") || null,
+  }).eq("id", zoneId);
+  if (error) return { error: error.message };
+  revalidatePath("/zones");
+  return { ok: true };
+}
+
 // Hard delete, gated on zones.delete (separate from settings.manage,
 // migration 0012). FK from customers/expenses/profiles/routes into zones
 // is NO ACTION — a zone still in use anywhere can't be deleted.
@@ -2180,6 +2206,23 @@ export async function createRoute(formData) {
     assigned_rider_id: formData.get("assigned_rider_id") || null,
     description: formData.get("description") || null,
   });
+  if (error) return { error: error.message };
+  revalidatePath("/zones");
+  revalidatePath("/customers");
+  return { ok: true };
+}
+
+export async function updateRoute(routeId, formData) {
+  const { supabase } = await requireUser();
+  const name = (formData.get("name") || "").toString().trim();
+  if (!name) return { error: "Route name is required." };
+  const { error } = await supabase.from("routes").update({
+    name,
+    zone_id: formData.get("zone_id") || null,
+    assigned_rider_id: formData.get("assigned_rider_id") || null,
+    description: formData.get("description") || null,
+    is_active: formData.get("is_active") === "on",
+  }).eq("id", routeId);
   if (error) return { error: error.message };
   revalidatePath("/zones");
   revalidatePath("/customers");
@@ -2290,7 +2333,11 @@ export async function deleteEmployeeAttendance(attendanceId, reason) {
 
 export async function updateEmployeeProfile(employeeId, formData) {
   const { supabase, user } = await requireUser();
+  const fullName = (formData.get("full_name") || "").toString().trim();
+  if (!fullName) return { error: "Name is required." };
   const { error } = await supabase.from("profiles").update({
+    full_name: fullName,
+    phone: formData.get("phone") || null,
     employee_code: formData.get("employee_code") || null,
     joining_date: formData.get("joining_date") || null,
     salary: formData.get("salary") ? Number(formData.get("salary")) : null,

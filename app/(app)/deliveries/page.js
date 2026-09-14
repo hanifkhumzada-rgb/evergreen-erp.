@@ -48,6 +48,13 @@ export default async function DeliveriesPage({ searchParams }) {
       .select("*, customers(*), delivery_items(expected_qty)")
       .eq("rider_id", user.id).eq("delivery_date", todayISO());
 
+    const riderCustomerIds = [...new Set((deliveries || []).map((d) => d.customer_id).filter(Boolean))];
+    const { data: riderBalances } = riderCustomerIds.length
+      ? await supabase.from("v_customer_bottle_balance").select("customer_id, bottles_with_customer").in("customer_id", riderCustomerIds)
+      : { data: [] };
+    const bottleBalanceMap = {};
+    (riderBalances || []).forEach((b) => { bottleBalanceMap[b.customer_id] = (bottleBalanceMap[b.customer_id] || 0) + Number(b.bottles_with_customer || 0); });
+
     return (
       <div>
         <h2 className="font-display text-2xl font-semibold mb-4">Today&apos;s Route</h2>
@@ -55,17 +62,22 @@ export default async function DeliveriesPage({ searchParams }) {
           {(deliveries || []).length === 0 && <p className="text-sm text-slate">No deliveries assigned for today.</p>}
           {(deliveries || []).map((d) => {
             const qty = (d.delivery_items || []).reduce((a, i) => a + Number(i.expected_qty), 0);
+            // Empties expected back defaults to what this customer currently
+            // holds (their running bottle balance), not today's delivered
+            // quantity — those two numbers coincide only by coincidence in a
+            // strict 1-for-1 exchange. Both stay editable on confirm.
+            const emptyExpected = bottleBalanceMap[d.customer_id] ?? qty;
             return (
               <div key={d.id} className="border border-line rounded-2xl p-4">
                 <div className="flex justify-between"><strong>{d.customers?.name}</strong><Badge text={d.status} tone={STATUS_TONE(d.status)} /></div>
                 <p className="text-xs text-slate my-1">{d.customers?.address}</p>
-                <p className="text-sm">Qty: <strong>{qty}</strong> · Empty expected: <strong>{qty}</strong></p>
+                <p className="text-sm">Qty: <strong>{qty}</strong> · Empty expected: <strong>{emptyExpected}</strong></p>
                 <div className="flex gap-2 mt-2.5 flex-wrap">
                   <a href={`tel:${d.customers?.mobile}`} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold"><Phone size={14} /> Call</a>
                   {d.customers?.whatsapp_number && <a href={`https://wa.me/${d.customers.whatsapp_number.replace(/^0/, "92")}`} target="_blank" className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold"><MessageCircle size={14} /> WhatsApp</a>}
                   {d.status !== "delivered" && (
                     <>
-                      <MarkDeliveredButton deliveryId={d.id} emptyExpected={qty} />
+                      <MarkDeliveredButton deliveryId={d.id} deliveredDefault={qty} emptyExpected={emptyExpected} />
                       <DeliveryStatusButton deliveryId={d.id} status="missed" label="Failed" tone="coral" />
                       <DeliveryStatusButton deliveryId={d.id} status="rescheduled" label="Reschedule" tone="amber" />
                       <DeliveryStatusButton deliveryId={d.id} status="cancelled" label="Cancel" tone="coral" />

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
 import { Badge, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
@@ -8,7 +9,9 @@ import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentP
 
 export const dynamic = "force-dynamic";
 
-export default async function InventoryPage() {
+export default async function InventoryPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+  const q = (sp.q || "").trim().toLowerCase();
   const supabase = await createClient();
   const [branding, { data: products }, { data: stock }, { data: prices }, { data: purchases }] = await Promise.all([
     getBrandingLite(supabase),
@@ -25,11 +28,20 @@ export default async function InventoryPage() {
 
   const rows = (products || []).map((p) => ({ ...p, currentStock: stockMap[p.id] || 0, price: priceMap[p.id] || 0 }));
   const exportRows = rows.map(({ id, is_active, created_at, ...r }) => r);
+  const visible = q ? rows.filter((p) => p.name?.toLowerCase().includes(q) || p.unit?.toLowerCase().includes(q)) : rows;
 
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Inventory" meta={`${rows.length} products\nGenerated ${fmtDate(new Date().toISOString())}`} />
       <h2 className="no-print font-display text-2xl font-semibold mb-4">Inventory</h2>
+      {/* Kept as a sibling form, not nested with the toolbar below — a button
+          without an explicit type inside another form submits/reloads instead
+          of doing its own action. */}
+      <form className="no-print flex flex-wrap gap-2.5 mb-2.5 items-center" action="/inventory">
+        <input type="text" name="q" defaultValue={sp.q || ""} placeholder="Search product, unit…" className="in w-60" />
+        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
+        {q && <Link href="/inventory" className="text-xs text-slate hover:text-aqua">Clear</Link>}
+      </form>
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <ExportExcelButton rows={exportRows} sheetName="Inventory" reportTitle="Inventory" branding={branding} />
@@ -39,7 +51,8 @@ export default async function InventoryPage() {
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>Product</Th><Th>Unit</Th><Th>Current Stock</Th><Th>Reorder Level</Th><Th>Price</Th><Th>Status</Th></tr></thead>
           <tbody>
-            {rows.map((p) => (
+            {visible.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate">No products match.</td></tr>}
+            {visible.map((p) => (
               <tr key={p.id} className="hover:bg-foam">
                 <Td className="font-semibold">{p.name}</Td><Td>{p.unit}</Td><Td>{p.currentStock}</Td><Td>{p.low_stock_threshold}</Td><Td>{pkr(p.price)}</Td>
                 <Td>{p.currentStock < p.low_stock_threshold ? <Badge text="Low stock — reorder" tone="coral" /> : <Badge text="OK" tone="green" />}</Td>

@@ -15,11 +15,18 @@ export const dynamic = "force-dynamic";
 export default async function TrackingPage() {
   const supabase = await createClient();
 
+  // StaffLocationTracker (app/(app)/layout.js) writes a new row every few
+  // seconds for every staff member with the app open, so this table grows
+  // continuously and without bound. Only the latest row per person is ever
+  // used (reduced below) and nobody's position from more than a day ago is
+  // "live" in any meaningful sense, so a 24h floor keeps this query fast
+  // forever instead of scanning the whole table on every page load.
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const [{ data: staff }, { data: locations }] = await Promise.all([
     supabase.from("profiles").select("id, full_name, roles!inner(key, name)").neq("roles.key", "customer").eq("is_active", true).order("full_name"),
     // Most recent row first per person — reduced to one-per-person below.
     // RLS (gps.view) already scopes this to the caller's own business.
-    supabase.from("staff_locations").select("user_id, latitude, longitude, recorded_at").order("recorded_at", { ascending: false }),
+    supabase.from("staff_locations").select("user_id, latitude, longitude, recorded_at").gte("recorded_at", oneDayAgo).order("recorded_at", { ascending: false }),
   ]);
 
   const latestByUser = {};

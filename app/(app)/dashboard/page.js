@@ -83,11 +83,11 @@ export default async function DashboardPage({ searchParams }) {
     { data: todayPayments }, { data: todayPurchases }, { data: todayCashTxns },
     yesterdayActiveCustomersRes,
     overdueRuleRes, { data: unpaidInvoices }, { data: monthToDateExpenses }, { data: lastMonthExpenses },
-    { data: custBottleBalances }, { data: bottleLimits },
+    { data: bottleLimits },
     { data: rangeInvoices }, { data: rangeDeliveries }, { data: rangeExpenses }, { data: rangePayments }, { data: rangeRiderDeliveries },
     { data: weekDeliveries }, { data: pendingApprovals },
   ] = await Promise.all([
-    supabase.from("invoices").select("net_amount, invoice_items(quantity)").eq("invoice_date", today).neq("status", "void"),
+    supabase.from("invoices").select("net_amount").eq("invoice_date", today).neq("status", "void"),
     supabase.from("deliveries").select("*, delivery_items(delivered_qty, returned_qty)").eq("delivery_date", today),
     supabase.from("expenses").select("*").eq("expense_date", today).in("status", ["approved", "paid"]),
     supabase.from("v_customer_balance").select("balance"),
@@ -96,10 +96,17 @@ export default async function DashboardPage({ searchParams }) {
     // and a prior-week comparison for the AI insights card; also carries zone info
     // for the "top zone this week" insight.
     supabase.from("invoices").select("net_amount, invoice_date, customers(zone_id, zones(name))").gte("invoice_date", daysAgo(13)).neq("status", "void"),
-    supabase.from("expenses").select("expense_categories(name), amount").in("status", ["approved", "paid"]),
+    // Expense-breakdown pie chart — bounded to the last 90 days (a "recent
+    // spend mix" view, not literally every expense the business has ever
+    // recorded) so this stays a flat, fast query as the ERP accumulates
+    // years of history instead of growing unbounded forever.
+    supabase.from("expenses").select("expense_categories(name), amount").in("status", ["approved", "paid"]).gte("expense_date", daysAgo(90)),
     supabase.from("v_cash_account_balance").select("name, type, current_balance"),
     supabase.from("v_bottle_reconciliation").select("product_id, warehouse"),
-    supabase.from("v_customer_bottle_balance").select("bottles_with_customer"),
+    // Reused below for both "bottles with customers" (dashboard KPI) and the
+    // per-customer bottle-limit alert — previously fetched as two separate
+    // queries against the same view.
+    supabase.from("v_customer_bottle_balance").select("customer_id, name, bottles_with_customer"),
     supabase.from("v_supplier_balance").select("balance"),
     supabase.from("product_prices").select("product_id, price"),
     supabase.from("customers").select("id", { count: "exact", head: true }).eq("is_active", true),
@@ -108,7 +115,7 @@ export default async function DashboardPage({ searchParams }) {
     // movement, reversed out of the current balance, for point-in-time balances —
     // there's no historical snapshot table, so this is the standard way to derive
     // "yesterday's balance" without one).
-    supabase.from("invoices").select("net_amount, invoice_items(quantity)").eq("invoice_date", yesterday).neq("status", "void"),
+    supabase.from("invoices").select("net_amount").eq("invoice_date", yesterday).neq("status", "void"),
     supabase.from("expenses").select("amount").eq("expense_date", yesterday).in("status", ["approved", "paid"]),
     supabase.from("deliveries").select("*, delivery_items(delivered_qty)").eq("delivery_date", yesterday),
     supabase.from("payments").select("amount").eq("payment_date", today).eq("voided", false),
@@ -122,12 +129,15 @@ export default async function DashboardPage({ searchParams }) {
     supabase.from("expenses").select("amount, expense_categories(name)").in("status", ["approved", "paid"]).gte("expense_date", lastMonthRange().from).lte("expense_date", lastMonthRange().to),
     // Bottle alerts card — same "over their bottle_limit" check the Bottle
     // Ledger page's "Needs Attention" section and refresh_alerts() use.
-    supabase.from("v_customer_bottle_balance").select("customer_id, name, bottles_with_customer"),
+    // (bottleWithCustomers, fetched above, now carries customer_id/name too
+    // and covers this card as well — no second query against the same view.)
     supabase.from("customers").select("id, bottle_limit"),
     // Date-range business summary (Today/7 Days/This Month/Custom) — a
     // self-contained block, independent of the "today" KPIs above so it
     // doesn't disturb their carefully-tuned yesterday-comparison logic.
-    supabase.from("invoices").select("net_amount").gte("invoice_date", range.from).lte("invoice_date", range.to).neq("status", "void"),
+    // When the range is exactly today, this would be an identical query to
+    // todayInvoices above — reused instead of fetched twice (see below).
+    rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("invoices").select("net_amount").gte("invoice_date", range.from).lte("invoice_date", range.to).neq("status", "void"),
     supabase.from("deliveries").select("status, delivery_items(delivered_qty, returned_qty)").gte("delivery_date", range.from).lte("delivery_date", range.to),
     supabase.from("expenses").select("amount").in("status", ["approved", "paid"]).gte("expense_date", range.from).lte("expense_date", range.to),
     supabase.from("payments").select("amount").gte("payment_date", range.from).lte("payment_date", range.to).eq("voided", false),
@@ -204,7 +214,7 @@ export default async function DashboardPage({ searchParams }) {
   const bottleLimitMap = {};
   (bottleLimits || []).forEach((c) => { bottleLimitMap[c.id] = c.bottle_limit ?? 20; });
   const custBottleTotals = {};
-  (custBottleBalances || []).forEach((b) => {
+  (bottleWithCustomers || []).forEach((b) => {
     const row = custBottleTotals[b.customer_id] || { name: b.name, total: 0 };
     row.total += Number(b.bottles_with_customer);
     custBottleTotals[b.customer_id] = row;
@@ -274,7 +284,7 @@ export default async function DashboardPage({ searchParams }) {
   }
 
   // Date-range business summary
-  const rangeSales = (rangeInvoices || []).reduce((a, i) => a + Number(i.net_amount), 0);
+  const rangeSales = (rangeKey === "today" ? (todayInvoices || []) : (rangeInvoices || [])).reduce((a, i) => a + Number(i.net_amount), 0);
   const rangeDelivered = (rangeDeliveries || []).filter((d) => d.status === "delivered").reduce((a, d) => a + (d.delivery_items || []).reduce((b, i) => b + Number(i.delivered_qty), 0), 0);
   const rangeReturned = (rangeDeliveries || []).filter((d) => d.status === "delivered").reduce((a, d) => a + (d.delivery_items || []).reduce((b, i) => b + Number(i.returned_qty), 0), 0);
   const rangeExpAmt = (rangeExpenses || []).reduce((a, e) => a + Number(e.amount), 0);

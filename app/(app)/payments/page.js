@@ -48,12 +48,18 @@ function recoveryPriority(daysOverdue, balance, hasHistory, highThreshold) {
 export default async function PaymentsPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const supabase = await createClient();
+  // Every recovery-frequency window this page understands tops out at 30
+  // days (FREQ_DAYS.Monthly), so a payment older than ~13 months can never
+  // change a due-date computation — it's already as overdue as it'll ever
+  // be bucketed. Bounding the lookback keeps this query flat instead of
+  // growing with the business's entire payment history forever.
+  const paymentLookback = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const [branding, { data: payments }, { data: balances }, { data: collectors }, { data: allPayments }, { data: customersMeta }, { data: canVoid }, { data: highRule }] = await Promise.all([
     getBrandingLite(supabase),
     supabase.from("payments").select("*, customers(name), profiles!payments_received_by_fkey(full_name)").order("created_at", { ascending: false }).limit(200),
     supabase.from("v_customer_balance").select("customer_id, name, balance"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").neq("roles.key", "customer").eq("is_active", true).order("full_name"),
-    supabase.from("payments").select("customer_id, payment_date, amount, customers(name)").eq("voided", false).order("payment_date", { ascending: false }),
+    supabase.from("payments").select("customer_id, payment_date, amount, customers(name)").eq("voided", false).gte("payment_date", paymentLookback).order("payment_date", { ascending: false }),
     supabase.from("customers").select("id, payment_frequency, mobile"),
     supabase.rpc("fn_has_permission", { perm_key: "payments.delete" }),
     // Reuses the existing "Outstanding balance recovery" automation rule

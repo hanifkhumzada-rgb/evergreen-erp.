@@ -29,7 +29,9 @@ function movementType(m) {
   return { text: "Adjustment", tone: "amber" };
 }
 
-export default async function BottleLedgerPage() {
+export default async function BottleLedgerPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+  const q = (sp.q || "").trim().toLowerCase();
   const supabase = await createClient();
   const [branding, { data: balances }, { data: movements }, { data: customers }, { data: reconciliation }, { data: products }, { data: reconHistory }] = await Promise.all([
     getBrandingLite(supabase),
@@ -105,6 +107,15 @@ export default async function BottleLedgerPage() {
     perCustomer[b.customer_id] = row;
   });
   const needsAttention = Object.values(perCustomer).filter((c) => c.total < 0 || c.total > (limitMap[c.customer_id] ?? 20));
+  // Searches only the most recent 150-row feed already fetched above — the
+  // Export Excel button next to it still exports the full unfiltered feed.
+  const visibleMovements = q
+    ? (movements || []).filter((m) =>
+        m.customers?.name?.toLowerCase().includes(q) ||
+        m.products?.name?.toLowerCase().includes(q) ||
+        m.profiles?.full_name?.toLowerCase().includes(q) ||
+        movementType(m).text.toLowerCase().includes(q))
+    : (movements || []);
 
   return (
     <div>
@@ -201,16 +212,20 @@ export default async function BottleLedgerPage() {
       </div>
 
       <h4 className="text-sm font-bold mb-2.5">Activity timeline</h4>
-      <div className="no-print flex gap-2.5 mb-3">
+      <form className="no-print flex flex-wrap gap-2.5 mb-3 items-center" action="/bottle-ledger">
+        <input type="text" name="q" defaultValue={sp.q || ""} placeholder="Search customer, size, type, who…" className="in w-64" />
+        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
+        {q && <Link href="/bottle-ledger" className="text-xs text-slate hover:text-aqua">Clear</Link>}
+        <div className="flex-1" />
         <ExportExcelButton rows={exportRows} sheetName="Bottle Ledger" reportTitle="Bottle Ledger" branding={branding} />
         <PrintButton />
-      </div>
+      </form>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>Date</Th><Th>Type</Th><Th>Customer</Th><Th>Size</Th><Th>Qty</Th><Th>Before</Th><Th>After</Th><Th>Who</Th><Th>Reason</Th></tr></thead>
           <tbody>
-            {(movements || []).length === 0 && <tr><td colSpan={9} className="text-center py-8 text-slate">No movements recorded yet.</td></tr>}
-            {(movements || []).map((m) => {
+            {visibleMovements.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-slate">{q ? "No movements match." : "No movements recorded yet."}</td></tr>}
+            {visibleMovements.map((m) => {
               const rb = runningBalance[m.id];
               const type = movementType(m);
               return (

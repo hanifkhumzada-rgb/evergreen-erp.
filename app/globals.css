@@ -93,6 +93,33 @@ body {
 
 * { border-color: var(--line); }
 
+/* Canonical form-input style. Every "Add X" form re-declares this exact
+   rule via its own <style jsx global> block (CustomerForm, AddPaymentForm,
+   AddExpenseForm, FleetForms, DeliveryForm, InviteUserForm, ...) — those
+   per-component copies still work (identical rule, last one wins, no
+   conflict), but any new form using className="in" without pasting that
+   boilerplate now gets the real design-system look instead of an
+   unstyled native input. */
+.in {
+  width: 100%;
+  padding: 9px 11px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  font-size: 13.5px;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.in:focus {
+  border-color: #087C69;
+  box-shadow: 0 0 0 3px var(--aquaSoft);
+}
+.in:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
 /* Modern card polish — applies to the border+rounded-2xl card pattern used everywhere */
 .rounded-2xl.border {
   box-shadow: 0 1px 3px rgba(7, 26, 24, 0.06), 0 8px 24px rgba(7, 26, 24, 0.07);

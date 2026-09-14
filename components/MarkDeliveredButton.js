@@ -3,9 +3,9 @@ import { useState } from "react";
 import { Check } from "lucide-react";
 import { markDelivered } from "@/app/actions";
 
-export default function MarkDeliveredButton({ deliveryId, emptyExpected }) {
+export default function MarkDeliveredButton({ deliveryId, deliveredDefault, emptyExpected }) {
   const [open, setOpen] = useState(false);
-  const [deliveredQty, setDeliveredQty] = useState(emptyExpected);
+  const [deliveredQty, setDeliveredQty] = useState(deliveredDefault ?? emptyExpected);
   const [emptyReceived, setEmptyReceived] = useState(emptyExpected);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
