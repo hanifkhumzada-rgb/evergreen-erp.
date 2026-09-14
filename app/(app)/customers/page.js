@@ -88,7 +88,7 @@ export default async function CustomersPage({ searchParams }) {
   const { supabase, profile } = await getCurrentProfile();
   const [branding, { data: customers }, { data: zones }, { data: balances }, { data: products }, { data: vehicles }, { data: riders }, { data: routes }, { data: canDelete }] = await Promise.all([
     getBrandingLite(supabase),
-    supabase.from("customers").select("id, code, name, company_name, contact_person, mobile, alternate_phone, whatsapp_number, email, address, area, route, zone_id, customer_type, status, is_active, created_at, zones(name)").order("created_at", { ascending: false }),
+    supabase.from("customers").select("id, code, name, business_name, contact_person, mobile, alternate_phone, whatsapp_number, email, address, area, route, zone_id, customer_type, status, is_active, created_at, zones(name)").order("created_at", { ascending: false }),
     supabase.from("zones").select("id, name"),
     supabase.from("v_customer_balance").select("customer_id, balance"),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
@@ -118,7 +118,7 @@ export default async function CustomersPage({ searchParams }) {
     if (q) {
       const normalize = (value) => String(value || "").normalize("NFKD").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
       const compact = (value) => normalize(value).replace(/\s+/g, "");
-      const haystack = [c.code, c.name, c.company_name, c.contact_person, c.mobile, c.alternate_phone, c.whatsapp_number, c.email, c.address, c.area, c.route, c.zones?.name]
+      const haystack = [c.code, c.name, c.business_name, c.contact_person, c.mobile, c.alternate_phone, c.whatsapp_number, c.email, c.address, c.area, c.route, c.zones?.name]
         .filter(Boolean).join(" ");
       const words = normalize(q).split(/\s+/).filter(Boolean);
       if (!words.every((word) => normalize(haystack).includes(word)) && !compact(haystack).includes(compact(q))) return false;
