@@ -98,7 +98,7 @@ export default async function DeliveriesPage({ searchParams }) {
     supabase.from("deliveries")
       .select("*, customers(name, code, mobile, zone_id), profiles!deliveries_rider_id_fkey(id, full_name), delivery_items(expected_qty, delivered_qty, returned_qty)")
       .gte("delivery_date", historyFrom).lt("delivery_date", historyUntil)
-      .order("delivery_date", { ascending: false }).limit(5000),
+      .order("delivery_date", { ascending: false }).limit(1000),
     supabase.from("deliveries")
       .select("id, customer_id, status, amount, amount_collected, rider_remarks, profiles!deliveries_rider_id_fkey(full_name), delivery_items(delivered_qty)")
       .eq("delivery_date", today),
@@ -107,7 +107,7 @@ export default async function DeliveriesPage({ searchParams }) {
       .eq("status", "delivered").order("delivery_date", { ascending: false }).limit(500),
     supabase.from("customers")
       .select("id, code, name, mobile, route, route_id, routes(name), zone_id, zones(name), default_product_id, payment_frequency, payment_terms, regular_qty, preferred_days, delivery_frequency, assigned_rider_id, status, is_active"),
-    supabase.from("zones").select("*"),
+    supabase.from("zones").select("id, name"),
     supabase.from("routes").select("id, name").eq("is_active", true).order("name"),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
     supabase.from("v_customer_balance").select("customer_id, balance"),
