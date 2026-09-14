@@ -12,7 +12,7 @@ import {
   Scale, TrendingUp, ClipboardCheck, Car, Bot, Bell, MapPin, Menu, X,
   ChevronRight, ChevronLeft, Factory, FolderInput, ShieldCheck, Navigation,
   Zap, MessageSquare, LifeBuoy, Star, Megaphone, Files, BriefcaseBusiness,
-  ChevronDown, Search, CalendarCheck, Wrench,
+  ChevronDown, Search, CalendarCheck, Wrench, ClipboardPlus,
 } from "lucide-react";
 
 const SidebarContext = createContext(null);
@@ -34,6 +34,7 @@ export function SidebarToggleButton() {
 
 const NAV = [
   { type: "link", href: "/dashboard", label: "Dashboard", icon: Home, roles: [...OWNER_ROLES, "manager", "accountant"] },
+  { type: "link", href: "/smart-entry", label: "Smart Entry", icon: ClipboardPlus, roles: [...OWNER_ROLES, "manager", "accountant", "rider"] },
   { type: "group", key: "operations", label: "Operations", icon: Truck, items: [
     { href: "/operations", label: "Daily Operations", icon: CalendarCheck, roles: [...OWNER_ROLES, "manager", "accountant"] },
     { href: "/customers", label: "Customers", icon: Users, roles: [...OWNER_ROLES, "manager"] },
