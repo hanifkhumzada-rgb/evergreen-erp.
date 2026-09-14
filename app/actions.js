@@ -286,7 +286,7 @@ export async function createCustomer(formData) {
   }
   await supabase.from("audit_logs").insert({ user_id: user.id, action: "CREATE", module: "customers", record_id: created.id, new_value: { name: payload.name, mobile: payload.mobile } });
   revalidatePath("/customers");
-  return { ok: true };
+  return { ok: true, id: created.id };
 }
 
 export async function updateCustomer(customerId, formData) {
@@ -508,6 +508,7 @@ export async function createPayment(formData) {
     business_id: businessId,
     customer_id: customerId,
     amount,
+    payment_date: formData.get("payment_date") || new Date().toISOString().slice(0, 10),
     method,
     cash_account_id: await getCashAccountId(supabase, method),
     received_by: formData.get("collector_id") || user.id,
@@ -717,11 +718,12 @@ export async function createExpense(formData) {
   const methodMap = { Cash: "cash", "Bank Transfer": "bank" };
   const amount = Number(formData.get("amount"));
   const status = await resolveExpenseStatus(supabase, amount);
-  const { error } = await supabase.from("expenses").insert({
+  const { data: expense, error } = await supabase.from("expenses").insert({
     expense_no: genCode("EXP"),
     category_id: category.id,
     description: formData.get("description"),
     amount,
+    expense_date: formData.get("expense_date") || new Date().toISOString().slice(0, 10),
     payment_method: methodMap[formData.get("method")] || "cash",
     status,
     submitted_by: user.id,
@@ -729,11 +731,11 @@ export async function createExpense(formData) {
     approved_by: status === "approved" ? user.id : null,
     approved_at: status === "approved" ? new Date().toISOString() : null,
     receipt_reference: formData.get("receipt_reference") || null,
-  });
+  }).select("id,status").single();
   if (error) return { error: error.message };
   revalidatePath("/expenses");
   revalidatePath("/dashboard");
-  return { ok: true };
+  return { ok: true, id: expense.id, pendingApproval: expense.status === "submitted" };
 }
 
 // Phase 5 — Production & Filling. A standalone cost record, deliberately

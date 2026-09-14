@@ -6,7 +6,7 @@ import { KPI } from "@/components/ui";
 import { SalesTrendChart, ExpensePie, DeliveriesTrendChart, ZoneRevenueChart } from "@/components/LazyCharts";
 import PendingApprovals from "@/components/PendingApprovals";
 import {
-  AlertTriangle, UserPlus, Truck, ShoppingCart, Receipt, Wallet, Upload, BarChart3, Sparkles,
+  AlertTriangle, UserPlus, Truck, ShoppingCart, Receipt, Wallet, Upload, BarChart3, Sparkles, ClipboardPlus,
 } from "lucide-react";
 
 // Rendered server-side (often UTC on Vercel, not the business's own
@@ -54,6 +54,7 @@ function calcTrend(current, previous, lowerIsBetter = false) {
 }
 
 const QUICK_ACTIONS = [
+  { label: "Smart Entry", href: "/smart-entry", icon: ClipboardPlus, tone: "green" },
   { label: "New Customer", href: "/customers", icon: UserPlus, tone: "aqua" },
   { label: "New Delivery", href: "/deliveries", icon: Truck, tone: "navy" },
   { label: "New Sale", href: "/sales", icon: ShoppingCart, tone: "green" },
