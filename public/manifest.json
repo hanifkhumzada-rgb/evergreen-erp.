@@ -1,7 +1,8 @@
 {
-  "name": "Evergreen Water",
-  "short_name": "EW",
-  "description": "Evergreen Water's digital headquarters",
+  "id": "/erp-app",
+  "name": "Evergreen Water ERP",
+  "short_name": "EW ERP",
+  "description": "Evergreen Water management and delivery workspace",
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",

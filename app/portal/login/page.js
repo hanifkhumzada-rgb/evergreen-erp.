@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Droplet, Phone, KeyRound, ArrowLeft, UserRound } from "lucide-react";
 import { requestPortalOtp, verifyPortalOtpAndSignIn } from "@/app/portal/actions";
 import Image from "next/image";
+import PwaInstallButton from "@/components/PwaInstallButton";
 
 export default function PortalLoginPage() {
   const router = useRouter();
@@ -160,6 +161,7 @@ export default function PortalLoginPage() {
         )}
 
         <div className="grid grid-cols-3 gap-2 mt-7 text-center"><div><p className="font-bold text-xs text-aqua">Live</p><p className="text-[9px] text-slate">Deliveries</p></div><div className="border-x"><p className="font-bold text-xs text-aqua">Secure</p><p className="text-[9px] text-slate">OTP Login</p></div><div><p className="font-bold text-xs text-aqua">24/7</p><p className="text-[9px] text-slate">Statements</p></div></div>
+        <div className="mt-5 flex justify-center"><PwaInstallButton label="Install Customer App" /></div>
         <p className="text-center text-[11px] text-slate mt-6">
           Not a customer? <a href="/login" className="text-aqua font-semibold">Staff sign in</a>
         </p>

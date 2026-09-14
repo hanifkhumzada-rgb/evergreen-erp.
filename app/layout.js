@@ -2,9 +2,10 @@ import "./globals.css";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 
 export const metadata = {
-  title: "Evergreen Water — ERP",
+  title: "Evergreen Water ERP",
   description: "Evergreen Water's digital headquarters",
   manifest: "/manifest.json",
+  applicationName: "Evergreen Water ERP",
   icons: {
     icon: [
       { url: "/icon-192.png", sizes: "192x192", type: "image/png" },

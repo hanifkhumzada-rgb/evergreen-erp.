@@ -1,0 +1,17 @@
+{
+  "id": "/customer-app",
+  "name": "Evergreen Water Customer",
+  "short_name": "EW Customer",
+  "description": "Evergreen Water customer deliveries, bottles, invoices and statements",
+  "start_url": "/portal/login?source=installed_app",
+  "scope": "/portal/",
+  "display": "standalone",
+  "background_color": "#F4FAF8",
+  "theme_color": "#075E55",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/ew-mark.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
