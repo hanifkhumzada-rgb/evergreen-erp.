@@ -34,11 +34,10 @@ export async function middleware(request) {
     }
   );
 
-  // Verify the signed JWT locally (JWKS is cached by supabase-js) instead of
-  // making a full Auth API round-trip on every route navigation. Database RLS
-  // still validates the same token for every data query.
-  const { data: { claims } } = await supabase.auth.getClaims();
-  const user = claims?.sub ? { id: claims.sub } : null;
+  // Keep the Edge middleware on the broadly compatible server-verified user
+  // lookup. Some deployments still use a signing setup where getClaims()
+  // cannot initialize in the Edge runtime.
+  const { data: { user } } = await supabase.auth.getUser();
   const pathname = request.nextUrl.pathname;
   const isAuthRoute = pathname.startsWith("/login");
   // The password-recovery email link lands here with a token that only the
