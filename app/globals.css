@@ -378,3 +378,79 @@ table tr.hover\:bg-foam:hover {
     transform: none;
   }
 }
+
+
+/* Dashboard and Customer workspace v3 — staff-only responsive structure. */
+.app-shell-bg .dashboard-section-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 18px;
+  padding: 5px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  box-shadow: 0 8px 24px rgba(7,59,58,.055);
+}
+.app-shell-bg .dashboard-section-tab {
+  display: inline-flex;
+  flex: 1 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: 11px;
+  color: var(--slate);
+  font-size: 12px;
+  font-weight: 750;
+  transition: background-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.app-shell-bg .dashboard-section-tab:hover {
+  color: #087C69;
+  background: var(--aquaSoft);
+}
+.app-shell-bg .dashboard-section-tab.is-active {
+  color: #fff;
+  background: linear-gradient(135deg, #073B3A, #087C69);
+  box-shadow: 0 8px 20px rgba(8,124,105,.2);
+}
+.app-shell-bg .dashboard-anchor {
+  scroll-margin-top: 84px;
+}
+.app-shell-bg .dashboard-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.app-shell-bg .dashboard-kpi-grid > * {
+  min-width: 0;
+}
+.app-shell-bg .dashboard-kpi-grid .premium-kpi {
+  min-width: 0;
+  height: 100%;
+}
+.app-shell-bg .customer-mobile-card {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(7,59,58,.065);
+}
+.app-shell-bg .customer-mobile-card::after {
+  position: absolute;
+  right: -28px;
+  top: -34px;
+  width: 88px;
+  height: 88px;
+  border: 1px solid rgba(8,124,105,.1);
+  border-radius: 999px;
+  content: "";
+  pointer-events: none;
+}
+
+@media (max-width: 1023px) {
+  .app-shell-bg .dashboard-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 420px) {
+  .app-shell-bg .dashboard-section-tab { padding: 8px 11px; }
+  .app-shell-bg .dashboard-kpi-grid { gap: 9px; }
+}

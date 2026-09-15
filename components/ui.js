@@ -49,7 +49,7 @@ export function KPI({ label, value, sub, tone = "navy", trend, href }) {
       )}
     </div>
   );
-  return href ? <Link href={href} className="flex flex-1 min-w-[180px]">{card}</Link> : card;
+  return href ? <Link href={href} className="flex min-w-0">{card}</Link> : card;
 }
 
 // Shared toolbar-button treatment (Export Excel / Download PDF / Print) —
