@@ -103,6 +103,15 @@ function genCode(prefix) {
   return `${prefix}-${Date.now().toString(36).toUpperCase()}${Math.floor(Math.random() * 36).toString(36).toUpperCase()}`;
 }
 
+async function nextDeliveryNo(supabase, customerId, deliveryDate) {
+  const { data, error } = await supabase.rpc("fn_next_delivery_no", {
+    p_customer_id: customerId,
+    p_delivery_date: deliveryDate,
+  });
+  if (error || !data) throw new Error(error?.message || "Could not generate delivery reference.");
+  return data;
+}
+
 // A payment only actually moves Cash/Bank balances (v_cash_account_balance)
 // when cash_account_id is set — fn_post_payment_to_ledger() silently skips
 // the cash_transactions insert otherwise. Pick the active account matching
@@ -610,7 +619,7 @@ export async function createDelivery(formData) {
     .select("id, delivery_no").eq("customer_id", customerId).eq("delivery_date", deliveryDate).eq("status", "pending")
     .order("created_at", { ascending: false }).limit(1).maybeSingle();
 
-  const deliveryNo = existingPending?.delivery_no || genCode("DEL");
+  const deliveryNo = existingPending?.delivery_no || await nextDeliveryNo(supabase, customerId, deliveryDate);
   let delivery, error;
   if (existingPending) {
     ({ data: delivery, error } = await supabase.from("deliveries").update({
@@ -967,7 +976,7 @@ export async function skipTodayDelivery(customerId, note) {
     if (error) return { error: error.message };
   } else {
     const { error } = await supabase.from("deliveries").insert({
-      delivery_no: genCode("DEL"), customer_id: customerId, rider_id: user.id, delivery_date: today,
+      delivery_no: await nextDeliveryNo(supabase, customerId, today), customer_id: customerId, rider_id: user.id, delivery_date: today,
       status: "missed", amount: 0, amount_collected: 0, rider_remarks: note || null, created_by: user.id,
     });
     if (error) return { error: error.message };
@@ -2088,7 +2097,7 @@ export async function bulkImportDeliveries(rows) {
     const cashCollected = r.CashCollected != null && r.CashCollected !== "" ? Number(r.CashCollected) : qty * rate;
     const deliveryDate = r.Date || r.date || new Date().toISOString().slice(0, 10);
     const amount = qty * rate;
-    const deliveryNo = genCode("DEL");
+    const deliveryNo = await nextDeliveryNo(supabase, customerId, deliveryDate);
 
     const { data: delivery, error } = await supabase.from("deliveries").insert({
       delivery_no: deliveryNo,
