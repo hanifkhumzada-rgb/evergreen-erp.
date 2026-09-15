@@ -9,7 +9,7 @@ import { bulkImportCustomers, deleteCustomer } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import CustomerSearchForm from "@/components/CustomerSearchForm";
-import { Truck, Wallet, FilePlus, UserCircle2 } from "lucide-react";
+import { Truck, Wallet, FilePlus, UserCircle2, Phone, MapPin, ChevronRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -144,7 +144,7 @@ export default async function CustomersPage({ searchParams }) {
         <CustomerForm mode="create" initialOpen={sp.quick === "new"} {...formProps} />
       </div>
 
-      <div className="no-print flex flex-wrap gap-3.5 mb-5">
+      <div className="no-print dashboard-kpi-grid mb-5">
         <KPI label="TOTAL CUSTOMERS" value={allRows.length} tone="navy" />
         <KPI label="NEW THIS MONTH" value={newThisMonth} tone="aqua" />
         <KPI label="OUTSTANDING" value={pkr(totalOutstanding)} tone="coral" sub="total receivable across all customers" />
@@ -160,8 +160,8 @@ export default async function CustomersPage({ searchParams }) {
           inside a <form> makes clicking it ALSO submit that form (a real
           navigation to /customers), racing and killing the just-opened
           modal. That was the cause of "New Customer opens then crashes". */}
-      <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
-        <div className="flex-1" />
+      <div className="erp-toolbar no-print flex flex-wrap gap-2.5 mb-4 items-center">
+        <div className="mr-auto min-w-[150px]"><p className="text-xs font-bold text-ink">Customer directory</p><p className="text-[11px] text-slate">{rows.length} visible · {allRows.length} total</p></div>
         <BulkImportButton
           label="Bulk Import"
           columnsHint="Customer Code, Name*, Company, Contact Person, Mobile, Alternate Phone, WhatsApp, Email, Customer Type, Address*, Area*, Zone*, Route*, Delivery Days, Driver, Vehicle, Product, Quantity, Rate*, Discount, Payment Terms, Payment Frequency*, Credit Limit, Opening Balance, Opening Bottle Balance, Status, Notes"
@@ -175,8 +175,45 @@ export default async function CustomersPage({ searchParams }) {
         <ExportExcelButton rows={exportRows} sheetName="Customers" reportTitle="Customers" branding={branding} />
         <PrintButton />
       </div>
-      <p className="no-print text-xs text-slate mb-2">{rows.length} of {allRows.length} customers</p>
-      <div className="overflow-x-auto border border-line rounded-2xl">
+      <div className="no-print mb-2 flex items-center justify-between gap-3">
+        <p className="text-xs text-slate">{rows.length} of {allRows.length} customers</p>
+        <p className="hidden text-[11px] text-slate sm:block">Tap a customer to open their complete 360° profile.</p>
+      </div>
+
+      <div className="no-print grid gap-3 md:hidden">
+        {rows.length === 0 && <div className="rounded-2xl border border-line bg-card p-8 text-center text-sm text-slate">No customers match your search or filters.</div>}
+        {rows.map((c) => {
+          const badge = STATUS_BADGE[c.status] || (c.is_active ? STATUS_BADGE.active : STATUS_BADGE.inactive);
+          return (
+            <article key={c.id} className="customer-mobile-card rounded-2xl border border-line bg-card p-4">
+              <div className="flex items-start justify-between gap-3">
+                <Link href={`/customers/${c.id}`} className="min-w-0 flex-1">
+                  <span className="block truncate text-base font-bold text-ink">{c.name}</span>
+                  <span className="mt-0.5 block font-mono-num text-xs text-slate">{c.code || "No customer ID"}</span>
+                </Link>
+                <Badge text={badge.text} tone={badge.tone} />
+              </div>
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <span className="flex min-w-0 items-center gap-1.5 text-slate"><Phone size={13} className="shrink-0" /><span className="truncate">{c.mobile || "No phone"}</span></span>
+                <span className="flex min-w-0 items-center gap-1.5 text-slate"><MapPin size={13} className="shrink-0" /><span className="truncate">{c.zones?.name || c.area || "No zone"}</span></span>
+              </div>
+              <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
+                <div>
+                  <span className="block text-[10px] font-bold uppercase tracking-wide text-slate">Outstanding</span>
+                  <span className={c.balance > 0 ? "font-mono-num text-sm font-bold text-coral" : "font-mono-num text-sm font-bold text-green"}>{pkr(c.balance)}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Link href={`/deliveries?customer=${c.id}`} aria-label={`New delivery for ${c.name}`} className="grid h-9 w-9 place-items-center rounded-xl bg-aquaSoft text-aqua"><Truck size={15} /></Link>
+                  <Link href={`/payments?customer=${c.id}`} aria-label={`Receive payment from ${c.name}`} className="grid h-9 w-9 place-items-center rounded-xl bg-greenSoft text-green"><Wallet size={15} /></Link>
+                  <Link href={`/customers/${c.id}`} aria-label={`View ${c.name} profile`} className="grid h-9 w-9 place-items-center rounded-xl border border-line text-navy"><ChevronRight size={17} /></Link>
+                </div>
+              </div>
+            </article>
+          );
+        })}
+      </div>
+
+      <div className="hidden overflow-x-auto rounded-2xl border border-line md:block">
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>Customer ID</Th><Th>Name</Th><Th>Phone</Th><Th>Zone</Th><Th>Type</Th><Th>Balance</Th><Th>Status</Th><Th className="no-print">Quick Actions</Th></tr></thead>
           <tbody>
