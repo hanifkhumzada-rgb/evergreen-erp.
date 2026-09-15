@@ -222,3 +222,159 @@ table tr.hover\:bg-foam:hover {
 @keyframes portalWave { to{transform:rotate(360deg)} }
 @media (max-width:640px){.portal-bottle{right:-48px;opacity:.34}.portal-orb-one{left:-28px}.portal-orb-two{right:-12px}}
 @media (prefers-reduced-motion:reduce){.portal-orb,.portal-bottle,.portal-bottle-wave{animation:none}}
+
+
+/* ERP premium shell v2 — scoped to staff workspace so Customer Portal stays unchanged. */
+.app-shell-bg .workspace-topbar {
+  min-height: 64px;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  box-shadow: 0 1px 0 rgba(7,59,58,.04), 0 10px 30px rgba(7,59,58,.045);
+}
+.app-shell-bg .workspace-context {
+  min-width: 0;
+  padding-left: 2px;
+}
+.app-shell-bg .workspace-context-label {
+  color: var(--slate);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+.app-shell-bg .workspace-context-title {
+  max-width: 26rem;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-shell-bg .page-stage {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--card) 24%, transparent), transparent 15rem);
+}
+.app-shell-bg .page-stage > div > div > h2:first-child,
+.app-shell-bg .page-stage h1 {
+  letter-spacing: -.025em;
+}
+.app-shell-bg .premium-kpi {
+  position: relative;
+  min-height: 118px;
+  overflow: hidden;
+}
+.app-shell-bg .premium-kpi::after {
+  position: absolute;
+  right: -22px;
+  bottom: -34px;
+  width: 88px;
+  height: 88px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  content: "";
+  opacity: .07;
+}
+.app-shell-bg .premium-kpi-value {
+  letter-spacing: -.045em;
+}
+.app-shell-bg table {
+  background: color-mix(in srgb, var(--card) 96%, transparent);
+}
+.app-shell-bg thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--foam);
+  box-shadow: 0 1px 0 var(--line);
+}
+.app-shell-bg tbody tr {
+  transition: background-color .14s ease;
+}
+.app-shell-bg tbody tr:hover {
+  background: color-mix(in srgb, var(--aquaSoft) 42%, var(--card));
+}
+.app-shell-bg button,
+.app-shell-bg a {
+  -webkit-tap-highlight-color: transparent;
+}
+.app-shell-bg button:focus-visible,
+.app-shell-bg a:focus-visible {
+  outline: 2px solid #059669;
+  outline-offset: 2px;
+}
+.app-shell-bg .in:hover:not(:disabled) {
+  border-color: color-mix(in srgb, #059669 38%, var(--line));
+}
+.erp-sidebar-surface {
+  background:
+    radial-gradient(circle at 20% 2%, rgba(36,201,159,.22), transparent 15rem),
+    linear-gradient(180deg, #073B3A 0%, #052D2C 100%);
+  box-shadow: 12px 0 36px rgba(5,45,44,.12);
+}
+.erp-sidebar-link {
+  position: relative;
+  min-height: 38px;
+  transition: color .15s ease, background-color .15s ease, transform .15s ease;
+}
+.erp-sidebar-link:hover {
+  transform: translateX(2px);
+}
+.erp-sidebar-link-active {
+  box-shadow: 0 8px 22px rgba(5,150,105,.24), inset 0 1px 0 rgba(255,255,255,.15);
+}
+.erp-sidebar-group {
+  min-height: 38px;
+  transition: color .15s ease, background-color .15s ease;
+}
+.erp-sidebar-search {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+.erp-sidebar-search:focus {
+  box-shadow: 0 0 0 3px rgba(94,234,212,.1);
+}
+.quick-add-root > button {
+  min-height: 50px;
+  box-shadow: 0 14px 36px rgba(5,150,105,.28), inset 0 1px 0 rgba(255,255,255,.18);
+}
+
+@media (max-width: 639px) {
+  .app-shell-bg .workspace-topbar {
+    min-height: 58px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .app-shell-bg .page-stage {
+    padding: 16px 12px 92px;
+  }
+  .app-shell-bg .premium-kpi {
+    min-width: 0;
+    min-height: 104px;
+    padding: 15px;
+  }
+  .app-shell-bg .premium-kpi-value {
+    font-size: 1.25rem;
+  }
+  .app-shell-bg table th,
+  .app-shell-bg table td {
+    padding-left: 11px;
+    padding-right: 11px;
+  }
+  .quick-add-root {
+    right: 12px !important;
+    bottom: 14px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .erp-sidebar-link,
+  .card-lift,
+  .quick-add-root > button {
+    transition: none;
+  }
+  .erp-sidebar-link:hover,
+  .card-lift:hover,
+  .quick-add-root > button:hover {
+    transform: none;
+  }
+}
