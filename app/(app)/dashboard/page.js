@@ -4,6 +4,7 @@ import { pkr } from "@/lib/format";
 import { KPI } from "@/components/ui";
 import { SalesTrendChart, ExpensePie, DeliveriesTrendChart, ZoneRevenueChart } from "@/components/LazyCharts";
 import PendingApprovals from "@/components/PendingApprovals";
+import DashboardSectionTabs from "@/components/DashboardSectionTabs";
 import {
   AlertTriangle, UserPlus, Truck, ShoppingCart, Receipt, Wallet, Upload, BarChart3, Sparkles, ClipboardPlus,
 } from "lucide-react";
@@ -322,6 +323,8 @@ export default async function DashboardPage({ searchParams }) {
         </div>
       </div>
 
+      <DashboardSectionTabs />
+
       {["owner", "admin"].includes(profile?.roles?.key) && (pendingApprovals || []).length > 0 && (
         <section className="mb-6">
           <div className="mb-2 flex items-center justify-between">
@@ -332,7 +335,12 @@ export default async function DashboardPage({ searchParams }) {
         </section>
       )}
 
-      <div className="no-print grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 mb-6 max-w-2xl">
+      <section id="dashboard-overview" className="dashboard-anchor mb-6 rounded-3xl border border-line bg-card/80 p-3.5 sm:p-5">
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div><h3 className="font-display text-lg font-semibold">Daily command shortcuts</h3><p className="text-xs text-slate">Record work or open the report you need.</p></div>
+          <Link href="/smart-entry" className="hidden text-xs font-bold text-aqua hover:underline sm:block">Open Smart Entry →</Link>
+        </div>
+      <div className="no-print grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-8">
         {QUICK_ACTIONS.map((a) => {
           const Icon = a.icon;
           return (
@@ -346,9 +354,11 @@ export default async function DashboardPage({ searchParams }) {
           );
         })}
       </div>
+      </section>
 
+      <section className="dashboard-anchor" aria-labelledby="business-summary-title">
       <div className="erp-toolbar no-print flex flex-wrap items-center gap-2 mb-4">
-        <span className="text-xs font-semibold text-slate">Business summary:</span>
+        <span id="business-summary-title" className="text-xs font-semibold text-slate">Business summary:</span>
         {[["today", "Today"], ["7d", "Last 7 Days"], ["month", "This Month"]].map(([k, label]) => (
           <Link key={k} href={`/dashboard?range=${k}`}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${rangeKey === k ? "bg-navy text-white border-navy" : "border-line bg-card"}`}>
@@ -363,7 +373,7 @@ export default async function DashboardPage({ searchParams }) {
           <button type="submit" className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${rangeKey === "custom" ? "bg-navy text-white border-navy" : "border-line bg-card"}`}>Go</button>
         </form>
       </div>
-      <div className="flex flex-wrap gap-3.5 mb-6">
+      <div className="dashboard-kpi-grid mb-6">
         <KPI label="DELIVERIES" value={rangeDeliveryCount} tone="navy" />
         <KPI label="BOTTLES DELIVERED" value={rangeDelivered} tone="aqua" />
         <KPI label="BOTTLES RETURNED" value={rangeReturned} tone="aqua" />
@@ -373,6 +383,8 @@ export default async function DashboardPage({ searchParams }) {
         <KPI label="NET PROFIT" value={pkr(rangeNet)} tone={rangeNet >= 0 ? "green" : "coral"} sub="revenue − expenses" />
         <KPI label="OVERDUE CUSTOMERS" value={overdueCustomerCount ?? 0} tone={overdueCustomerCount > 0 ? "coral" : "slate"} sub={overdueDays != null ? `> ${overdueDays} days` : "rule disabled"} href="/payments" />
       </div>
+
+      </section>
 
       {leaderboard.length > 0 && (
         <div className="border border-line rounded-2xl p-4 mb-6 bg-card">
@@ -388,8 +400,9 @@ export default async function DashboardPage({ searchParams }) {
         </div>
       )}
 
+      <section id="dashboard-today" className="dashboard-anchor">
       <h4 className="text-xs font-bold tracking-wide text-slate mb-2 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-aqua" />TODAY AT A GLANCE</h4>
-      <div className="flex flex-wrap gap-3.5 mb-6">
+      <div className="dashboard-kpi-grid mb-6">
         <KPI label="TODAY'S SALES" value={pkr(salesAmt)} tone="navy" sub={`${(todayInvoices || []).length} invoices`} trend={calcTrend(salesAmt, ySalesAmt)} href="/sales" />
         <KPI label="COLLECTIONS" value={pkr(todayPaymentsAmt)} tone="green" sub="received today" href="/payments" />
         <KPI label="DELIVERIES" value={completedDeliveries} tone="aqua" sub={`${pendingDeliveries} pending · ${missedDeliveries} missed`} href="/deliveries" />
@@ -400,8 +413,11 @@ export default async function DashboardPage({ searchParams }) {
         <KPI label="ACTIVE CUSTOMERS" value={activeCustomers} tone="aqua" trend={calcTrend(activeCustomers, yActiveCustomers)} href="/customers" />
       </div>
 
+      </section>
+
+      <section id="dashboard-finance" className="dashboard-anchor">
       <h4 className="text-xs font-bold tracking-wide text-slate mb-2 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-navy" />ACCOUNTING SNAPSHOT</h4>
-      <div className="flex flex-wrap gap-3.5 mb-6">
+      <div className="dashboard-kpi-grid mb-6">
         <KPI label="CASH" value={pkr(cashBalance)} tone="green" trend={calcTrend(cashBalance, yCashBalance)} href="/accounting/chart-of-accounts" />
         <KPI label="BANK" value={pkr(bankBalance)} tone="green" trend={calcTrend(bankBalance, yBankBalance)} href="/accounting/chart-of-accounts" />
         <KPI label="RECEIVABLES" value={pkr(receivables)} tone="coral" trend={calcTrend(receivables, yReceivables, true)} href="/ledger" />
@@ -410,6 +426,9 @@ export default async function DashboardPage({ searchParams }) {
         <KPI label="BOTTLE LIABILITY" value={pkr(bottleLiability)} tone="navy" sub={`${withCustomersBottles} bottles with customers`} trend={calcTrend(bottleLiability, yBottleLiability, true)} href="/bottle-ledger" />
       </div>
 
+      </section>
+
+      <section id="dashboard-insights" className="dashboard-anchor">
       <div className="border border-aqua/20 bg-gradient-to-br from-aquaSoft/70 to-card rounded-2xl p-4 mb-4">
         <h4 className="text-sm font-bold mb-2.5 flex items-center gap-1.5">
           <span className="w-6 h-6 rounded-lg bg-aqua text-white flex items-center justify-center flex-shrink-0"><Sparkles size={13} /></span>
@@ -469,6 +488,7 @@ export default async function DashboardPage({ searchParams }) {
           {(overdueCustomerCount || 0) + lowStock.length + (overdueCustomers || []).length + overBottleLimitCustomers.length === 0 && <p className="text-sm text-slate">No critical alerts right now.</p>}
         </div>
       </div>
+      </section>
     </div>
   );
 }
