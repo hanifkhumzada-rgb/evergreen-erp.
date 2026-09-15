@@ -38,9 +38,9 @@ export function KPI({ label, value, sub, tone = "navy", trend, href }) {
   const TrendIcon = trend?.direction === "up" ? ArrowUp : trend?.direction === "down" ? ArrowDown : Minus;
   const trendColor = trend?.favorable === null || trend?.favorable === undefined ? "text-slate" : trend.favorable ? "text-green" : "text-coral";
   const card = (
-    <div className={`card-lift rounded-2xl p-5 flex-1 min-w-[180px] ${style} ${href ? "cursor-pointer" : ""}`}>
+    <div className={`premium-kpi card-lift rounded-2xl p-5 flex-1 min-w-[180px] ${style} ${href ? "cursor-pointer" : ""}`}>
       <div className={`text-[11px] font-semibold uppercase tracking-wide ${tone === "navy" ? "text-[#BFE3E0]" : "text-slate"}`}>{label}</div>
-      <div className="font-mono-num text-2xl font-semibold mt-2">{value}</div>
+      <div className="premium-kpi-value font-mono-num text-2xl font-semibold mt-2">{value}</div>
       {sub && <div className={`text-xs mt-1 ${tone === "navy" ? "text-[#9CC9C5]" : "text-slate"}`}>{sub}</div>}
       {trend && (
         <div className={`flex items-center gap-1 text-[11px] font-semibold mt-1.5 ${trendColor}`}>
@@ -49,7 +49,7 @@ export function KPI({ label, value, sub, tone = "navy", trend, href }) {
       )}
     </div>
   );
-  return href ? <Link href={href}>{card}</Link> : card;
+  return href ? <Link href={href} className="flex flex-1 min-w-[180px]">{card}</Link> : card;
 }
 
 // Shared toolbar-button treatment (Export Excel / Download PDF / Print) —
