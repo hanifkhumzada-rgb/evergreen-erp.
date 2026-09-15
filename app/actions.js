@@ -1209,6 +1209,31 @@ export async function bulkImportVehicles(rows) {
   return { ok: true, imported, failed };
 }
 
+// Fuel/maintenance logs are simple cost entries with no journal-entry
+// side effect (unlike expenses/payments/invoices), so a real delete here —
+// not a void-and-reverse — is safe and doesn't break any audit trail.
+// `compositeId` is the same "f-<id>"/"m-<id>" prefix the Fleet page already
+// uses for React keys, reused here so the page doesn't need to thread a
+// separate log-type argument through ReasonConfirmButton's fixed (id, reason) call.
+export async function deleteVehicleExpenseLog(compositeId, reason) {
+  const { supabase, user } = await requireUser();
+  const trimmed = (reason || "").toString().trim();
+  if (!trimmed) return { error: "A reason is required to delete an expense entry." };
+
+  const { data: allowed } = await supabase.rpc("fn_has_permission", { perm_key: "vehicles.delete" });
+  if (!allowed) return { error: "You don't have permission to delete vehicle expenses." };
+
+  const isFuel = compositeId.startsWith("f-");
+  const rawId = compositeId.slice(2);
+  const table = isFuel ? "vehicle_fuel_logs" : "vehicle_maintenance_logs";
+  const { error } = await supabase.from(table).delete().eq("id", rawId);
+  if (error) return { error: error.message };
+
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "DELETE", module: table, record_id: rawId, new_value: { reason: trimmed } });
+  revalidatePath("/fleet");
+  return { ok: true };
+}
+
 export async function addVehicleExpense(formData) {
   const { supabase, user } = await requireUser();
   const category = formData.get("category");

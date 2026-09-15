@@ -10,17 +10,20 @@ import { bulkImportSales, voidInvoice } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { Search } from "lucide-react";
+import { INVOICE_STATUS_LABEL as STATUS_LABEL, INVOICE_STATUS_TONE as STATUS_TONE } from "@/lib/invoiceStatus";
 
 export const dynamic = "force-dynamic";
-const STATUS_LABEL = { paid: "Paid", partially_paid: "Partially Paid", sent: "Pending", draft: "Draft", overdue: "Overdue", void: "Void" };
-const STATUS_TONE = { paid: "green", partially_paid: "amber", sent: "coral", draft: "slate", overdue: "coral", void: "coral" };
 
 export default async function InvoicesPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const supabase = await createClient();
+  // Unbounded on purpose — the KPIs below are labeled "all-time" (Total
+  // Billed) and search/status filters need to reach the full history, not
+  // just a recent window. Invoice history for one business stays small
+  // enough to fetch in full (RLS already scopes this to one business).
   const [branding, { data: invoices }, { data: customers }, { data: products }, { data: canVoid }] = await Promise.all([
     getBrandingLite(supabase),
-    supabase.from("invoices").select("*, customers(name), invoice_items(quantity)").order("created_at", { ascending: false }).limit(200),
+    supabase.from("invoices").select("*, customers(name), invoice_items(quantity)").order("created_at", { ascending: false }),
     supabase.from("customers").select("id, name, default_product_id"),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
     supabase.rpc("fn_has_permission", { perm_key: "invoices.delete" }),

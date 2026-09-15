@@ -34,14 +34,14 @@ export default async function DeliveryCorrectionsPage({ searchParams }) {
 
   return <div>
     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
-      <div><div className="flex items-center gap-2"><PencilLine size={21} className="text-aqua"/><h1 className="font-display text-2xl font-semibold">Delivery Corrections</h1></div><p className="text-sm text-slate mt-1">Wrong bottle entry ko safely correct karein. Bottle balance aur customer ledger auto-adjust hota hai.</p></div>
+      <div><div className="flex items-center gap-2"><PencilLine size={21} className="text-aqua"/><h2 className="font-display text-2xl font-semibold">Delivery Corrections</h2></div><p className="text-sm text-slate mt-1">Safely correct a wrong bottle entry — the bottle balance and customer ledger auto-adjust.</p></div>
       <Link href="/deliveries" className="no-print px-3 py-2 rounded-xl border border-line bg-card text-xs font-bold hover:bg-foam">Back to Deliveries</Link>
     </div>
 
     <form action="/delivery-corrections" className="no-print mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-card p-3">
       <div className="relative min-w-[240px] flex-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate"/><input name="q" defaultValue={q} placeholder="Search customer, ID, phone, delivery no…" className="w-full rounded-xl border border-line bg-foam/40 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-aqua"/></div>
       <input type="month" name="month" defaultValue={month} className="rounded-xl border border-line bg-card px-3 py-2.5 text-sm"/>
-      <button type="submit" className="inline-flex items-center gap-1.5 rounded-xl bg-aqua px-4 py-2.5 text-xs font-bold text-white"><Search size={14}/> Search</button>
+      <button type="submit" className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-card px-4 py-2.5 text-xs font-semibold"><Search size={14}/> Search</button>
       {(q || sp.month) && <Link href="/delivery-corrections" className="text-xs font-semibold text-slate hover:text-aqua">Clear</Link>}
     </form>
 

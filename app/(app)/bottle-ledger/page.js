@@ -33,10 +33,14 @@ export default async function BottleLedgerPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const q = (sp.q || "").trim().toLowerCase();
   const supabase = await createClient();
+  // A search needs to reach the full history, not just the default
+  // recent-150 feed — only cap when there's no search term to narrow it.
+  let movementsQuery = supabase.from("bottle_transactions").select("*, customers(name), products(name), profiles(full_name)").order("created_at", { ascending: false });
+  if (!q) movementsQuery = movementsQuery.limit(150);
   const [branding, { data: balances }, { data: movements }, { data: customers }, { data: reconciliation }, { data: products }, { data: reconHistory }] = await Promise.all([
     getBrandingLite(supabase),
     supabase.from("v_customer_bottle_balance").select("customer_id, name, bottles_with_customer"),
-    supabase.from("bottle_transactions").select("*, customers(name), products(name), profiles(full_name)").order("created_at", { ascending: false }).limit(150),
+    movementsQuery,
     supabase.from("customers").select("id, bottle_limit"),
     supabase.from("v_bottle_reconciliation").select("*").order("product_name"),
     supabase.from("products").select("id, name, size_label").eq("is_active", true).order("name"),

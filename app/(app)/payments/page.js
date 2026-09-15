@@ -54,9 +54,14 @@ export default async function PaymentsPage({ searchParams }) {
   // be bucketed. Bounding the lookback keeps this query flat instead of
   // growing with the business's entire payment history forever.
   const paymentLookback = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const historyQuery = (sp.hq || "").trim().toLowerCase();
+  // A search needs to reach the full history, not just the default
+  // recent-200 feed — only cap when there's no search term to narrow it.
+  let paymentQuery = supabase.from("payments").select("*, customers(name), profiles!payments_received_by_fkey(full_name)").order("created_at", { ascending: false });
+  if (!historyQuery) paymentQuery = paymentQuery.limit(200);
   const [branding, { data: payments }, { data: balances }, { data: collectors }, { data: allPayments }, { data: customersMeta }, { data: canVoid }, { data: highRule }] = await Promise.all([
     getBrandingLite(supabase),
-    supabase.from("payments").select("*, customers(name), profiles!payments_received_by_fkey(full_name)").order("created_at", { ascending: false }).limit(200),
+    paymentQuery,
     supabase.from("v_customer_balance").select("customer_id, name, balance"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").neq("roles.key", "customer").eq("is_active", true).order("full_name"),
     supabase.from("payments").select("customer_id, payment_date, amount, customers(name)").eq("voided", false).gte("payment_date", paymentLookback).order("payment_date", { ascending: false }),
@@ -67,7 +72,6 @@ export default async function PaymentsPage({ searchParams }) {
     // Outstanding cutoff, instead of a second hardcoded threshold.
     supabase.from("automation_rules").select("threshold_value").eq("key", "outstanding_balance").maybeSingle(),
   ]);
-  const historyQuery = (sp.hq || "").trim().toLowerCase();
   const paymentRows = (payments || []).filter((p) => !historyQuery || `${p.customers?.name || ""} ${p.payment_date || ""} ${p.method || ""} ${p.reference || ""} ${p.profiles?.full_name || ""}`.toLowerCase().includes(historyQuery));
   const exportRows = paymentRows.map((p) => ({ Date: p.payment_date, Customer: p.customers?.name, Amount: p.amount, Method: p.method, Collector: p.profiles?.full_name, Reference: p.reference }));
   const highOutstandingThreshold = Number(highRule?.threshold_value) || 10000;
@@ -207,7 +211,7 @@ export default async function PaymentsPage({ searchParams }) {
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <form action="/payments" className="flex items-center gap-2">
           <input type="search" name="hq" defaultValue={sp.hq || ""} placeholder="Search payment history…" className="px-3 py-2 rounded-xl border border-line bg-card text-xs w-52" />
-          <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-bold"><Search size={14} /> Search</button>
+          <button type="submit" className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold"><Search size={14} /> Search</button>
           {historyQuery ? <Link href="/payments" className="text-xs text-slate">Clear</Link> : null}
         </form>
         <div className="flex-1" />

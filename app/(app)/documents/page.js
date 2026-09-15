@@ -4,10 +4,10 @@ import { Eye, Users, Truck, ReceiptText, Wallet, ArrowRight } from "lucide-react
 export const metadata = { title: "Record Preview | Evergreen Water" };
 
 const AREAS = [
-  { href: "/customers", label: "Customers", desc: "Customer profile ko read-only preview mein dekhein, phir zarurat par full profile open karein.", icon: Users },
-  { href: "/deliveries", label: "Deliveries", desc: "Delivery history, bottle quantity aur collected cash verify karein. Wrong entry ho to correction workflow use karein.", icon: Truck },
-  { href: "/invoices", label: "Invoices", desc: "Invoice ko preview karein, Print/PDF/Excel use karein aur full invoice sirf zarurat par open karein.", icon: ReceiptText },
-  { href: "/expenses", label: "Expenses", desc: "Expense details ko safe preview mein verify karein before void/approval actions.", icon: Wallet },
+  { href: "/customers", label: "Customers", desc: "View a customer's profile in a read-only preview, then open the full profile only when you need to.", icon: Users },
+  { href: "/deliveries", label: "Deliveries", desc: "Verify delivery history, bottle quantity, and cash collected. Use the correction workflow if an entry is wrong.", icon: Truck },
+  { href: "/invoices", label: "Invoices", desc: "Preview an invoice, use Print/PDF/Excel, and open the full invoice only when you need to.", icon: ReceiptText },
+  { href: "/expenses", label: "Expenses", desc: "Verify expense details in a safe preview before void/approval actions.", icon: Wallet },
 ];
 
 export default function DocumentsPage() {
@@ -16,8 +16,8 @@ export default function DocumentsPage() {
       <div className="mb-6 flex items-start gap-3">
         <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-aquaSoft text-aqua"><Eye size={22} /></div>
         <div>
-          <h1 className="font-display text-2xl font-semibold">Smart Record Preview</h1>
-          <p className="mt-1 max-w-2xl text-sm text-slate">Preview ab separate file-upload tool nahi hai. ERP ke actual records ke andar View/Preview diya gaya hai, jahan se Print, PDF, Excel ya full record open kiya ja sakta hai.</p>
+          <h2 className="font-display text-2xl font-semibold">Smart Record Preview</h2>
+          <p className="mt-1 max-w-2xl text-sm text-slate">Preview isn't a separate file-upload tool — View/Preview is built into the ERP's own records, so you can Print, download as PDF/Excel, or open the full record only when you need to.</p>
         </div>
       </div>
 

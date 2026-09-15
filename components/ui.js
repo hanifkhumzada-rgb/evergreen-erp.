@@ -14,6 +14,18 @@ export function Badge({ text, tone = "slate" }) {
   return <span className={`${map[tone] || map.slate} text-[11.5px] font-semibold px-2.5 py-1 rounded-full border border-black/[0.03]`}>{text}</span>;
 }
 
+// For a sentence-length informational note (e.g. "Coming soon", a
+// disclaimer) — Badge above is for short status words only; stretching a
+// full sentence into a rounded-full pill reads as visibly broken.
+export function Callout({ children, tone = "slate" }) {
+  const map = {
+    green: "bg-greenSoft text-green border-green/20", amber: "bg-amberSoft text-amber border-amber/20",
+    coral: "bg-coralSoft text-coral border-coral/20", aqua: "bg-aquaSoft text-aqua border-aqua/20",
+    slate: "bg-[#EEF2F2] text-slate border-black/[0.04]",
+  };
+  return <p className={`${map[tone] || map.slate} text-xs font-medium px-3.5 py-2.5 rounded-xl border leading-relaxed`}>{children}</p>;
+}
+
 export function KPI({ label, value, sub, tone = "navy", trend, href }) {
   const style = {
     navy: "bg-navyLight text-white",

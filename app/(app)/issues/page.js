@@ -32,16 +32,19 @@ export default async function IssuesPage({ searchParams }) {
   // A search needs to reach the full history, not just the default recent-200 feed.
   if (!q) query = query.limit(200);
 
-  const [{ data: issues }, { data: allIssues }] = await Promise.all([
+  const [{ data: issues }, openCount, reviewCount, resolvedCount, rejectedCount] = await Promise.all([
     query,
-    supabase.from("customer_issues").select("status"),
+    supabase.from("customer_issues").select("id", { count: "exact", head: true }).eq("status", "open"),
+    supabase.from("customer_issues").select("id", { count: "exact", head: true }).eq("status", "under_review"),
+    supabase.from("customer_issues").select("id", { count: "exact", head: true }).eq("status", "resolved"),
+    supabase.from("customer_issues").select("id", { count: "exact", head: true }).eq("status", "rejected"),
   ]);
-  const counts = { open: 0, under_review: 0, resolved: 0, rejected: 0 };
-  (allIssues || []).forEach((i) => { counts[i.status] = (counts[i.status] || 0) + 1; });
+  const counts = { open: openCount.count || 0, under_review: reviewCount.count || 0, resolved: resolvedCount.count || 0, rejected: rejectedCount.count || 0 };
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-4">Customer Issues</h2>
+      <h2 className="font-display text-2xl font-semibold mb-1">Customer Issues</h2>
+      <p className="text-slate text-sm mb-4">Complaints and requests reported on a delivery — track status from open to resolved.</p>
       <div className="flex flex-wrap gap-3 mb-5">
         <KPI label="Open" value={counts.open} tone="amber" />
         <KPI label="Under Review" value={counts.under_review} tone="aqua" />
@@ -66,7 +69,7 @@ export default async function IssuesPage({ searchParams }) {
         </form>
       </div>
 
-      <div className="bg-card border border-line rounded-2xl overflow-hidden">
+      <div className="bg-card border border-line rounded-2xl overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr>
             <Th>Customer</Th><Th>Type</Th><Th>Description</Th><Th>Delivery</Th><Th>Reported</Th><Th>Status</Th>

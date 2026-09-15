@@ -5,10 +5,9 @@ import { pkr, fmtDate } from "@/lib/format";
 import { Badge, PrintButton, DownloadPdfButton } from "@/components/ui";
 import DocumentPrintHeader from "@/components/DocumentPrintHeader";
 import { getBrandingLite } from "@/lib/pdf/business";
+import { INVOICE_STATUS_LABEL as STATUS_LABEL, INVOICE_STATUS_TONE as STATUS_TONE } from "@/lib/invoiceStatus";
 
 export const dynamic = "force-dynamic";
-const STATUS_LABEL = { paid: "Paid", partially_paid: "Partially Paid", sent: "Pending", draft: "Draft", overdue: "Overdue", void: "Void" };
-const STATUS_TONE = { paid: "green", partially_paid: "amber", sent: "coral", draft: "slate", overdue: "coral", void: "coral" };
 
 export default async function InvoicePage({ params }) {
   const supabase = await createClient();

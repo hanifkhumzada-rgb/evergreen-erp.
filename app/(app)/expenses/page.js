@@ -26,9 +26,12 @@ const STATUS_BADGE = {
 export default async function ExpensesPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const { supabase, profile } = await getCurrentProfile();
+  // Unbounded on purpose — allTimeCategoryTotals below is labeled "all
+  // time" and search/filters need to reach the full history, not just a
+  // recent window (RLS already scopes this to one business's own expenses).
   const [branding, { data: expenses }, { data: categories }, { data: canVoid }] = await Promise.all([
     getBrandingLite(supabase),
-    supabase.from("expenses").select("*, expense_categories(name), profiles!expenses_submitted_by_fkey(full_name)").order("created_at", { ascending: false }).limit(200),
+    supabase.from("expenses").select("*, expense_categories(name), profiles!expenses_submitted_by_fkey(full_name)").order("created_at", { ascending: false }),
     supabase.from("expense_categories").select("id, name").order("name"),
     supabase.rpc("fn_has_permission", { perm_key: "expenses.delete" }),
   ]);

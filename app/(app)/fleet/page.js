@@ -5,7 +5,7 @@ import { Badge, KPI, ExportExcelButton, PrintButton, Th, Td } from "@/components
 import { AddVehicleForm, AddVehicleExpenseForm, EditVehicleDatesForm } from "@/components/FleetForms";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
-import { bulkImportVehicles, deleteVehicle } from "@/app/actions";
+import { bulkImportVehicles, deleteVehicle, deleteVehicleExpenseLog } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { AlertTriangle } from "lucide-react";
@@ -68,6 +68,13 @@ export default async function FleetPage({ searchParams }) {
         v.vehicle_type?.toLowerCase().includes(q) ||
         v.profiles?.full_name?.toLowerCase().includes(q))
     : withCosts;
+  const expenseQuery = (sp.eq || "").trim().toLowerCase();
+  const visibleExpenses = expenseQuery
+    ? vehExpenses.filter((e) =>
+        e.vehicles?.registration_no?.toLowerCase().includes(expenseQuery) ||
+        e.category?.toLowerCase().includes(expenseQuery) ||
+        e.notes?.toLowerCase().includes(expenseQuery))
+    : vehExpenses;
 
   return (
     <div>
@@ -147,12 +154,29 @@ export default async function FleetPage({ searchParams }) {
       </div>
 
       <h4 className="text-sm font-bold mt-8 mb-2.5">Recent vehicle expenses</h4>
+      <form className="no-print flex flex-wrap gap-2.5 mb-2.5 items-center" action="/fleet">
+        <input type="text" name="eq" defaultValue={sp.eq || ""} placeholder="Search vehicle #, category, notes…" className="in w-64" />
+        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
+        {expenseQuery && <Link href="/fleet" className="text-xs text-slate hover:text-aqua">Clear</Link>}
+      </form>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Vehicle</Th><Th>Category</Th><Th>Amount</Th><Th>Notes</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Vehicle</Th><Th>Category</Th><Th>Amount</Th><Th>Notes</Th><Th className="no-print"></Th></tr></thead>
           <tbody>
-            {vehExpenses.length === 0 && <tr><td colSpan={4} className="text-center py-6 text-slate">No vehicle expenses logged yet.</td></tr>}
-            {vehExpenses.map((e) => <tr key={e.id} className="hover:bg-foam"><Td>{e.vehicles?.registration_no}</Td><Td>{e.category}</Td><Td>{pkr(e.amount)}</Td><Td>{e.notes}</Td></tr>)}
+            {visibleExpenses.length === 0 && <tr><td colSpan={5} className="text-center py-6 text-slate">{expenseQuery ? "No expenses match." : "No vehicle expenses logged yet."}</td></tr>}
+            {visibleExpenses.map((e) => (
+              <tr key={e.id} className="hover:bg-foam">
+                <Td>{e.vehicles?.registration_no}</Td><Td>{e.category}</Td><Td>{pkr(e.amount)}</Td><Td>{e.notes}</Td>
+                <Td className="no-print">
+                  {canDelete && (
+                    <ReasonConfirmButton action={deleteVehicleExpenseLog} id={e.id} label="Delete" icon="trash"
+                      confirmText={`Delete this ${e.category.toLowerCase()} entry for ${e.vehicles?.registration_no}?`}
+                      detailText="This can't be undone — use this only to correct a mis-entered amount or wrong vehicle."
+                      confirmLabel="Confirm Delete" busyLabel="Deleting…" />
+                  )}
+                </Td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

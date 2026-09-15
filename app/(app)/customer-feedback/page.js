@@ -55,7 +55,8 @@ export default async function CustomerFeedbackPage() {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-4">Customer Feedback</h2>
+      <h2 className="font-display text-2xl font-semibold mb-1">Customer Feedback</h2>
+      <p className="text-slate text-sm mb-4">Ratings and comments customers leave after a delivery — spot trends and low scores early.</p>
       <div className="flex flex-wrap gap-3 mb-5">
         <KPI label="Average Rating" value={`${avgOverall.toFixed(1)} ★`} tone="amber" />
         <KPI label="Total Feedback" value={rows.length} tone="navy" />

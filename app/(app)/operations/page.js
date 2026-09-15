@@ -42,7 +42,7 @@ export default async function OperationsPage() {
   return (
     <div>
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5">
-        <div><div className="flex items-center gap-2"><CalendarCheck className="text-aqua" size={23} /><h1 className="font-display text-2xl font-semibold">Daily Operations</h1></div><p className="text-sm text-slate mt-1">Morning setup se daily closing tak ek connected workspace.</p></div>
+        <div><div className="flex items-center gap-2"><CalendarCheck className="text-aqua" size={23} /><h2 className="font-display text-2xl font-semibold">Daily Operations</h2></div><p className="text-sm text-slate mt-1">One connected workspace from morning setup to daily closing.</p></div>
         <Badge text={isClosed ? "Day Closed" : "Day In Progress"} tone={isClosed ? "green" : "amber"} />
       </div>
 

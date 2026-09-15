@@ -9,23 +9,26 @@ import { bulkImportSales } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { Search } from "lucide-react";
+import { INVOICE_STATUS_LABEL as STATUS_LABEL, INVOICE_STATUS_TONE as STATUS_TONE } from "@/lib/invoiceStatus";
 
 export const dynamic = "force-dynamic";
-const STATUS_LABEL = { paid: "Paid", partially_paid: "Partially Paid", sent: "Pending", draft: "Draft", overdue: "Overdue", void: "Void" };
-const STATUS_TONE = { paid: "green", partially_paid: "amber", sent: "coral", draft: "slate", overdue: "coral", void: "slate" };
 
 export default async function SalesPage({ searchParams }) {
   const sp = (await searchParams) || {};
+  const q = (sp.q || "").trim().toLowerCase();
   const supabase = await createClient();
+  // A search needs to reach the full history, not just the default
+  // recent-200 feed — only cap when there's no search term to narrow it.
+  let invoiceQuery = supabase.from("invoices").select("*, customers(name), invoice_items(quantity)").order("created_at", { ascending: false });
+  if (!q) invoiceQuery = invoiceQuery.limit(200);
   const [branding, { data: invoices }, { data: customers }, { data: products }] = await Promise.all([
     getBrandingLite(supabase),
-    supabase.from("invoices").select("*, customers(name), invoice_items(quantity)").order("created_at", { ascending: false }).limit(200),
+    invoiceQuery,
     supabase.from("customers").select("id, name, default_product_id"),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
   ]);
 
   const qtyOf = (s) => (s.invoice_items || []).reduce((a, i) => a + Number(i.quantity), 0);
-  const q = (sp.q || "").trim().toLowerCase();
   const rows = (invoices || []).filter((s) => !q || `${s.invoice_no || ""} ${s.customers?.name || ""} ${s.invoice_date || ""}`.toLowerCase().includes(q));
   const exportRows = rows.map((s) => ({
     Invoice: s.invoice_no, Date: s.invoice_date, Customer: s.customers?.name, Qty: qtyOf(s), Total: s.net_amount, Status: STATUS_LABEL[s.status] || s.status,
@@ -41,7 +44,7 @@ export default async function SalesPage({ searchParams }) {
 
       <form className="no-print flex flex-wrap gap-2.5 mb-4" action="/sales">
         <input type="search" name="q" defaultValue={sp.q || ""} placeholder="Search invoice, customer or date…" className="px-3 py-2 rounded-xl border border-line bg-card text-xs w-64" />
-        <button className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-bold"><Search size={14} /> Search</button>
+        <button type="submit" className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold"><Search size={14} /> Search</button>
         {q ? <Link href="/sales" className="self-center text-xs text-slate">Clear</Link> : null}
       </form>
 
