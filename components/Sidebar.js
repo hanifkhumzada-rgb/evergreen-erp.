@@ -151,27 +151,27 @@ function NavList({ entries, pathname, unreadNotifications, onNavigate }) {
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <label className="relative block px-0.5">
         <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8FB8B3]" />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a workspace…" className="w-full rounded-xl border border-white/10 bg-white/5 py-2 pl-8 pr-3 text-xs text-white outline-none placeholder:text-[#8FB8B3] focus:border-aqua/60 focus:bg-white/10" />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a workspace…" className="erp-sidebar-search w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-8 pr-3 text-xs text-white outline-none placeholder:text-[#8FB8B3] focus:border-aqua/60 focus:bg-white/10" />
       </label>
       <div className="nav-scroll flex flex-1 flex-col gap-1.5 overflow-y-auto pr-1">
         {filtered.map((entry) => {
           if (entry.type === "link") {
             const Icon = entry.icon;
             const active = pathname.startsWith(entry.href);
-            return <Link key={entry.href} href={entry.href} onClick={onNavigate} className={`flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-[12.5px] font-semibold ${active ? "bg-gradient-to-r from-aqua to-[#087C69] text-white" : "text-[#C7DEDC] hover:bg-white/5"}`}><Icon size={15} /><span className="flex-1">{entry.label}</span></Link>;
+            return <Link key={entry.href} href={entry.href} onClick={onNavigate} className={`erp-sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-[12.5px] font-semibold ${active ? "erp-sidebar-link-active bg-gradient-to-r from-aqua to-[#087C69] text-white" : "text-[#C7DEDC] hover:bg-white/5"}`}><Icon size={15} /><span className="flex-1">{entry.label}</span></Link>;
           }
           const active = isEntryActive(entry, pathname);
           const expanded = Boolean(query.trim()) || opened === entry.key || active;
           const GroupIcon = entry.icon;
           return (
             <div key={entry.key}>
-              <button type="button" onClick={() => setOpened(expanded ? null : entry.key)} className={`w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-semibold ${active ? "bg-white/10 text-white" : "text-[#A8CBC7] hover:bg-white/5"}`}>
+              <button type="button" onClick={() => setOpened(expanded ? null : entry.key)} className={`erp-sidebar-group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-semibold ${active ? "bg-white/10 text-white" : "text-[#A8CBC7] hover:bg-white/5"}`}>
                 <GroupIcon size={16} /><span className="flex-1 text-left">{entry.label}</span><ChevronDown size={14} className={`transition-transform ${expanded ? "rotate-180" : ""}`} />
               </button>
               {expanded && <div className="flex flex-col gap-0.5 pl-2 mt-1">{entry.items.map((item) => {
                 const Icon = item.icon;
                 const itemActive = pathname.startsWith(item.href);
-                return <Link key={item.href} href={item.href} onClick={onNavigate} className={`flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-[12.5px] font-semibold ${itemActive ? "bg-gradient-to-r from-aqua to-[#087C69] text-white" : "text-[#C7DEDC] hover:bg-white/5"}`}><Icon size={15} /><span className="flex-1">{item.label}</span>{item.href === "/notifications" && <NotifBadge count={unreadNotifications} />}</Link>;
+                return <Link key={item.href} href={item.href} onClick={onNavigate} className={`erp-sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-[12.5px] font-semibold ${itemActive ? "erp-sidebar-link-active bg-gradient-to-r from-aqua to-[#087C69] text-white" : "text-[#C7DEDC] hover:bg-white/5"}`}><Icon size={15} /><span className="flex-1">{item.label}</span>{item.href === "/notifications" && <NotifBadge count={unreadNotifications} />}</Link>;
               })}</div>}
             </div>
           );
@@ -229,20 +229,20 @@ export default function Sidebar({ role, permissions = [], unreadNotifications = 
   return (
     <>
       {open && <div className="no-print fixed inset-0 bg-navy/40 z-40 md:hidden" onClick={() => setOpen(false)} />}
-      <div className={`no-print md:hidden w-[250px] bg-navy text-white flex flex-col p-3 fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 ${open ? "translate-x-0" : "-translate-x-full"}`}>
+      <div className={`erp-sidebar-surface no-print md:hidden w-[286px] max-w-[86vw] text-white flex flex-col p-3 fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <BrandHeader />
         <NavList entries={entries} pathname={pathname} unreadNotifications={unreadNotifications} onNavigate={() => setOpen(false)} />
         <form action={signOut}><button className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-semibold text-[#C7DEDC] w-full mt-2"><LogOut size={16} /> Sign out</button></form>
       </div>
 
       {expanded ? (
-        <div className="no-print hidden md:flex md:flex-col w-[250px] flex-shrink-0 bg-navy text-white p-3">
+        <div className="erp-sidebar-surface no-print hidden md:flex md:flex-col w-[272px] flex-shrink-0 text-white p-3">
           <BrandHeader onCollapse={togglePinned} />
           <NavList entries={entries} pathname={pathname} unreadNotifications={unreadNotifications} onNavigate={() => {}} />
           <form action={signOut}><button className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-semibold text-[#C7DEDC] w-full mt-2"><LogOut size={16} /> Sign out</button></form>
         </div>
       ) : (
-        <div className="no-print hidden md:flex md:flex-col items-center w-16 flex-shrink-0 bg-navy text-white py-3">
+        <div className="erp-sidebar-surface no-print hidden md:flex md:flex-col items-center w-[68px] flex-shrink-0 text-white py-3">
           <Image src="/ew-mark.svg" width={36} height={36} alt="Evergreen Water" className="rounded-xl flex-shrink-0 mb-1.5" priority unoptimized />
           <button type="button" onClick={togglePinned} title="Pin sidebar open" className="w-8 h-8 flex items-center justify-center rounded-lg text-[#C7DEDC] hover:bg-white/10 mb-3"><ChevronRight size={16} /></button>
           <RailNav entries={entries} pathname={pathname} unreadNotifications={unreadNotifications} />
