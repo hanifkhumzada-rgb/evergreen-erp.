@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { REMEMBER_ME_COOKIE } from "@/lib/rememberMe";
 import { sendNotification, retryNotification } from "@/lib/notifications";
+import { createHash, randomUUID } from "node:crypto";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -183,6 +184,7 @@ function customerBasicsFromForm(formData) {
     email: formData.get("email") || null,
     customer_type: formData.get("customer_type"),
     address: formData.get("address") || "",
+    building: String(formData.get("building") || "").trim() || null,
     area: formData.get("area") || null,
     zone_id: formData.get("zone_id") || null,
     route_id: formData.get("route_id") || null,
@@ -582,128 +584,57 @@ export async function voidPayment(paymentId, reason) {
 export async function createDelivery(formData) {
   const { supabase, user } = await requireUser();
   const businessId = await getUserBusinessId(supabase, user.id);
-  if (!businessId) return { error: "Your account is not assigned to a business. Ask the Owner to update your employee profile." };
-  const customerId = formData.get("customer_id");
-  const productId = formData.get("product_id");
+  const customerId = String(formData.get("customer_id") || "");
+  const productId = String(formData.get("product_id") || "");
   const deliveredQty = Number(formData.get("delivered_qty"));
-  const returnedQty = Number(formData.get("returned_qty")) || 0;
-  const deliveryDate = formData.get("delivery_date") || new Date().toISOString().slice(0, 10);
-  const riderId = formData.get("rider_id") || user.id;
-  if (!customerId || !productId || !deliveredQty || deliveredQty <= 0) {
-    return { error: "Pick a customer, bottle size, and a delivered quantity greater than zero." };
+  const returnedQty = Number(formData.get("returned_qty") || 0);
+  const cashCollected = Number(formData.get("cash_collected") || 0);
+  const deliveryDate = String(formData.get("delivery_date") || new Date().toISOString().slice(0, 10));
+  if (!customerId || !productId || !Number.isInteger(deliveredQty) || deliveredQty <= 0 || !Number.isInteger(returnedQty) || returnedQty < 0 || !Number.isFinite(cashCollected) || cashCollected < 0) {
+    return { error: "Select a customer/product, positive whole delivered quantity and non-negative returns/cash." };
   }
-  if (!riderId) return { error: "Delivery boy is required." };
-
-  const rate = await getEffectiveRate(supabase, customerId, productId);
-  const amount = deliveredQty * rate;
-  const cashRaw = formData.get("cash_collected");
-  const cashCollected = cashRaw != null && cashRaw !== "" ? Number(cashRaw) : 0;
-  const requestId = String(formData.get("request_id") || "").trim() || null;
-  if (!Number.isFinite(cashCollected) || cashCollected < 0) return { error: "Cash collected cannot be negative." };
-
-  // Idempotency is tied to this exact form submission, not customer/date.
-  // That protects offline retries and double taps while still allowing two
-  // legitimate same-day deliveries for the same customer.
-  if (requestId) {
-    const { data: previousRequest } = await supabase.from("deliveries")
-      .select("id").eq("business_id", businessId).eq("request_id", requestId).maybeSingle();
-    if (previousRequest) return { ok: true, duplicate: true };
-  }
-
-  // The daily recurring-order cron (app/api/cron/recurring-orders) may
-  // already have created a "pending" placeholder for this customer today —
-  // reuse it instead of inserting a second row, the same one-record-per-
-  // customer-per-day rule the duplicate guard above enforces for completed
-  // deliveries.
-  const { data: existingPending } = await supabase.from("deliveries")
-    .select("id, delivery_no").eq("customer_id", customerId).eq("delivery_date", deliveryDate).eq("status", "pending")
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
-
-  const deliveryNo = existingPending?.delivery_no || await nextDeliveryNo(supabase, customerId, deliveryDate);
-  let delivery, error;
-  if (existingPending) {
-    ({ data: delivery, error } = await supabase.from("deliveries").update({
-      rider_id: riderId, status: "delivered", amount, amount_collected: cashCollected,
-      payment_method: "cash", delivered_at: new Date().toISOString(),
-      request_id: requestId,
-    }).eq("id", existingPending.id).select("id").single());
-  } else {
-    ({ data: delivery, error } = await supabase.from("deliveries").insert({
-      delivery_no: deliveryNo,
-      business_id: businessId,
-      customer_id: customerId,
-      rider_id: riderId,
-      delivery_date: deliveryDate,
-      status: "delivered",
-      amount,
-      amount_collected: cashCollected,
-      payment_method: "cash",
-      delivered_at: new Date().toISOString(),
-      created_by: user.id,
-      request_id: requestId,
-    }).select("id").single());
-  }
-  if (error) {
-    if (error.code === "23505" && requestId) return { ok: true, duplicate: true };
-    console.error("[createDelivery] delivery insert failed", { code: error.code, message: error.message, userId: user.id, customerId });
-    return { error: error.message };
-  }
-
-  // Same reuse-over-duplicate logic for the line item the cron's placeholder
-  // already has (expected_qty = the customer's regular_qty, delivered_qty 0).
-  const { data: existingItem } = existingPending
-    ? await supabase.from("delivery_items").select("id").eq("delivery_id", delivery.id).eq("product_id", productId).maybeSingle()
-    : { data: null };
-  if (existingItem) {
-    await supabase.from("delivery_items").update({ expected_qty: deliveredQty, delivered_qty: deliveredQty, returned_qty: returnedQty, unit_price: rate }).eq("id", existingItem.id);
-  } else {
-    await supabase.from("delivery_items").insert({
-      delivery_id: delivery.id, product_id: productId, expected_qty: deliveredQty, delivered_qty: deliveredQty, returned_qty: returnedQty, unit_price: rate,
-    });
-  }
-  await supabase.from("bottle_transactions").insert({
-    txn_date: deliveryDate, product_id: productId, quantity: deliveredQty,
-    from_state: "with_rider", to_state: "with_customer", customer_id: customerId,
-    reference_type: "delivery", reference_id: delivery.id, created_by: user.id,
+  const { data: deliveryId, error } = await supabase.rpc("fn_record_water_delivery", {
+    p_customer_id: customerId, p_product_id: productId, p_delivery_date: deliveryDate,
+    p_delivered_qty: deliveredQty, p_returned_qty: returnedQty, p_cash_collected: cashCollected,
+    p_rider_id: formData.get("rider_id") || user.id,
+    p_request_id: String(formData.get("request_id") || randomUUID()),
   });
-  if (returnedQty > 0) {
-    await supabase.from("bottle_transactions").insert({
-      txn_date: deliveryDate, product_id: productId, quantity: returnedQty,
-      from_state: "with_customer", to_state: "with_rider", customer_id: customerId,
-      reference_type: "delivery_return", reference_id: delivery.id, created_by: user.id,
-    });
-  }
-  await postDeliveryToLedger(supabase, {
-    customerId, deliveryId: delivery.id, deliveryNo, deliveryDate, amount, cashCollected, riderId, actorId: user.id,
-  });
-  await supabase.from("audit_logs").insert({
-    user_id: user.id, action: "CREATE", module: "deliveries", record_id: delivery.id,
-    new_value: { customer_id: customerId, product_id: productId, delivered_qty: deliveredQty, returned_qty: returnedQty, rate, amount, cash_collected: cashCollected, rider_id: riderId },
-  });
-
-  // Best-effort, after the delivery transaction above has already fully
-  // committed — see notifyBestEffort's own comment for why this can never
-  // roll anything back. automationKey gates it on the "Delivery
-  // Confirmation Messages" row (Automation Center) being turned on.
+  if (error) return { error: error.message };
   if (businessId) {
     const { data: custRow } = await supabase.from("customers").select("name").eq("id", customerId).maybeSingle();
-    await notifyBestEffort({
-      supabase, businessId, customerId, templateKey: "delivery_confirmation",
+    await notifyBestEffort({ supabase, businessId, customerId, templateKey: "delivery_confirmation",
       variables: { customer_name: custRow?.name || "Customer", quantity: deliveredQty },
-      automationKey: "delivery_messages", relatedType: "delivery", relatedId: delivery.id,
-    });
+      automationKey: "delivery_messages", relatedType: "delivery", relatedId: deliveryId });
   }
+  for (const path of ["/deliveries", "/bottles", "/bottle-ledger", "/dashboard", "/customers", `/customers/${customerId}`, "/ledger", "/payments", "/employees"]) revalidatePath(path);
+  return { ok: true, id: deliveryId };
+}
 
-  revalidatePath("/deliveries");
-  revalidatePath("/bottles");
-  revalidatePath("/bottle-ledger");
-  revalidatePath("/dashboard");
-  revalidatePath("/customers");
-  revalidatePath(`/customers/${customerId}`);
-  revalidatePath("/ledger");
-  revalidatePath("/payments");
-  revalidatePath("/employees");
+export async function correctWaterDelivery(deliveryId, items, reason) {
+  const { supabase, user } = await requireUser();
+  if ((await getUserRole(supabase, user)) !== "owner") return { error: "Only the Owner may correct a completed delivery." };
+  const { error } = await supabase.rpc("fn_correct_water_delivery", { p_id: deliveryId, p_items: items, p_reason: String(reason || "").trim() });
+  if (error) return { error: error.message };
+  for (const path of ["/deliveries", "/bottles", "/bottle-ledger", "/customers", "/ledger", "/dashboard"]) revalidatePath(path);
   return { ok: true };
+}
+
+export async function correctWaterExpense(expenseId, formData) {
+  const { supabase, user } = await requireUser();
+  if ((await getUserRole(supabase, user)) !== "owner") return { error: "Only the Owner may correct expenses." };
+  const amount = Number(formData.get("amount"));
+  if (!Number.isFinite(amount) || amount <= 0) return { error: "Amount must be greater than zero." };
+  const { error, data } = await supabase.rpc("fn_correct_water_expense", {
+    p_id: expenseId, p_category_id: formData.get("category_id"),
+    p_date: formData.get("expense_date"), p_amount: amount,
+    p_method: formData.get("method") === "Bank Transfer" ? "bank" : "cash",
+    p_description: String(formData.get("description") || ""),
+    p_receipt: String(formData.get("receipt_reference") || ""),
+    p_reason: String(formData.get("reason") || "").trim(),
+  });
+  if (error) return { error: error.message };
+  for (const path of ["/expenses", "/dashboard", "/accounting/journal", "/accounting/profit-loss"]) revalidatePath(path);
+  return { ok: true, id: data, pendingApproval: true };
 }
 
 // Expenses above the "expense_approval_threshold" automation rule post as
@@ -718,17 +649,19 @@ async function resolveExpenseStatus(supabase, amount) {
 
 export async function createExpense(formData) {
   const { supabase, user } = await requireUser();
+  const amount = Number(formData.get("amount"));
+  const businessId = await getUserBusinessId(supabase, user.id);
+  const { data: permitted } = await supabase.rpc("fn_has_permission", { perm_key: "expenses.create" });
+  if (!permitted || !businessId) return { error: "Expense creation permission and business assignment required." };
+  if (!Number.isFinite(amount) || amount <= 0) return { error: "Expense amount must be greater than zero." };
   const categoryName = formData.get("category");
   let { data: category } = await supabase.from("expense_categories").select("id").eq("name", categoryName).maybeSingle();
-  if (!category) {
-    ({ data: category } = await supabase.from("expense_categories").select("id").eq("name", "Other").maybeSingle());
-  }
   if (!category) return { error: "No expense category configured" };
   const methodMap = { Cash: "cash", "Bank Transfer": "bank" };
-  const amount = Number(formData.get("amount"));
   const status = await resolveExpenseStatus(supabase, amount);
   const { data: expense, error } = await supabase.from("expenses").insert({
     expense_no: genCode("EXP"),
+    business_id: businessId,
     category_id: category.id,
     description: formData.get("description"),
     amount,
@@ -1766,6 +1699,7 @@ export async function bulkImportCustomers(rows) {
       email: r.Email || r.email || null,
       customer_type: r["Customer Type"] || r.Type || "Home",
       address: r.Address || r.address || "",
+      building: r.Building || r["Building / Flat"] || r.building || null,
       area: r.Area || r.area || null,
       zone_id: zoneId,
       route_id: routeId,
@@ -2085,65 +2019,30 @@ export async function bulkImportDeliveries(rows) {
   const businessId = await getUserBusinessId(supabase, user.id);
   if (!businessId) return { error: "Your account is not assigned to a business.", imported: 0, failed: rows.length };
   let imported = 0, failed = 0;
-  for (const r of rows) {
+  const errorRows = [];
+  for (const [index, r] of rows.entries()) {
     const customerId = await findCustomerId(supabase, r);
     const qty = Number(r.Qty || r.qty);
     const productId = await resolveProductId(supabase, r.Product || r.product || r.Size || r.size, null);
-    if (!customerId || !qty || !productId) { failed++; continue; }
-    // Historical bulk entry assumes a straight bottle swap (empties returned
-    // = full bottles delivered) unless the template gives a Returned column.
     const returnedQty = r.Returned != null && r.Returned !== "" ? Number(r.Returned) : qty;
-    const rate = await getEffectiveRate(supabase, customerId, productId);
-    const cashCollected = r.CashCollected != null && r.CashCollected !== "" ? Number(r.CashCollected) : qty * rate;
+    // Credit customers are not automatically marked paid by an import.
+    // Only an explicitly supplied cash collection posts a receipt.
+    const cashCollected = r.CashCollected != null && r.CashCollected !== "" ? Number(r.CashCollected) : 0;
     const deliveryDate = r.Date || r.date || new Date().toISOString().slice(0, 10);
-    const amount = qty * rate;
-    const deliveryNo = await nextDeliveryNo(supabase, customerId, deliveryDate);
-
-    const { data: delivery, error } = await supabase.from("deliveries").insert({
-      delivery_no: deliveryNo,
-      business_id: businessId,
-      customer_id: customerId,
-      delivery_date: deliveryDate,
-      status: "delivered",
-      amount,
-      amount_collected: cashCollected,
-      payment_method: "cash",
-      delivered_at: new Date().toISOString(),
-      created_by: user.id,
-    }).select("id").single();
-    if (error) {
-      console.error("[bulkImportDeliveries] row failed", { code: error.code, message: error.message, customerId, deliveryDate });
-      failed++;
-      continue;
+    if (!customerId || !productId || !Number.isInteger(qty) || qty <= 0 || !Number.isInteger(returnedQty) || returnedQty < 0 || !Number.isFinite(cashCollected) || cashCollected < 0) {
+      failed++; errorRows.push({ ...r, Row: index + 1, Error: "Customer/product, positive whole Qty and non-negative Returned/CashCollected required." }); continue;
     }
-
-    await supabase.from("delivery_items").insert({
-      delivery_id: delivery.id, product_id: productId, expected_qty: qty, delivered_qty: qty, returned_qty: returnedQty, unit_price: rate,
+    const fingerprint = createHash("sha256").update(JSON.stringify([businessId, customerId, productId, deliveryDate, qty, returnedQty, cashCollected, index])).digest("hex");
+    const { error } = await supabase.rpc("fn_record_water_delivery", {
+      p_customer_id: customerId, p_product_id: productId, p_delivery_date: deliveryDate,
+      p_delivered_qty: qty, p_returned_qty: returnedQty, p_cash_collected: cashCollected,
+      p_rider_id: user.id, p_request_id: `water-import-${fingerprint}`,
     });
-    await supabase.from("bottle_transactions").insert({
-      txn_date: deliveryDate, product_id: productId, quantity: qty,
-      from_state: "with_rider", to_state: "with_customer", customer_id: customerId,
-      reference_type: "delivery", reference_id: delivery.id, created_by: user.id,
-    });
-    if (returnedQty > 0) {
-      await supabase.from("bottle_transactions").insert({
-        txn_date: deliveryDate, product_id: productId, quantity: returnedQty,
-        from_state: "with_customer", to_state: "with_rider", customer_id: customerId,
-        reference_type: "delivery_return", reference_id: delivery.id, created_by: user.id,
-      });
-    }
-    await postDeliveryToLedger(supabase, {
-      customerId, deliveryId: delivery.id, deliveryNo, deliveryDate, amount, cashCollected, riderId: null, actorId: user.id,
-    });
+    if (error) { failed++; errorRows.push({ ...r, Row: index + 1, Error: error.message }); continue; }
     imported++;
   }
-  revalidatePath("/deliveries");
-  revalidatePath("/bottles");
-  revalidatePath("/bottle-ledger");
-  revalidatePath("/dashboard");
-  revalidatePath("/ledger");
-  revalidatePath("/payments");
-  return { ok: true, imported, failed };
+  for (const path of ["/deliveries", "/bottles", "/bottle-ledger", "/dashboard", "/ledger", "/payments"]) revalidatePath(path);
+  return { ok: true, imported, failed, errorRows };
 }
 
 export async function bulkImportPurchases(rows) {

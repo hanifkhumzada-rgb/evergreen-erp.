@@ -40,7 +40,8 @@ export default function DeliveryForm({ customers, products, riders = [], current
       .slice(0, 8);
   }, [query, customers, selected]);
 
-  const currentBottleBalance = Number(selected?.bottleBalance || 0);
+  const currentBottleBalance = Number(selected?.bottleBalancesByProduct?.[productId] ?? (selected?.default_product_id === productId ? selected?.bottleBalance : 0) ?? 0);
+  const currentRate = Number(selected?.ratesByProduct?.[productId] ?? (selected?.default_product_id === productId ? selected?.rate : 0) ?? 0);
   const projectedBottleBalance = Math.max(0, currentBottleBalance + Number(deliveredQty || 0) - Number(returnedQty || 0));
   const maxReturn = currentBottleBalance + Number(deliveredQty || 0);
 
@@ -123,7 +124,7 @@ export default function DeliveryForm({ customers, products, riders = [], current
                   <div><span className="text-slate">Zone / Route</span><div className="font-semibold truncate">{selected.zoneName || "—"} · {selected.route || "—"}</div></div>
                   <div className="rounded-xl border border-line bg-card p-2.5">
                     <div className="flex items-center gap-1.5 text-slate"><BadgeDollarSign size={13} /> Rate</div>
-                    <div className="font-bold text-sm mt-1">{selected.rate ? pkr(selected.rate) : "Standard rate"}</div>
+                    <div className="font-bold text-sm mt-1">{currentRate ? pkr(currentRate) : "Rate not configured"}</div>
                   </div>
                   <div className="rounded-xl border border-line bg-card p-2.5">
                     <div className="flex items-center gap-1.5 text-slate"><RefreshCw size={13} /> Frequency / Type</div>
@@ -139,7 +140,7 @@ export default function DeliveryForm({ customers, products, riders = [], current
 
             <label className="block mb-3">
               <span className="text-xs font-semibold text-slate block mb-1">Bottle size *</span>
-              <select name="product_id" required className="in" value={productId} onChange={(e) => setProductId(e.target.value)}>
+              <select name="product_id" required className="in" value={productId} onChange={(e) => { setProductId(e.target.value); setReturnedQty(0); }}>
                 {!products?.length && <option value="">No active bottle product configured</option>}
                 {(products || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
@@ -178,7 +179,7 @@ export default function DeliveryForm({ customers, products, riders = [], current
               </label>
               <label className="block">
                 <span className="text-xs font-semibold text-slate block mb-1">Date</span>
-                <input name="delivery_date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="in" />
+                <input name="delivery_date" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className="in" />
               </label>
             </div>
 

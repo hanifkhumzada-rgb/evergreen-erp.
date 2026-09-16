@@ -1,44 +1,47 @@
 "use client";
-
 import { useState } from "react";
-import { Pencil, Save, X } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { Pencil, X } from "lucide-react";
+import { correctWaterDelivery } from "@/app/actions";
+import Toast from "@/components/Toast";
 
-export default function DeliveryCorrectionForm({ delivery }) {
+export default function DeliveryCorrectionForm({ delivery, products = [] }) {
   const [open, setOpen] = useState(false);
-  const [items, setItems] = useState((delivery.delivery_items || []).map((item) => ({ ...item })));
-  const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-
-  const save = async () => {
-    if (!reason.trim()) { setMessage("Correction reason required."); return; }
-    setBusy(true); setMessage("");
-    const supabase = createClient();
-    const { error } = await supabase.rpc("fn_correct_delivery_quantities", {
-      p_delivery_id: delivery.id,
-      p_items: items.map((item) => ({ product_id: item.product_id, delivered_qty: Number(item.delivered_qty), returned_qty: Number(item.returned_qty) })),
-      p_reason: reason.trim(),
-    });
-    if (error) { setMessage(error.message); setBusy(false); return; }
-    setMessage("Correction saved. Bottle balance and customer ledger were adjusted automatically.");
-    setBusy(false);
-    setTimeout(() => window.location.reload(), 700);
+  const [error, setError] = useState("");
+  const [toast, setToast] = useState(false);
+  const submit = async (data) => {
+    setBusy(true); setError("");
+    const items = (delivery.delivery_items || []).map((item, index) => ({
+      product_id: item.product_id,
+      delivered_qty: Number(data.get(`delivered_${index}`)),
+      returned_qty: Number(data.get(`returned_${index}`)),
+    }));
+    try {
+      const result = await correctWaterDelivery(delivery.id, items, data.get("reason"));
+      if (result?.error) { setError(result.error); return; }
+      setOpen(false); setToast(true);
+    } catch { setError("Could not save correction. Please try again."); }
+    finally { setBusy(false); }
   };
-
   return <>
-    <button type="button" onClick={() => setOpen(true)} title="Correct delivery" className="w-9 h-9 inline-flex items-center justify-center rounded-lg border border-line text-amber hover:bg-amberSoft"><Pencil size={15} /></button>
-    {open && <div className="fixed inset-0 z-[130] bg-navy/65 p-3 sm:p-6" role="dialog" aria-modal="true">
-      <div className="mx-auto max-w-xl rounded-2xl bg-card border border-line shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-line"><div><h3 className="font-display text-lg font-semibold">Correct Delivery</h3><p className="text-xs text-slate">{delivery.delivery_no} · {delivery.customer_name}</p></div><button type="button" onClick={() => setOpen(false)} className="p-2 rounded-lg hover:bg-foam"><X size={17}/></button></div>
-        <div className="p-5 space-y-4">
-          <div className="rounded-xl bg-amberSoft border border-amber/20 p-3 text-xs text-amber">Use this only to correct a wrong bottle entry. Every correction needs a reason and keeps an audit-friendly adjustment trail.</div>
-          {items.map((item, index) => <div key={item.product_id} className="grid grid-cols-2 gap-3 rounded-xl border border-line p-3"><div className="col-span-2 text-xs font-bold">{item.product_name || "Bottle"}</div><label className="text-xs text-slate">Delivered<input type="number" min="0" step="1" value={item.delivered_qty ?? 0} onChange={(e) => setItems((rows) => rows.map((row, i) => i === index ? { ...row, delivered_qty: e.target.value } : row))} className="mt-1 w-full rounded-lg border border-line bg-card px-3 py-2 text-sm text-ink"/></label><label className="text-xs text-slate">Empty Returned<input type="number" min="0" step="1" value={item.returned_qty ?? 0} onChange={(e) => setItems((rows) => rows.map((row, i) => i === index ? { ...row, returned_qty: e.target.value } : row))} className="mt-1 w-full rounded-lg border border-line bg-card px-3 py-2 text-sm text-ink"/></label></div>)}
-          <label className="block text-xs font-semibold">Reason for correction<textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={3} placeholder="Example: 5 bottles entered by mistake, actual delivery was 4." className="mt-1 w-full rounded-xl border border-line bg-card px-3 py-2 text-sm text-ink"/></label>
-          {message && <p className="text-xs rounded-xl bg-foam p-3">{message}</p>}
-          <div className="flex justify-end gap-2"><button type="button" onClick={() => setOpen(false)} className="px-4 py-2 rounded-xl border border-line text-xs font-bold">Cancel</button><button type="button" disabled={busy} onClick={save} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-aqua text-white text-xs font-bold disabled:opacity-50"><Save size={14}/>{busy ? "Saving…" : "Save Correction"}</button></div>
-        </div>
-      </div>
+    <button type="button" onClick={() => setOpen(true)} className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-card px-3 py-2 text-xs font-bold text-aqua"><Pencil size={13} />Edit</button>
+    {open && <div className="fixed inset-0 z-[70] flex items-end justify-center bg-navy/50 p-0 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Correct delivery">
+      <form action={submit} className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-card p-5 sm:rounded-2xl">
+        <div className="mb-3 flex items-center justify-between"><h3 className="font-display text-lg font-bold">Correct Delivery</h3><button type="button" disabled={busy} onClick={() => setOpen(false)} aria-label="Close correction"><X size={18} /></button></div>
+        <p className="mb-3 text-xs text-slate">{delivery.delivery_no} · {delivery.customers?.name || delivery.customer_name} · {delivery.delivery_date || ""}</p>
+        <p className="mb-3 rounded-xl bg-aquaSoft p-3 text-xs text-slate">Rate and date are preserved. Quantity changes post linked bottle/ledger adjustments; collection receipts are not overwritten.</p>
+        {error && <p role="alert" className="mb-3 rounded-xl bg-coralSoft p-3 text-xs text-coral">{error}</p>}
+        {(delivery.delivery_items || []).map((item, index) => <div key={item.product_id} className="mb-3 rounded-xl border border-line p-3">
+          <p className="mb-2 text-xs font-bold">{products.find((p) => p.id === item.product_id)?.name || item.product_name || "Bottle"}</p>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="text-xs text-slate">Delivered *<input className="in mt-1" name={`delivered_${index}`} type="number" min={1} step={1} required defaultValue={item.delivered_qty} /></label>
+            <label className="text-xs text-slate">Empty returned<input className="in mt-1" name={`returned_${index}`} type="number" min={0} step={1} required defaultValue={item.returned_qty || 0} /></label>
+          </div>
+        </div>)}
+        <label className="mb-3 block text-xs text-slate">Correction reason *<textarea name="reason" className="in mt-1" required minLength={3} /></label>
+        <button type="submit" disabled={busy} className="w-full rounded-xl bg-aqua py-2.5 text-sm font-bold text-white disabled:opacity-60">{busy ? "Saving…" : "Save Correction"}</button>
+      </form>
     </div>}
+    {toast && <Toast type="success" message="Delivery corrected; bottle and ledger adjustments recorded." onDismiss={() => setToast(false)} />}
   </>;
 }

@@ -128,6 +128,17 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
     }
   };
 
+  const downloadErrors = async () => {
+    const XLSX = await loadXlsx();
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(result?.errorRows || []), "Error Rows");
+    XLSX.writeFile(workbook, "evergreen-import-error-rows.xlsx");
+  };
+  const retryErrors = () => {
+    setPreview({ editable: true, rows: (result?.errorRows || []).map(({ Row, Error, ...data }) => ({ data, error: Error, missing: [], duplicate: false })) });
+    setResult(null);
+  };
+
   const validCount = preview ? preview.rows.filter((r) => r.missing.length === 0 && !r.duplicate).length : 0;
 
   return (
@@ -186,6 +197,7 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
                 </button>
               </div>
             )}
+            {preview.editable && <div className="mb-3 overflow-x-auto rounded-xl border border-line"><table className="text-xs"><thead><tr>{Object.keys(preview.rows[0]?.data || {}).map((key) => <th key={key} className="p-2 text-left">{key}</th>)}<th className="p-2 text-coral">Last error</th></tr></thead><tbody>{preview.rows.map((row, index) => <tr key={index}>{Object.keys(preview.rows[0]?.data || {}).map((key) => <td key={key} className="p-1"><input aria-label={`${key} row ${index + 1}`} value={row.data[key] ?? ""} onChange={(event) => setPreview((current) => ({ ...current, rows: current.rows.map((item, i) => i === index ? { ...item, data: { ...item.data, [key]: event.target.value } } : item) }))} className="in min-w-[130px]" /></td>)}<td className="min-w-[180px] p-2 text-coral">{row.error}</td></tr>)}</tbody></table></div>}
             <div className="max-h-48 overflow-y-auto border border-line rounded-lg mb-4 text-xs">
               {preview.rows.slice(0, 30).map((r, i) => (
                 <div key={i} className="px-3 py-1.5 border-b border-line flex items-center justify-between gap-2">
@@ -216,6 +228,7 @@ export default function BulkImportButton({ label = "Import Excel", columnsHint, 
               {result.duplicateCodesReassigned > 0 && <>{result.duplicateCodesReassigned} had a duplicate Customer Code and were assigned a new one.</>}
             </p>
           )}
+          {result.errorRows?.length > 0 && <div className="mt-2 flex flex-wrap gap-2"><button type="button" onClick={downloadErrors} className="rounded-lg border border-line px-2 py-1 text-xs text-coral">Download Error Rows</button><button type="button" onClick={retryErrors} className="rounded-lg bg-aquaSoft px-2 py-1 text-xs font-bold text-aqua">Edit & Retry Failed Rows</button></div>}
           <button type="button" className="text-xs text-aqua font-semibold mt-1" onClick={() => setResult(null)}>Dismiss</button>
         </div>
       )}
