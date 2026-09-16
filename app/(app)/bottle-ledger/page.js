@@ -35,7 +35,7 @@ export default async function BottleLedgerPage({ searchParams }) {
   const supabase = await createClient();
   // A search needs to reach the full history, not just the default
   // recent-150 feed — only cap when there's no search term to narrow it.
-  let movementsQuery = supabase.from("bottle_transactions").select("*, customers(name), products(name), profiles(full_name)").order("created_at", { ascending: false });
+  let movementsQuery = supabase.from("bottle_transactions").select("*, customers(name, code, mobile), products(name), profiles(full_name)").order("created_at", { ascending: false });
   if (!q) movementsQuery = movementsQuery.limit(150);
   const [branding, { data: balances }, { data: movements }, { data: customers }, { data: reconciliation }, { data: products }, { data: reconHistory }] = await Promise.all([
     getBrandingLite(supabase),
@@ -50,13 +50,13 @@ export default async function BottleLedgerPage({ searchParams }) {
   const bySize = reconciliation || [];
   const totalOwned = bySize.reduce((a, s) => a + Number(s.total_assets), 0);
   const withCustomers = (balances || []).reduce((a, b) => a + Number(b.bottles_with_customer), 0);
-  const full = totalOwned - withCustomers;
+  const full = bySize.reduce((sum, row) => sum + Number(row.warehouse || 0), 0);
   const liabilityValue = withCustomers * BOTTLE_COST;
   const warehouseTotal = bySize.reduce((a, s) => a + Number(s.warehouse), 0);
   const withRiderTotal = bySize.reduce((a, s) => a + Number(s.with_rider), 0);
   const damagedTotal = bySize.reduce((a, s) => a + Number(s.damaged), 0);
   const lostTotal = bySize.reduce((a, s) => a + Number(s.lost), 0);
-  const exportRows = (movements || []).map((m) => ({ Date: m.txn_date, Type: movementType(m).text, Customer: m.customers?.name, Size: m.products?.name, From: m.from_state, To: m.to_state, Qty: m.quantity, By: m.profiles?.full_name }));
+  const exportRows = (movements || []).map((m) => ({ Date: m.txn_date, Type: movementType(m).text, "Customer ID": m.customers?.code, Customer: m.customers?.name, Size: m.products?.name, From: m.from_state, To: m.to_state, Qty: m.quantity, By: m.profiles?.full_name }));
 
   // Before/after "with customer" balance per row — computed from each
   // customer+size's full transaction history (not just the 150-row feed
@@ -115,7 +115,7 @@ export default async function BottleLedgerPage({ searchParams }) {
   // Export Excel button next to it still exports the full unfiltered feed.
   const visibleMovements = q
     ? (movements || []).filter((m) =>
-        m.customers?.name?.toLowerCase().includes(q) ||
+        [m.customers?.code, m.customers?.name, m.customers?.mobile].filter(Boolean).join(" ").toLowerCase().includes(q) ||
         m.products?.name?.toLowerCase().includes(q) ||
         m.profiles?.full_name?.toLowerCase().includes(q) ||
         movementType(m).text.toLowerCase().includes(q))
@@ -148,7 +148,7 @@ export default async function BottleLedgerPage({ searchParams }) {
 
       <div className="flex gap-3 flex-wrap mb-6">
         <Stat label="Total Owned" value={totalOwned} />
-        <Stat label="Full Available" value={full} />
+        <Stat label="Warehouse stock" value={full} />
         <Stat label="Warehouse" value={warehouseTotal} />
         <Stat label="With Delivery Boys" value={withRiderTotal} />
         <Stat label="With Customers" value={withCustomers} />
@@ -217,7 +217,7 @@ export default async function BottleLedgerPage({ searchParams }) {
 
       <h4 className="text-sm font-bold mb-2.5">Activity timeline</h4>
       <form className="no-print flex flex-wrap gap-2.5 mb-3 items-center" action="/bottle-ledger">
-        <input type="text" name="q" defaultValue={sp.q || ""} placeholder="Search customer, size, type, who…" className="in w-64" />
+        <input type="text" name="q" defaultValue={sp.q || ""} placeholder="Search ID, name, phone, size, type…" className="in w-64" />
         <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
         {q && <Link href="/bottle-ledger" className="text-xs text-slate hover:text-aqua">Clear</Link>}
         <div className="flex-1" />
@@ -226,9 +226,9 @@ export default async function BottleLedgerPage({ searchParams }) {
       </form>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Type</Th><Th>Customer</Th><Th>Size</Th><Th>Qty</Th><Th>Before</Th><Th>After</Th><Th>Who</Th><Th>Reason</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Type</Th><Th>Customer ID</Th><Th>Customer</Th><Th>Size</Th><Th>Qty</Th><Th>Before</Th><Th>After</Th><Th>Who</Th><Th>Reason</Th></tr></thead>
           <tbody>
-            {visibleMovements.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-slate">{q ? "No movements match." : "No movements recorded yet."}</td></tr>}
+            {visibleMovements.length === 0 && <tr><td colSpan={10} className="text-center py-8 text-slate">{q ? "No movements match." : "No movements recorded yet."}</td></tr>}
             {visibleMovements.map((m) => {
               const rb = runningBalance[m.id];
               const type = movementType(m);
@@ -236,7 +236,7 @@ export default async function BottleLedgerPage({ searchParams }) {
                 <tr key={m.id} className="hover:bg-foam">
                   <Td>{fmtDate(m.txn_date)}</Td>
                   <Td><Badge text={type.text} tone={type.tone} /></Td>
-                  <Td>{m.customers?.name || "—"}</Td><Td>{m.products?.name || "—"}</Td><Td>{m.quantity}</Td>
+                  <Td className="font-mono-num text-slate">{m.customers?.code || "—"}</Td><Td>{m.customers?.name || "—"}</Td><Td>{m.products?.name || "—"}</Td><Td>{m.quantity}</Td>
                   <Td className="text-slate">{rb ? rb.before : "—"}</Td>
                   <Td className="font-semibold">{rb ? rb.after : "—"}</Td>
                   <Td>{m.profiles?.full_name || "—"}</Td>

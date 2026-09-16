@@ -224,7 +224,7 @@ export default async function CustomerProfilePage({ params }) {
         {c.whatsapp_number && <span>WhatsApp: {c.whatsapp_number}</span>}
         {c.email && <span>{c.email}</span>}
         {c.contact_person && <span>Contact: {c.contact_person}</span>}
-        <span>{c.address}{c.area ? `, ${c.area}` : ""}</span>
+        <span>{[c.building, c.address].filter(Boolean).join(" · ")}{c.area ? `, ${c.area}` : ""}</span>
         {c.route && <span>Route: {c.route}</span>}
         {c.preferred_delivery_time && <span>{c.preferred_delivery_time}</span>}
         {c.profiles?.full_name && <span>Driver: {c.profiles.full_name}</span>}

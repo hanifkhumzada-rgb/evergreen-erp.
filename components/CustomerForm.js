@@ -114,7 +114,10 @@ export default function CustomerForm({ mode = "create", customer, zones, product
             </Section>
 
             <Section title="Address & Delivery">
-              <Field label="Complete address"><input name="address" defaultValue={c.address} className="in" /></Field>
+              <Row>
+                <Field label="Building / Flat / Shop"><input name="building" defaultValue={c.building} className="in" placeholder="Building name, floor, flat or shop no." /></Field>
+                <Field label="Complete address"><input name="address" defaultValue={c.address} className="in" /></Field>
+              </Row>
               <Row>
                 <Field label="Area"><input name="area" defaultValue={c.area} className="in" /></Field>
                 <Field label="Zone">
@@ -208,7 +211,7 @@ export default function CustomerForm({ mode = "create", customer, zones, product
 
             <Section title="Bottle Information">
               <Row>
-                <Field label="Opening bottle balance"><input name="opening_bottles_with_customer" type="number" defaultValue={c.opening_bottles_with_customer ?? 0} className="in" /></Field>
+                <Field label="Starting bottles already with customer"><input name="opening_bottles_with_customer" type="number" defaultValue={c.opening_bottles_with_customer ?? 0} className="in" /></Field>
                 <Field label="Bottle limit"><input name="bottle_limit" type="number" defaultValue={c.bottle_limit ?? 20} className="in" /></Field>
               </Row>
             </Section>

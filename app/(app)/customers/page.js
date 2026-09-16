@@ -43,6 +43,7 @@ const CUSTOMER_IMPORT_FIELDS = [
   { key: "WhatsApp", label: "WhatsApp", required: false },
   { key: "Email", label: "Email", required: false },
   { key: "Customer Type", label: "Customer Type", required: false },
+  { key: "Building", label: "Building / Flat / Shop", required: false },
   { key: "Address", label: "Address", required: true },
   { key: "Area", label: "Area", required: true },
   { key: "Zone", label: "Zone", required: true },
@@ -70,7 +71,7 @@ const CUSTOMER_IMPORT_FIELDS = [
 const CUSTOMER_SAMPLE_ROW = {
   "Customer Code": "", "Name*": "Ali Traders", Company: "Ali Traders", "Contact Person": "Ali Khan",
   Mobile: "03001234567", "Alternate Phone": "", WhatsApp: "03001234567", Email: "", "Customer Type": "Shop",
-  "Address*": "Shop 4, Main Bazaar", "Area*": "Gulberg", "Zone*": "North Zone", "Route*": "Route 3",
+  Building: "Shop 4", "Address*": "Main Bazaar", "Area*": "Gulberg", "Zone*": "North Zone", "Route*": "Route 3",
   "Delivery Days": "Mon, Wed, Fri", Driver: "", Vehicle: "", Product: "19L", Quantity: 5,
   "Rate*": "", Discount: "", "Payment Terms": "Cash on Delivery", "Payment Frequency*": "Monthly", "Credit Limit": "",
   "Opening Balance": "", "Opening Bottle Balance": 0, Status: "Active", Notes: "",
@@ -88,7 +89,7 @@ export default async function CustomersPage({ searchParams }) {
   const { supabase, profile } = await getCurrentProfile();
   const [branding, { data: customers }, { data: zones }, { data: balances }, { data: products }, { data: vehicles }, { data: riders }, { data: routes }, { data: canDelete }] = await Promise.all([
     getBrandingLite(supabase),
-    supabase.from("customers").select("id, code, name, business_name, contact_person, mobile, alternate_phone, whatsapp_number, email, address, area, route, zone_id, customer_type, status, is_active, created_at, zones(name)").order("created_at", { ascending: false }),
+    supabase.from("customers").select("id, code, name, business_name, contact_person, mobile, alternate_phone, whatsapp_number, email, building, address, area, route, zone_id, customer_type, status, is_active, created_at, zones(name)").order("created_at", { ascending: false }),
     supabase.from("zones").select("id, name"),
     supabase.from("v_customer_balance").select("customer_id, balance"),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
@@ -118,7 +119,7 @@ export default async function CustomersPage({ searchParams }) {
     if (q) {
       const normalize = (value) => String(value || "").normalize("NFKD").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
       const compact = (value) => normalize(value).replace(/\s+/g, "");
-      const haystack = [c.code, c.name, c.business_name, c.contact_person, c.mobile, c.alternate_phone, c.whatsapp_number, c.email, c.address, c.area, c.route, c.zones?.name]
+      const haystack = [c.code, c.name, c.business_name, c.contact_person, c.mobile, c.alternate_phone, c.whatsapp_number, c.email, c.building, c.address, c.area, c.route, c.zones?.name]
         .filter(Boolean).join(" ");
       const words = normalize(q).split(/\s+/).filter(Boolean);
       if (!words.every((word) => normalize(haystack).includes(word)) && !compact(haystack).includes(compact(q))) return false;
@@ -127,7 +128,7 @@ export default async function CustomersPage({ searchParams }) {
   });
 
   const exportRows = rows.map((c) => ({
-    "Customer ID": c.code, Name: c.name, Phone: c.mobile, Zone: c.zones?.name, Type: c.customer_type, Balance: c.balance, Status: STATUS_BADGE[c.status]?.text || (c.is_active ? "Active" : "Inactive"),
+    "Customer ID": c.code, Name: c.name, Phone: c.mobile, Building: c.building, Address: c.address, Zone: c.zones?.name, Type: c.customer_type, Balance: c.balance, Status: STATUS_BADGE[c.status]?.text || (c.is_active ? "Active" : "Inactive"),
   }));
 
   const formProps = { zones: zones || [], products: products || [], vehicles: vehicles || [], riders: riders || [], routes: routes || [], canManageFinancial };
@@ -164,7 +165,7 @@ export default async function CustomersPage({ searchParams }) {
         <div className="mr-auto min-w-[150px]"><p className="text-xs font-bold text-ink">Customer directory</p><p className="text-[11px] text-slate">{rows.length} visible · {allRows.length} total</p></div>
         <BulkImportButton
           label="Bulk Import"
-          columnsHint="Customer Code, Name*, Company, Contact Person, Mobile, Alternate Phone, WhatsApp, Email, Customer Type, Address*, Area*, Zone*, Route*, Delivery Days, Driver, Vehicle, Product, Quantity, Rate*, Discount, Payment Terms, Payment Frequency*, Credit Limit, Opening Balance, Opening Bottle Balance, Status, Notes"
+          columnsHint="Customer Code, Name*, Company, Contact Person, Mobile, Alternate Phone, WhatsApp, Email, Customer Type, Building, Address*, Area*, Zone*, Route*, Delivery Days, Driver, Vehicle, Product, Quantity, Rate*, Discount, Payment Terms, Payment Frequency*, Credit Limit, Opening Balance, Opening Bottle Balance, Status, Notes"
           action={bulkImportCustomers}
           sampleRow={CUSTOMER_SAMPLE_ROW}
           previewType="customers"

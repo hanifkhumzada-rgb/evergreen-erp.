@@ -130,7 +130,7 @@ export default async function ExpensesPage({ searchParams }) {
         />
         <ExportExcelButton rows={exportRows} sheetName="Expenses" reportTitle="Expenses" branding={branding} />
         <PrintButton />
-        <AddExpenseForm initialOpen={sp.quick === "new"} />
+        <AddExpenseForm initialOpen={sp.quick === "new"} categories={categories || []} />
       </div>
       <p className="no-print text-xs text-slate mb-2">{rows.length} of {allRows.length} expenses</p>
       <div className="overflow-x-auto border border-line rounded-2xl">
@@ -163,6 +163,7 @@ export default async function ExpensesPage({ searchParams }) {
                       {e.payment_method === "bank" && ["approved", "paid"].includes(e.status) && (
                         <DownloadPdfButton href={`/api/pdf/bank-payment-voucher/expenses/${e.id}`} label="BPV" />
                       )}
+                      {isOwner && !e.voided && e.status !== "void" && <AddExpenseForm expense={e} categories={categories || []} />}
                       {canVoid && !e.voided && <ReasonConfirmButton action={voidExpense} id={e.id} confirmText={`Void expense "${e.description || e.expense_categories?.name}"?`} />}
                     </div>
                   </Td>

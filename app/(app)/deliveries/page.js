@@ -6,6 +6,7 @@ import MarkDeliveredButton from "@/components/MarkDeliveredButton";
 import DeliveryStatusButton from "@/components/DeliveryStatusButton";
 import BulkImportButton from "@/components/BulkImportButton";
 import DeliveryForm from "@/components/DeliveryForm";
+import DeliveryCorrectionForm from "@/components/DeliveryCorrectionForm";
 import DeliverSheet from "@/components/DeliverSheet";
 import OneTapDeliverButton, { SkipDeliveryButton } from "@/components/OneTapDeliverButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
@@ -108,7 +109,7 @@ export default async function DeliveriesPage({ searchParams }) {
   ] = await Promise.all([
     getBrandingLite(supabase),
     supabase.from("deliveries")
-      .select("*, customers(name, code, mobile, zone_id), profiles!deliveries_rider_id_fkey(id, full_name), delivery_items(expected_qty, delivered_qty, returned_qty)")
+      .select("*, customers(name, code, mobile, zone_id), profiles!deliveries_rider_id_fkey(id, full_name), delivery_items(product_id, expected_qty, delivered_qty, returned_qty)")
       .gte("delivery_date", historyFrom).lt("delivery_date", historyUntil)
       .order("delivery_date", { ascending: false }).limit(1000),
     supabase.from("deliveries")
@@ -123,7 +124,7 @@ export default async function DeliveriesPage({ searchParams }) {
     supabase.from("routes").select("id, name").eq("is_active", true).order("name"),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
     supabase.from("v_customer_balance").select("customer_id, balance"),
-    supabase.from("v_customer_bottle_balance").select("customer_id, bottles_with_customer"),
+    supabase.from("v_customer_bottle_balance").select("customer_id, product_id, bottles_with_customer"),
     supabase.from("customer_prices").select("customer_id, product_id, price, effective_from, effective_to"),
     supabase.from("product_prices").select("product_id, price, effective_from, effective_to"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").eq("roles.key", "rider").eq("is_active", true).order("full_name"),
@@ -144,10 +145,21 @@ export default async function DeliveriesPage({ searchParams }) {
     const prodPrice = latestValidPrice((productPrices || []).filter((p) => p.product_id === c.default_product_id), today);
     if (prodPrice) rateMap[c.id] = Number(prodPrice.price);
   });
+  const bottleBalancesByCustomer = {};
+  (bottleBalances || []).forEach((b) => { (bottleBalancesByCustomer[b.customer_id] ||= {})[b.product_id] = Number(b.bottles_with_customer || 0); });
+  const ratesByCustomer = {};
+  (customersRaw || []).forEach((c) => {
+    ratesByCustomer[c.id] = Object.fromEntries((products || []).map((p) => {
+      const override = latestValidPrice((customerPrices || []).filter((price) => price.customer_id === c.id && price.product_id === p.id), today);
+      const standard = latestValidPrice((productPrices || []).filter((price) => price.product_id === p.id), today);
+      return [p.id, Number(override?.price ?? standard?.price ?? 0)];
+    }));
+  });
   const formCustomers = (customersRaw || []).map((c) => ({
     id: c.id, code: c.code, name: c.name, mobile: c.mobile, route: c.route,
     zoneName: c.zones?.name, default_product_id: c.default_product_id, payment_frequency: c.payment_frequency,
     balance: balanceMap[c.id] || 0, bottleBalance: bottleBalanceMap[c.id] || 0, rate: rateMap[c.id] || 0,
+    bottleBalancesByProduct: bottleBalancesByCustomer[c.id] || {}, ratesByProduct: ratesByCustomer[c.id] || {},
   }));
 
   // TODAY'S DELIVERIES — customers due today, one status per customer.
@@ -391,6 +403,7 @@ export default async function DeliveriesPage({ searchParams }) {
                     <Td><Badge text={d.status} tone={STATUS_TONE(d.status)} />{d.status === "void" && d.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{d.void_reason}</div>}</Td>
                     <Td>{pkr(d.amount_collected)}</Td><Td className="max-w-[220px] truncate">{d.rider_remarks || "—"}</Td>
                     <Td className="no-print">
+                      {profile?.roles?.key === "owner" && ["delivered", "partially_delivered"].includes(d.status) && <DeliveryCorrectionForm delivery={d} products={products || []} />}
                       {canVoidDeliveries && d.status !== "void" && (
                         <ReasonConfirmButton action={voidDelivery} id={d.id} label="Void"
                           confirmText={`Void this delivery for ${d.customers?.name}?`}
