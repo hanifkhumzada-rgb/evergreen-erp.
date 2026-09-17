@@ -1,5 +1,5 @@
 import { getCurrentProfile } from "@/lib/session";
-import Link from "next/link";
+import Link from "@/components/ErpNavLink";
 import { pkr, fmtDate } from "@/lib/format";
 import { Badge, KPI, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
 import MarkDeliveredButton from "@/components/MarkDeliveredButton";

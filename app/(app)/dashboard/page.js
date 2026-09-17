@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ErpNavLink";
 import { getCurrentProfile } from "@/lib/session";
 import { pkr } from "@/lib/format";
 import { KPI } from "@/components/ui";
@@ -84,11 +84,11 @@ export default async function DashboardPage({ searchParams }) {
     yesterdayActiveCustomersRes,
     overdueRuleRes, { data: unpaidInvoices }, { data: monthToDateExpenses }, { data: lastMonthExpenses },
     { data: bottleLimits },
-    { data: rangeInvoices }, { data: rangeDeliveries }, { data: rangeExpenses }, { data: rangePayments }, { data: rangeRiderDeliveries },
+    { data: rangeInvoices }, { data: rangeDeliveriesRaw }, { data: rangeExpensesRaw }, { data: rangePaymentsRaw }, { data: rangeRiderDeliveriesRaw },
     { data: weekDeliveries }, { data: pendingApprovals },
   ] = await Promise.all([
     supabase.from("invoices").select("net_amount").eq("invoice_date", today).neq("status", "void"),
-    supabase.from("deliveries").select("status, delivery_items(delivered_qty, returned_qty)").eq("delivery_date", today),
+    supabase.from("deliveries").select("rider_id, status, amount_collected, profiles!deliveries_rider_id_fkey(full_name), delivery_items(delivered_qty, returned_qty)").eq("delivery_date", today),
     supabase.from("expenses").select("amount").eq("expense_date", today).in("status", ["approved", "paid"]),
     supabase.from("v_customer_balance").select("balance"),
     supabase.from("products").select("id, name, low_stock_threshold"),
@@ -138,11 +138,11 @@ export default async function DashboardPage({ searchParams }) {
     // When the range is exactly today, this would be an identical query to
     // todayInvoices above — reused instead of fetched twice (see below).
     rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("invoices").select("net_amount").gte("invoice_date", range.from).lte("invoice_date", range.to).neq("status", "void"),
-    supabase.from("deliveries").select("status, delivery_items(delivered_qty, returned_qty)").gte("delivery_date", range.from).lte("delivery_date", range.to),
-    supabase.from("expenses").select("amount").in("status", ["approved", "paid"]).gte("expense_date", range.from).lte("expense_date", range.to),
-    supabase.from("payments").select("amount").gte("payment_date", range.from).lte("payment_date", range.to).eq("voided", false),
+    rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("deliveries").select("status, delivery_items(delivered_qty, returned_qty)").gte("delivery_date", range.from).lte("delivery_date", range.to),
+    rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("expenses").select("amount").in("status", ["approved", "paid"]).gte("expense_date", range.from).lte("expense_date", range.to),
+    rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("payments").select("amount").gte("payment_date", range.from).lte("payment_date", range.to).eq("voided", false),
     // Employee performance leaderboard for the same range.
-    supabase.from("deliveries").select("rider_id, status, amount_collected, profiles!deliveries_rider_id_fkey(full_name)").gte("delivery_date", range.from).lte("delivery_date", range.to),
+    rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("deliveries").select("rider_id, status, amount_collected, profiles!deliveries_rider_id_fkey(full_name)").gte("delivery_date", range.from).lte("delivery_date", range.to),
     // Deliveries trend chart — always a fixed last-7-days window (like the
     // sales trend above), independent of the Today/7 Days/Month toggle so
     // there's always a meaningful multi-day shape to plot.
@@ -151,6 +151,11 @@ export default async function DashboardPage({ searchParams }) {
       ? supabase.from("expenses").select("id, description, amount, expense_date, expense_categories(name)").eq("status", "submitted").order("created_at", { ascending: false }).limit(8)
       : Promise.resolve({ data: [] }),
   ]);
+
+  const rangeDeliveries = rangeKey === "today" ? todayDeliveries : rangeDeliveriesRaw;
+  const rangeExpenses = rangeKey === "today" ? todayExpenses : rangeExpensesRaw;
+  const rangePayments = rangeKey === "today" ? todayPayments : rangePaymentsRaw;
+  const rangeRiderDeliveries = rangeKey === "today" ? todayDeliveries : rangeRiderDeliveriesRaw;
 
   const cashBalance = (cashBalances || []).filter((a) => a.type === "cash").reduce((a, c) => a + Number(c.current_balance), 0);
   const bankBalance = (cashBalances || []).filter((a) => a.type === "bank").reduce((a, c) => a + Number(c.current_balance), 0);
