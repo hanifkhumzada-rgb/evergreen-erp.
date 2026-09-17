@@ -11,16 +11,10 @@ import { Bell, Command } from "lucide-react";
 import WorkspaceIdentity from "@/components/WorkspaceIdentity";
 
 export default async function AppLayout({ children }) {
-  const { supabase, user, profile, roleKey } = await getCurrentProfile();
+  const { user, profile, roleKey, permissions: effectivePermissions, unreadNotifications } = await getCurrentProfile();
   if (!user) redirect("/login");
   if (roleKey === "customer") redirect("/portal");
 
-  const [unreadNotificationsRes, permissionRes] = await Promise.all([
-    supabase.from("notifications").select("id", { count: "exact", head: true }).eq("is_read", false),
-    supabase.rpc("fn_my_permission_keys"),
-  ]);
-  const unreadNotifications = unreadNotificationsRes.count || 0;
-  const effectivePermissions = (permissionRes.data || []).map((row) => row.permission_key);
 
   if (!profile) {
     return (
