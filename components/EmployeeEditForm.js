@@ -37,6 +37,8 @@ export default function EmployeeEditForm({ employee, zones = [], vehicles = [] }
               <button type="button" onClick={() => setOpen(false)}><X size={18} /></button>
             </div>
             {error && <p className="text-coral text-xs mb-3">{error}</p>}
+            <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Full name</span><input name="full_name" required defaultValue={employee.full_name || ""} className="in" /></label>
+            <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Mobile</span><input name="phone" defaultValue={employee.phone || ""} className="in" /></label>
             <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Employee ID</span><input name="employee_code" defaultValue={employee.employee_code || ""} className="in" /></label>
             <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Joining date</span><input name="joining_date" type="date" defaultValue={employee.joining_date || ""} className="in" /></label>
             <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Salary / wage (PKR)</span><input name="salary" type="number" min={0} defaultValue={employee.salary || ""} className="in" /></label>

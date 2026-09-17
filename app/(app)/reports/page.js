@@ -5,8 +5,27 @@ import { getBrandingLite } from "@/lib/pdf/business";
 
 export const dynamic = "force-dynamic";
 
-export default async function ReportsPage() {
+export default async function ReportsPage({ searchParams }) {
+  const sp = (await searchParams) || {};
   const supabase = await createClient();
+  // Every transactional report here defaults to the last 12 months
+  // instead of the business's entire history — the same reports still
+  // cover everything when "All time" is picked, but a huge multi-year
+  // history no longer has to hydrate into JS on every visit just to open
+  // this page. Customers/products/employees/vehicles are master data
+  // (not transactional), so they're never date-bound.
+  const allTime = sp.range === "all";
+  const defaultFrom = new Date();
+  defaultFrom.setFullYear(defaultFrom.getFullYear() - 1);
+  const fromDate = allTime ? "" : (sp.from || defaultFrom.toISOString().slice(0, 10));
+  const toDate = allTime ? "" : (sp.to || new Date().toISOString().slice(0, 10));
+  const dateRange = (query, column) => {
+    let q = query;
+    if (fromDate) q = q.gte(column, fromDate);
+    if (toDate) q = q.lte(column, toDate);
+    return q;
+  };
+
   const [
     branding,
     { data: invoices }, { data: expenses }, { data: customers }, { data: deliveries },
@@ -15,21 +34,21 @@ export default async function ReportsPage() {
     { data: maintLogs }, { data: routes }, { data: productionBatches },
   ] = await Promise.all([
     getBrandingLite(supabase),
-    supabase.from("invoices").select("*, customers(name), invoice_items(quantity)"),
-    supabase.from("expenses").select("*, expense_categories(name)"),
+    dateRange(supabase.from("invoices").select("*, customers(name), invoice_items(quantity)"), "invoice_date"),
+    dateRange(supabase.from("expenses").select("*, expense_categories(name)"), "expense_date"),
     supabase.from("customers").select("*, zones(name), routes(name)"),
-    supabase.from("deliveries").select("*, customers(name), profiles!deliveries_rider_id_fkey(full_name), delivery_items(delivered_qty)"),
+    dateRange(supabase.from("deliveries").select("*, customers(name), profiles!deliveries_rider_id_fkey(full_name), delivery_items(delivered_qty)"), "delivery_date"),
     supabase.from("products").select("*"),
     supabase.from("profiles").select("*, roles!inner(name, key)").neq("roles.key", "customer"),
     supabase.from("v_customer_balance").select("customer_id, name, balance"),
     supabase.from("v_customer_bottle_balance").select("customer_id, name, bottles_with_customer"),
-    supabase.from("invoices").select("net_amount, invoice_items(quantity), customers(name, zones(name), route_id)").neq("status", "void"),
-    supabase.from("payments").select("*, customers(name), profiles!payments_received_by_fkey(full_name)"),
+    dateRange(supabase.from("invoices").select("net_amount, invoice_items(quantity), customers(name, zones(name), route_id)").neq("status", "void"), "invoice_date"),
+    dateRange(supabase.from("payments").select("*, customers(name), profiles!payments_received_by_fkey(full_name)"), "payment_date"),
     supabase.from("vehicles").select("*, profiles!vehicles_assigned_rider_id_fkey(full_name)"),
     supabase.from("vehicle_fuel_logs").select("vehicle_id, cost"),
     supabase.from("vehicle_maintenance_logs").select("vehicle_id, cost"),
     supabase.from("routes").select("id, name"),
-    supabase.from("production_batches").select("*, products(name)"),
+    dateRange(supabase.from("production_batches").select("*, products(name)"), "batch_date"),
   ]);
 
   const balanceMap = {};
@@ -127,7 +146,21 @@ export default async function ReportsPage() {
   return (
     <div>
       <h2 className="font-display text-2xl font-semibold mb-1">Reports</h2>
-      <p className="text-slate text-sm mb-5">Live Postgres data. Pick a report, export to Excel, or print to PDF.</p>
+      <p className="text-slate text-sm mb-5">
+        Live Postgres data. Pick a report, export to Excel, or print to PDF.{" "}
+        {allTime ? "Showing all-time history." : `Showing ${fromDate} to ${toDate}.`}
+      </p>
+      <form className="no-print flex flex-wrap gap-2.5 mb-4 items-center" action="/reports">
+        <input type="date" name="from" defaultValue={fromDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
+        <span className="text-xs text-slate">to</span>
+        <input type="date" name="to" defaultValue={toDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
+        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Apply</button>
+        {allTime ? (
+          <Link href="/reports" className="text-xs text-slate hover:text-aqua">Back to last 12 months</Link>
+        ) : (
+          <Link href="/reports?range=all" className="text-xs text-slate hover:text-aqua">Show all-time history instead</Link>
+        )}
+      </form>
       <div className="no-print flex flex-wrap gap-2 mb-5">
         <Link href="/accounting/profit-loss" className="px-3 py-1.5 rounded-lg border border-line bg-card text-xs font-semibold hover:bg-foam">Profit &amp; Loss →</Link>
         <Link href="/accounting/balance-sheet" className="px-3 py-1.5 rounded-lg border border-line bg-card text-xs font-semibold hover:bg-foam">Balance Sheet →</Link>

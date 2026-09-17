@@ -23,10 +23,21 @@ function fmtDateTime(iso) {
 export default async function CommunicationCenterPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const supabase = await createClient();
-  const [branding, { data: canView }, { data: logs }] = await Promise.all([
+  const q = (sp.q || "").trim().toLowerCase();
+  const statusFilter = sp.status || "";
+  const channelFilter = sp.channel || "";
+  const hasFilters = q || statusFilter || channelFilter;
+  // The status counts below describe recent send health, so they always
+  // read from the recent-300 feed regardless of filters — but a search
+  // needs to reach the full history, so the table gets its own unbounded
+  // fetch whenever a filter is active instead of reusing the capped one.
+  let filteredLogsQuery = Promise.resolve({ data: null });
+  if (hasFilters) filteredLogsQuery = supabase.from("notification_logs").select("*, customers(name, code)").order("created_at", { ascending: false });
+  const [branding, { data: canView }, { data: logs }, { data: filteredLogs }] = await Promise.all([
     getBrandingLite(supabase),
     supabase.rpc("fn_has_permission", { perm_key: "settings.manage" }),
     supabase.from("notification_logs").select("*, customers(name, code)").order("created_at", { ascending: false }).limit(300),
+    filteredLogsQuery,
   ]);
 
   if (!canView) {
@@ -42,16 +53,12 @@ export default async function CommunicationCenterPage({ searchParams }) {
   const counts = { pending: 0, sent: 0, delivered: 0, failed: 0 };
   allRows.forEach((r) => { if (counts[r.status] !== undefined) counts[r.status]++; });
 
-  const q = (sp.q || "").trim().toLowerCase();
-  const statusFilter = sp.status || "";
-  const channelFilter = sp.channel || "";
-  const rows = allRows.filter((r) => {
+  const rows = (hasFilters ? (filteredLogs || []) : allRows).filter((r) => {
     if (statusFilter && r.status !== statusFilter) return false;
     if (channelFilter && r.channel !== channelFilter) return false;
     if (q && !`${r.customers?.name || ""} ${r.to_number} ${r.template_key}`.toLowerCase().includes(q)) return false;
     return true;
   });
-  const hasFilters = q || statusFilter || channelFilter;
   const configured = isTwilioConfigured();
 
   return (

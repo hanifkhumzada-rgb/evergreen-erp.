@@ -11,10 +11,10 @@ import WhatsAppButton from "@/components/WhatsAppButton";
 import { archiveCustomer, deleteCustomer, voidDelivery } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
+import { INVOICE_STATUS_TONE as INVOICE_TONE } from "@/lib/invoiceStatus";
 
 export const dynamic = "force-dynamic";
 
-const INVOICE_TONE = { paid: "green", partially_paid: "amber", sent: "amber", draft: "slate", overdue: "coral", void: "slate" };
 const STATUS_BADGE = {
   active: { text: "Active", tone: "green" },
   inactive: { text: "Inactive", tone: "slate" },
@@ -228,7 +228,7 @@ export default async function CustomerProfilePage({ params }) {
         {c.whatsapp_number && <span>WhatsApp: {c.whatsapp_number}</span>}
         {c.email && <span>{c.email}</span>}
         {c.contact_person && <span>Contact: {c.contact_person}</span>}
-        <span>{c.address}{c.area ? `, ${c.area}` : ""}</span>
+        <span>{[c.building, c.address].filter(Boolean).join(" · ")}{c.area ? `, ${c.area}` : ""}</span>
         {c.route && <span>Route: {c.route}</span>}
         {c.preferred_delivery_time && <span>{c.preferred_delivery_time}</span>}
         {c.profiles?.full_name && <span>Driver: {c.profiles.full_name}</span>}
@@ -276,6 +276,7 @@ export default async function CustomerProfilePage({ params }) {
         <KPI label="FAILED DELIVERIES" value={failedDeliveries} tone={failedDeliveries > 0 ? "coral" : "slate"} />
       </div>
       <RecurringScheduleControl customer={c} />
+      <div className="overflow-x-auto">
       <table className="w-full text-xs border-collapse border border-line rounded-xl overflow-hidden">
         <thead><tr className="bg-foam"><Th>Date</Th><Th>Items</Th><Th>Status</Th><Th>Collected</Th><Th className="no-print">&nbsp;</Th></tr></thead>
         <tbody>
@@ -298,6 +299,7 @@ export default async function CustomerProfilePage({ params }) {
           ))}
         </tbody>
       </table>
+      </div>
 
       {/* BOTTLES */}
       <SectionTitle>Bottles</SectionTitle>
@@ -305,6 +307,7 @@ export default async function CustomerProfilePage({ params }) {
         <KPI label="BOTTLE BALANCE" value={totalBottleBalance} tone="aqua" sub="net bottles currently with this customer, all sizes" />
         <KPI label="BOTTLE LIMIT" value={c.bottle_limit} tone={totalBottleBalance > c.bottle_limit ? "coral" : "slate"} />
       </div>
+      <div className="overflow-x-auto">
       <table className="w-full text-xs border-collapse border border-line rounded-xl overflow-hidden">
         <thead><tr className="bg-foam"><Th>Size</Th><Th>Delivered</Th><Th>Returned</Th><Th>Damaged</Th><Th>Lost</Th><Th>Balance</Th></tr></thead>
         <tbody>
@@ -319,12 +322,14 @@ export default async function CustomerProfilePage({ params }) {
           ))}
         </tbody>
       </table>
+      </div>
 
       {/* TRANSACTIONS */}
       <SectionTitle>Transactions</SectionTitle>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div>
           <h4 className="text-[13.5px] font-bold mb-2">Recent invoices</h4>
+          <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse border border-line rounded-xl overflow-hidden">
             <thead><tr className="bg-foam"><Th>Date</Th><Th>Invoice #</Th><Th>Total</Th><Th>Status</Th></tr></thead>
             <tbody>
@@ -335,9 +340,11 @@ export default async function CustomerProfilePage({ params }) {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
         <div>
           <h4 className="text-[13.5px] font-bold mb-2">Payments received</h4>
+          <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse border border-line rounded-xl overflow-hidden">
             <thead><tr className="bg-foam"><Th>Date</Th><Th>Amount</Th><Th>Method</Th></tr></thead>
             <tbody>
@@ -345,10 +352,12 @@ export default async function CustomerProfilePage({ params }) {
               {(payments || []).slice(0, 8).map((p) => <tr key={p.id}><Td>{fmtDate(p.payment_date)}</Td><Td>{pkr(p.amount)}</Td><Td>{p.method}</Td></tr>)}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
       <div className="mt-4">
         <h4 className="text-[13.5px] font-bold mb-2">Customer ledger</h4>
+        <div className="overflow-x-auto">
         <table className="w-full text-xs border-collapse border border-line rounded-xl overflow-hidden">
           <thead><tr className="bg-foam"><Th>Date</Th><Th>Type</Th><Th>Description</Th><Th>Reference</Th><Th>Debit</Th><Th>Credit</Th></tr></thead>
           <tbody>
@@ -364,6 +373,7 @@ export default async function CustomerProfilePage({ params }) {
             ))}
           </tbody>
         </table>
+        </div>
         <p className="text-[11px] text-slate mt-1.5">Type/Reference show only where the underlying ledger row carries them.</p>
       </div>
 

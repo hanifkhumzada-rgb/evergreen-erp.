@@ -1,10 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 
-function genCode(prefix) {
-  return `${prefix}-${Date.now().toString(36).toUpperCase()}${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
-}
-
 // A customer is due today if they're on a daily schedule, or their
 // preferred_days (set at signup / bulk import) includes today — mirrors
 // isDueToday() in app/(app)/deliveries/page.js, EXCEPT it deliberately
@@ -94,8 +90,14 @@ export async function GET(request) {
       // deliveries.amount), and createDelivery resolves the real rate
       // again when this placeholder is actually completed. A 0 here is
       // never shown as a real price anywhere.
+      const { data: deliveryNo, error: refErr } = await supabase.rpc("fn_next_delivery_no", {
+        p_customer_id: c.id,
+        p_delivery_date: today,
+      });
+      if (refErr || !deliveryNo) { skippedError++; continue; }
+
       const { data: delivery, error: delErr } = await supabase.from("deliveries").insert({
-        delivery_no: genCode("DEL"),
+        delivery_no: deliveryNo,
         customer_id: c.id,
         rider_id: c.assigned_rider_id || null,
         delivery_date: today,

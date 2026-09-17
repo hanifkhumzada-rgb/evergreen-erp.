@@ -3,23 +3,26 @@ import { Droplet, Wallet, Calendar, Truck, RotateCcw, Bell, PackagePlus, Calenda
 import { requirePortalCustomer } from "@/app/portal/actions";
 import { pkr, fmtDate } from "@/lib/format";
 import CustomerRiderMap from "@/components/portal/CustomerRiderMap";
+import PortalWelcome from "@/components/portal/PortalWelcome";
 
 export const dynamic = "force-dynamic";
 
 const FREQ_DAYS = { Daily: 1, Weekly: 7, Monthly: 30, Custom: 30 };
 
-function Stat({ icon: Icon, label, value, sub, tone = "navy" }) {
+function Stat({ icon: Icon, label, value, sub, tone = "navy", href }) {
   const bg = { navy: "bg-navyLight text-white", card: "bg-card border border-line" }[tone];
   const sec = tone === "navy" ? "text-[#BFE3E0]" : "text-slate";
-  return (
-    <div className={`rounded-2xl p-4 ${bg}`}>
+  const content = (
+    <div className={`h-full rounded-2xl p-4 ${bg}`}>
       <div className={`flex items-center gap-1.5 text-[10.5px] font-semibold uppercase tracking-wide ${sec}`}>
         <Icon size={12} /> {label}
       </div>
-      <div className="font-mono-num text-xl font-bold mt-1.5">{value}</div>
+      <div className="font-mono-num text-lg sm:text-xl font-bold mt-1.5 break-words">{value}</div>
       {sub && <div className={`text-[11px] mt-0.5 ${sec}`}>{sub}</div>}
+      {href && <div className={`text-[10px] font-semibold mt-2 ${sec}`}>View details →</div>}
     </div>
   );
+  return href ? <Link href={href} className="min-w-0 rounded-2xl transition-shadow hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-aqua">{content}</Link> : content;
 }
 
 export default async function PortalDashboardPage() {
@@ -36,7 +39,7 @@ export default async function PortalDashboardPage() {
     supabase.from("deliveries").select("id, delivery_no, status, amount, rider_id, delivered_at, delivery_items(delivered_qty, returned_qty, products(name))")
       .eq("customer_id", customerId).eq("delivery_date", today).order("created_at", { ascending: false }),
     supabase.from("deliveries").select("id, amount, status, delivery_items(delivered_qty, returned_qty)")
-      .eq("customer_id", customerId).gte("delivery_date", monthStart).neq("status", "cancelled"),
+      .eq("customer_id", customerId).gte("delivery_date", monthStart).lte("delivery_date", today).eq("status", "delivered"),
     supabase.from("v_customer_bottle_balance").select("product_name, bottles_with_customer").eq("customer_id", customerId),
     supabase.from("customer_ledger_entries").select("debit, credit").eq("customer_id", customerId),
     supabase.from("payments").select("amount, payment_date").eq("customer_id", customerId).eq("voided", false).order("payment_date", { ascending: false }).limit(1).maybeSingle(),
@@ -82,9 +85,12 @@ export default async function PortalDashboardPage() {
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="relative overflow-hidden rounded-[26px] bg-gradient-to-br from-navy to-[#087C69] text-white p-5 sm:p-6">
-        <div className="absolute -right-10 -top-12 w-40 h-40 rounded-full bg-white/10" />
-        <div className="relative"><p className="text-[10px] uppercase tracking-[.18em] text-[#9EF0D0] font-bold">My Evergreen Water</p><h1 className="font-display text-2xl font-semibold mt-2">Hi, {customer?.name?.split(" ")[0] || "there"} 👋</h1><p className="text-xs text-[#CDE7E3] mt-1">{fmtDate(new Date().toISOString())} · Account live</p></div>
+      <PortalWelcome name={customer?.name} code={customer?.code} date={fmtDate(today)} />
+
+      <div className="grid grid-cols-3 gap-2 rounded-2xl border border-line bg-card p-2 text-center text-[11px] font-bold">
+        <Link href="/portal/deliveries" className="rounded-xl py-3 hover:bg-aquaSoft focus-visible:outline focus-visible:outline-aqua"><Truck size={18} className="mx-auto mb-1 text-aqua"/>Delivery history</Link>
+        <Link href="/portal/bottles" className="rounded-xl py-3 hover:bg-aquaSoft focus-visible:outline focus-visible:outline-aqua"><Droplet size={18} className="mx-auto mb-1 text-aqua"/>My bottles</Link>
+        <Link href="/portal/statement" className="rounded-xl py-3 hover:bg-aquaSoft focus-visible:outline focus-visible:outline-aqua"><Wallet size={18} className="mx-auto mb-1 text-aqua"/>Statement</Link>
       </div>
 
       <div><h2 className="text-xs font-bold text-slate uppercase tracking-wide mb-2">Quick actions</h2><div className="grid grid-cols-3 gap-2.5">
@@ -98,19 +104,19 @@ export default async function PortalDashboardPage() {
         {todayDeliveries?.length ? (
           <div className="flex flex-col gap-2">
             {todayDeliveries.map((d) => (
-              <div key={d.id} className="bg-card border border-line rounded-2xl p-4 flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-bold flex items-center gap-1.5"><Truck size={14} className="text-aqua" /> Delivery {d.delivery_no}</div>
+              <Link href={`/portal/deliveries/${d.id}`} key={d.id} className="bg-card border border-line rounded-2xl p-4 flex flex-wrap gap-2 items-center justify-between hover:border-aqua">
+                <div className="min-w-0">
+                  <div className="text-sm font-bold flex items-center gap-1.5 break-all"><Truck size={14} className="text-aqua shrink-0" /> {d.delivery_no}</div>
                   <div className="text-xs text-slate mt-1">
                     {(d.delivery_items || []).map((i) => `${i.products?.name || "Item"}: ${i.delivered_qty}`).join(", ") || "—"}
                   </div>
                 </div>
-                <span className="text-[11px] font-semibold px-2.5 py-1 rounded-full bg-greenSoft text-green capitalize">{d.status}</span>
-              </div>
+                <span className={`text-[11px] font-semibold px-2.5 py-1 rounded-full capitalize ${d.status === "delivered" ? "bg-greenSoft text-green" : d.status === "cancelled" ? "bg-red-50 text-red-700" : "bg-amber-50 text-amber-800"}`}>{d.status.replaceAll("_", " ")} →</span>
+              </Link>
             ))}
           </div>
         ) : (
-          <div className="bg-card border border-line rounded-2xl p-4 text-xs text-slate">No delivery scheduled for today yet.</div>
+          <div className="bg-card border border-line rounded-2xl p-4 text-xs text-slate">No delivery scheduled for today yet. <Link href="/portal/deliveries" className="block font-semibold text-aqua mt-2">View previous deliveries →</Link></div>
         )}
         {outForDelivery && riderLocation && (
           <div className="mt-2.5">
@@ -120,15 +126,15 @@ export default async function PortalDashboardPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <Stat icon={Wallet} label="Outstanding" value={pkr(outstanding)} tone="navy" />
-        <Stat icon={Calendar} label="Next Due" value={nextDueDate ? fmtDate(nextDueDate.toISOString()) : "—"} tone="card" />
-        <Stat icon={Droplet} label="Bottle Balance" value={totalBottleBalance} sub={customer?.bottle_limit ? `Limit: ${customer.bottle_limit}` : undefined} tone="card" />
-        <Stat icon={Wallet} label="Last Payment" value={lastPayment ? pkr(lastPayment.amount) : "—"} sub={lastPayment ? fmtDate(lastPayment.payment_date) : "No payments yet"} tone="card" />
+        <Stat icon={Wallet} label={outstanding < 0 ? "Account Credit" : "Outstanding"} value={pkr(Math.abs(outstanding))} tone="navy" href="/portal/statement" sub={outstanding === 0 ? "Your account is clear" : outstanding < 0 ? "Credit available on your account" : "Check your statement for details"} />
+        <Stat icon={Calendar} label="Payment Cycle" value={freq} sub={nextDueDate ? `Estimated next date: ${fmtDate(nextDueDate.toISOString())}` : "Check statement for invoice due dates"} tone="card" href="/portal/statement" />
+        <Stat icon={Droplet} label="Bottles with you" value={totalBottleBalance} sub="Issued minus empty bottles returned" tone="card" href="/portal/bottles" />
+        <Stat icon={Wallet} label="Last Payment" value={lastPayment ? pkr(lastPayment.amount) : "—"} sub={lastPayment ? fmtDate(lastPayment.payment_date) : "No payments yet"} tone="card" href="/portal/payments" />
       </div>
 
       <div>
-        <h2 className="text-xs font-bold text-slate uppercase tracking-wide mb-2">This Month</h2>
-        <div className="grid grid-cols-3 gap-3">
+        <h2 className="text-xs font-bold text-slate uppercase tracking-wide mb-2">This Month · Completed deliveries</h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
           <Stat icon={Droplet} label="Bottles" value={monthBottles} tone="card" />
           <Stat icon={RotateCcw} label="Returns" value={monthReturns} tone="card" />
           <Stat icon={Wallet} label="Amount" value={pkr(monthAmount)} tone="card" />
@@ -153,6 +159,7 @@ export default async function PortalDashboardPage() {
         <Link href="/portal/statement" className="flex-1 text-center py-3 rounded-2xl bg-navyLight text-white text-xs font-bold">View Statement</Link>
         <Link href="/portal/support" className="flex-1 text-center py-3 rounded-2xl border border-line text-xs font-bold">Report an Issue</Link>
       </div>
+      <p className="text-center text-[11px] text-slate">Need extra water or a delivery change? Send a request above; our team will confirm it.</p>
     </div>
   );
 }

@@ -34,6 +34,9 @@ export async function middleware(request) {
     }
   );
 
+  // Keep the Edge middleware on the broadly compatible server-verified user
+  // lookup. Some deployments still use a signing setup where getClaims()
+  // cannot initialize in the Edge runtime.
   const { data: { user } } = await supabase.auth.getUser();
   const pathname = request.nextUrl.pathname;
   const isAuthRoute = pathname.startsWith("/login");
@@ -92,9 +95,9 @@ export const config = {
   // <img>/<link> tag requesting one from an unauthenticated page (the login
   // page itself, or the PWA manifest before first login) got back the
   // /login HTML page instead of the actual asset. Listed explicitly rather
-  // than by a generic extension pattern — a regex like `.*\.[\w]+$` inside
+  // than by a generic extension pattern — a regex like `.*\\.[\\w]+$` inside
   // this negative lookahead also matches _next/static's own hashed .js/.css
   // chunk requests in a way path-to-regexp doesn't resolve the same as a
   // plain JS RegExp would, which broke the app entirely (confirmed live).
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon-192.png|icon-512.png|manifest.json|sw.js).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon-192.png|icon-512.png|manifest.json|portal-manifest.json|sw.js).*)"],
 };

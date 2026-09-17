@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { Badge } from "@/components/ui";
+import { Callout } from "@/components/ui";
 import BusinessSettingsForm from "@/components/BusinessSettingsForm";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,8 @@ export default async function SettingsPage() {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-4">Settings</h2>
+      <h2 className="font-display text-2xl font-semibold mb-1">Settings</h2>
+      <p className="text-slate text-sm mb-4">Business branding, integrations, and automation — all in one place.</p>
       <div className="flex flex-col gap-5">
         {canManage
           ? <BusinessSettingsForm settings={businessSettings} />
@@ -42,13 +43,13 @@ export default async function SettingsPage() {
             customers and cash accounts, with a heuristic Profit &amp; Loss calculated live from invoices and expenses.
           </p>
           <div className="mt-3.5 flex flex-col gap-1.5">
-            <Badge text="Bottle deposit liability — tracked, but not yet auto-posted as a journal entry" tone="slate" />
-            <Badge text="Granular per-action permissions (view/create/edit/approve/export) — Coming Soon, role-level only for now" tone="slate" />
-            <Badge text="Route performance & driver on-time % — Coming Soon" tone="slate" />
-            <Badge text="Automated notification triggers (low stock, overdue, bottle limit, inactive, payment overdue, low activity) — configurable in the Automation Center" tone="slate" />
-            <Badge text="WhatsApp/SMS via Twilio — built, needs live credentials in Settings → Integrations to actually send" tone="slate" />
-            <Badge text="AI sales forecasting & anomaly detection — Coming Soon" tone="slate" />
-            <Badge text="Server-rendered branded PDFs — invoices, statements, vouchers and daily reports; every other report has a matching branded print preview" tone="slate" />
+            <Callout>Bottle deposit liability — tracked, but not yet auto-posted as a journal entry</Callout>
+            <Callout>Granular per-action permissions (view/create/edit/approve/export) — Coming Soon, role-level only for now</Callout>
+            <Callout>Route performance &amp; driver on-time % — Coming Soon</Callout>
+            <Callout>Automated notification triggers (low stock, overdue, bottle limit, inactive, payment overdue, low activity) — configurable in the Automation Center</Callout>
+            <Callout>WhatsApp/SMS via Twilio — built, needs live credentials in Settings → Integrations to actually send</Callout>
+            <Callout>AI sales forecasting &amp; anomaly detection — Coming Soon</Callout>
+            <Callout>Server-rendered branded PDFs — invoices, statements, vouchers and daily reports; every other report has a matching branded print preview</Callout>
           </div>
         </div>
       </div>

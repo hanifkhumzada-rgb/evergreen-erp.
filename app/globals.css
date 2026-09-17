@@ -41,9 +41,25 @@ body {
 
 /* SaaS shell */
 .app-shell-bg {
+  position: relative;
+  isolation: isolate;
   background:
-    radial-gradient(circle at 82% -10%, rgba(5,150,105,.09), transparent 30rem),
+    radial-gradient(circle at 82% -10%, rgba(5,150,105,.13), transparent 30rem),
+    radial-gradient(circle at 8% 58%, rgba(14,165,233,.055), transparent 24rem),
     var(--foam);
+}
+.app-shell-bg::before {
+  content: "";
+  position: fixed;
+  z-index: -1;
+  inset: 0;
+  pointer-events: none;
+  opacity: .42;
+  background-image:
+    radial-gradient(circle at center, rgba(8,124,105,.11) 0 1px, transparent 1.5px),
+    linear-gradient(125deg, transparent 48%, rgba(8,124,105,.035) 49%, transparent 51%);
+  background-size: 26px 26px, 120px 120px;
+  mask-image: linear-gradient(to bottom, black, transparent 72%);
 }
 .glass-bar {
   background: color-mix(in srgb, var(--card) 88%, transparent);
@@ -64,6 +80,11 @@ body {
   animation: water-turn 7s linear infinite;
 }
 @keyframes water-turn { to { transform: rotate(360deg); } }
+.erp-nav-controls { padding: 3px; border: 1px solid var(--line); border-radius: 13px; background: color-mix(in srgb, var(--card) 82%, transparent); box-shadow: 0 5px 18px rgba(7,59,58,.06); }
+.erp-nav-button { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 6px 9px; border-radius: 9px; color: var(--slate); font-size: 11px; font-weight: 700; transition: background-color .16s ease, color .16s ease, transform .16s ease; }
+.erp-nav-button:not(:disabled):hover { background: var(--aquaSoft); color: #087C69; transform: translateY(-1px); }
+.erp-toolbar { padding: 10px; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--card) 84%, transparent); box-shadow: 0 8px 26px rgba(7,59,58,.055); }
+.erp-toolbar input, .erp-toolbar select, .erp-toolbar button, .erp-toolbar a { min-height: 36px; }
 .nav-scroll { scrollbar-width: none; }
 .nav-scroll::-webkit-scrollbar { display: none; }
 .content-auto { content-visibility: auto; contain-intrinsic-size: 1px 600px; }
@@ -71,6 +92,33 @@ body {
 .font-mono-num { font-family: 'IBM Plex Mono', monospace; }
 
 * { border-color: var(--line); }
+
+/* Canonical form-input style. Every "Add X" form re-declares this exact
+   rule via its own <style jsx global> block (CustomerForm, AddPaymentForm,
+   AddExpenseForm, FleetForms, DeliveryForm, InviteUserForm, ...) — those
+   per-component copies still work (identical rule, last one wins, no
+   conflict), but any new form using className="in" without pasting that
+   boilerplate now gets the real design-system look instead of an
+   unstyled native input. */
+.in {
+  width: 100%;
+  padding: 9px 11px;
+  border-radius: 9px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  font-size: 13.5px;
+  outline: none;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.in:focus {
+  border-color: #087C69;
+  box-shadow: 0 0 0 3px var(--aquaSoft);
+}
+.in:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
 
 /* Modern card polish — applies to the border+rounded-2xl card pattern used everywhere */
 .rounded-2xl.border {
@@ -159,4 +207,250 @@ table tr.hover\:bg-foam:hover {
 
 @media (prefers-reduced-motion: reduce) {
   .login-card-in { animation: none; }
+}
+/* Customer Portal — lightweight 3D water scene (CSS only). */
+.portal-water-scene { position: absolute; inset: 0; pointer-events: none; perspective: 900px; overflow: hidden; }
+.portal-orb { position: absolute; border-radius: 999px; background: radial-gradient(circle at 30% 25%, rgba(255,255,255,.8), rgba(158,240,208,.22) 28%, rgba(7,124,105,.08) 65%, transparent 70%); box-shadow: inset -12px -18px 30px rgba(2,38,37,.16), 0 18px 45px rgba(0,0,0,.12); animation: portalFloat 7s ease-in-out infinite; }
+.portal-orb-one { width: 92px; height: 92px; left: 5%; top: 11%; }
+.portal-orb-two { width: 54px; height: 54px; right: 7%; bottom: 12%; animation-delay: -3s; }
+.portal-bottle { position: absolute; right: clamp(-28px, 2vw, 28px); top: 28%; width: 92px; height: 190px; border: 3px solid rgba(255,255,255,.34); border-radius: 28px 28px 34px 34px; background: linear-gradient(110deg, rgba(255,255,255,.3), rgba(158,240,208,.08) 44%, rgba(0,0,0,.08)); box-shadow: inset 14px 0 22px rgba(255,255,255,.16), inset -10px 0 20px rgba(0,0,0,.12), 0 28px 50px rgba(0,0,0,.2); transform: rotateY(-18deg) rotateZ(7deg); animation: portalBottle 6s ease-in-out infinite; overflow: hidden; opacity: .72; }
+.portal-bottle-cap { position: absolute; width: 42px; height: 18px; top: -14px; left: 22px; border-radius: 7px 7px 3px 3px; background: linear-gradient(90deg,#063d3b,#21b88f,#063d3b); }
+.portal-bottle-label { position: absolute; z-index: 2; inset: 68px 14px auto; height: 52px; display: grid; place-items: center; border-radius: 14px; color: white; font-weight: 800; font-size: 24px; background: linear-gradient(135deg,rgba(6,61,59,.9),rgba(8,124,105,.82)); box-shadow: 0 8px 20px rgba(0,0,0,.15); }
+.portal-bottle-wave { position: absolute; left: -25%; bottom: -35px; width: 150%; height: 112px; border-radius: 42%; background: linear-gradient(180deg,rgba(158,240,208,.6),rgba(8,124,105,.52)); animation: portalWave 4s linear infinite; }
+@keyframes portalFloat { 0%,100%{transform:translate3d(0,0,0) scale(1)} 50%{transform:translate3d(8px,-18px,24px) scale(1.06)} }
+@keyframes portalBottle { 0%,100%{transform:rotateY(-18deg) rotateZ(7deg) translateY(0)} 50%{transform:rotateY(12deg) rotateZ(2deg) translateY(-16px)} }
+@keyframes portalWave { to{transform:rotate(360deg)} }
+@media (max-width:640px){.portal-bottle{right:-48px;opacity:.34}.portal-orb-one{left:-28px}.portal-orb-two{right:-12px}}
+@media (prefers-reduced-motion:reduce){.portal-orb,.portal-bottle,.portal-bottle-wave{animation:none}}
+
+
+/* ERP premium shell v2 — scoped to staff workspace so Customer Portal stays unchanged. */
+.app-shell-bg .workspace-topbar {
+  min-height: 64px;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  box-shadow: 0 1px 0 rgba(7,59,58,.04), 0 10px 30px rgba(7,59,58,.045);
+}
+.app-shell-bg .workspace-context {
+  min-width: 0;
+  padding-left: 2px;
+}
+.app-shell-bg .workspace-context-label {
+  color: var(--slate);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+.app-shell-bg .workspace-context-title {
+  max-width: 26rem;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 750;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.app-shell-bg .page-stage {
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--card) 24%, transparent), transparent 15rem);
+}
+.app-shell-bg .page-stage > div > div > h2:first-child,
+.app-shell-bg .page-stage h1 {
+  letter-spacing: -.025em;
+}
+.app-shell-bg .premium-kpi {
+  position: relative;
+  min-height: 118px;
+  overflow: hidden;
+}
+.app-shell-bg .premium-kpi::after {
+  position: absolute;
+  right: -22px;
+  bottom: -34px;
+  width: 88px;
+  height: 88px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  content: "";
+  opacity: .07;
+}
+.app-shell-bg .premium-kpi-value {
+  letter-spacing: -.045em;
+}
+.app-shell-bg table {
+  background: color-mix(in srgb, var(--card) 96%, transparent);
+}
+.app-shell-bg thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--foam);
+  box-shadow: 0 1px 0 var(--line);
+}
+.app-shell-bg tbody tr {
+  transition: background-color .14s ease;
+}
+.app-shell-bg tbody tr:hover {
+  background: color-mix(in srgb, var(--aquaSoft) 42%, var(--card));
+}
+.app-shell-bg button,
+.app-shell-bg a {
+  -webkit-tap-highlight-color: transparent;
+}
+.app-shell-bg button:focus-visible,
+.app-shell-bg a:focus-visible {
+  outline: 2px solid #059669;
+  outline-offset: 2px;
+}
+.app-shell-bg .in:hover:not(:disabled) {
+  border-color: color-mix(in srgb, #059669 38%, var(--line));
+}
+.erp-sidebar-surface {
+  background:
+    radial-gradient(circle at 20% 2%, rgba(36,201,159,.22), transparent 15rem),
+    linear-gradient(180deg, #073B3A 0%, #052D2C 100%);
+  box-shadow: 12px 0 36px rgba(5,45,44,.12);
+}
+.erp-sidebar-link {
+  position: relative;
+  min-height: 38px;
+  transition: color .15s ease, background-color .15s ease, transform .15s ease;
+}
+.erp-sidebar-link:hover {
+  transform: translateX(2px);
+}
+.erp-sidebar-link-active {
+  box-shadow: 0 8px 22px rgba(5,150,105,.24), inset 0 1px 0 rgba(255,255,255,.15);
+}
+.erp-sidebar-group {
+  min-height: 38px;
+  transition: color .15s ease, background-color .15s ease;
+}
+.erp-sidebar-search {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+.erp-sidebar-search:focus {
+  box-shadow: 0 0 0 3px rgba(94,234,212,.1);
+}
+.quick-add-root > button {
+  min-height: 50px;
+  box-shadow: 0 14px 36px rgba(5,150,105,.28), inset 0 1px 0 rgba(255,255,255,.18);
+}
+
+@media (max-width: 639px) {
+  .app-shell-bg .workspace-topbar {
+    min-height: 58px;
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+  .app-shell-bg .page-stage {
+    padding: 16px 12px 92px;
+  }
+  .app-shell-bg .premium-kpi {
+    min-width: 0;
+    min-height: 104px;
+    padding: 15px;
+  }
+  .app-shell-bg .premium-kpi-value {
+    font-size: 1.25rem;
+  }
+  .app-shell-bg table th,
+  .app-shell-bg table td {
+    padding-left: 11px;
+    padding-right: 11px;
+  }
+  .quick-add-root {
+    right: 12px !important;
+    bottom: 14px !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .erp-sidebar-link,
+  .card-lift,
+  .quick-add-root > button {
+    transition: none;
+  }
+  .erp-sidebar-link:hover,
+  .card-lift:hover,
+  .quick-add-root > button:hover {
+    transform: none;
+  }
+}
+
+
+/* Dashboard and Customer workspace v3 — staff-only responsive structure. */
+.app-shell-bg .dashboard-section-tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0 0 18px;
+  padding: 5px;
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  box-shadow: 0 8px 24px rgba(7,59,58,.055);
+}
+.app-shell-bg .dashboard-section-tab {
+  display: inline-flex;
+  flex: 1 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 8px 14px;
+  border-radius: 11px;
+  color: var(--slate);
+  font-size: 12px;
+  font-weight: 750;
+  transition: background-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.app-shell-bg .dashboard-section-tab:hover {
+  color: #087C69;
+  background: var(--aquaSoft);
+}
+.app-shell-bg .dashboard-section-tab.is-active {
+  color: #fff;
+  background: linear-gradient(135deg, #073B3A, #087C69);
+  box-shadow: 0 8px 20px rgba(8,124,105,.2);
+}
+.app-shell-bg .dashboard-anchor {
+  scroll-margin-top: 84px;
+}
+.app-shell-bg .dashboard-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+.app-shell-bg .dashboard-kpi-grid > * {
+  min-width: 0;
+}
+.app-shell-bg .dashboard-kpi-grid .premium-kpi {
+  min-width: 0;
+  height: 100%;
+}
+.app-shell-bg .customer-mobile-card {
+  position: relative;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(7,59,58,.065);
+}
+.app-shell-bg .customer-mobile-card::after {
+  position: absolute;
+  right: -28px;
+  top: -34px;
+  width: 88px;
+  height: 88px;
+  border: 1px solid rgba(8,124,105,.1);
+  border-radius: 999px;
+  content: "";
+  pointer-events: none;
+}
+
+@media (max-width: 1023px) {
+  .app-shell-bg .dashboard-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 420px) {
+  .app-shell-bg .dashboard-section-tab { padding: 8px 11px; }
+  .app-shell-bg .dashboard-kpi-grid { gap: 9px; }
 }

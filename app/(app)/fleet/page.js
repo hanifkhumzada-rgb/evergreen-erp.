@@ -1,10 +1,11 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
 import { Badge, KPI, DocumentActionBar, Th, Td } from "@/components/ui";
 import { AddVehicleForm, AddVehicleExpenseForm, EditVehicleDatesForm } from "@/components/FleetForms";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
-import { bulkImportVehicles, deleteVehicle } from "@/app/actions";
+import { bulkImportVehicles, deleteVehicle, deleteVehicleExpenseLog } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { AlertTriangle } from "lucide-react";
@@ -13,7 +14,9 @@ export const dynamic = "force-dynamic";
 
 const EXPIRY_WARNING_DAYS = 30;
 
-export default async function FleetPage() {
+export default async function FleetPage({ searchParams }) {
+  const sp = (await searchParams) || {};
+  const q = (sp.q || "").trim().toLowerCase();
   const supabase = await createClient();
   const [branding, { data: vehicles }, { data: riders }, { data: fuelLogs }, { data: maintLogs }, { data: customers }, { data: canDelete }] = await Promise.all([
     getBrandingLite(supabase),
@@ -59,6 +62,19 @@ export default async function FleetPage() {
   });
   expiryAlerts.sort((a, b) => (a.date || "").localeCompare(b.date || ""));
   const activeCount = withCosts.filter((v) => v.is_active).length;
+  const visible = q
+    ? withCosts.filter((v) =>
+        v.registration_no?.toLowerCase().includes(q) ||
+        v.vehicle_type?.toLowerCase().includes(q) ||
+        v.profiles?.full_name?.toLowerCase().includes(q))
+    : withCosts;
+  const expenseQuery = (sp.eq || "").trim().toLowerCase();
+  const visibleExpenses = expenseQuery
+    ? vehExpenses.filter((e) =>
+        e.vehicles?.registration_no?.toLowerCase().includes(expenseQuery) ||
+        e.category?.toLowerCase().includes(expenseQuery) ||
+        e.notes?.toLowerCase().includes(expenseQuery))
+    : vehExpenses;
 
   return (
     <div>
@@ -87,6 +103,14 @@ export default async function FleetPage() {
         </div>
       )}
 
+      {/* Kept as a sibling form, not nested with the toolbar below — a button
+          without an explicit type inside another form submits/reloads instead
+          of doing its own action. */}
+      <form className="no-print flex flex-wrap gap-2.5 mb-2.5 items-center" action="/fleet">
+        <input type="text" name="q" defaultValue={sp.q || ""} placeholder="Search vehicle #, type, driver…" className="in w-64" />
+        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
+        {q && <Link href="/fleet" className="text-xs text-slate hover:text-aqua">Clear</Link>}
+      </form>
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <BulkImportButton
@@ -108,8 +132,8 @@ export default async function FleetPage() {
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>Vehicle #</Th><Th>Type</Th><Th>Driver</Th><Th>Customers</Th><Th>Fuel Cost</Th><Th>Maintenance Cost</Th><Th>Insurance Expiry</Th><Th>Registration Expiry</Th><Th>Service Due</Th><Th>Status</Th><Th className="no-print"></Th></tr></thead>
           <tbody>
-            {(withCosts || []).length === 0 && <tr><td colSpan={11} className="text-center py-8 text-slate">No vehicles yet.</td></tr>}
-            {withCosts.map((v) => (
+            {visible.length === 0 && <tr><td colSpan={11} className="text-center py-8 text-slate">No vehicles match.</td></tr>}
+            {visible.map((v) => (
               <tr key={v.id} className="hover:bg-foam">
                 <Td className="font-semibold">{v.registration_no}</Td><Td>{v.vehicle_type || "—"}</Td><Td>{v.profiles?.full_name || "Unassigned"}</Td>
                 <Td>{v.assignedCustomers}</Td><Td>{pkr(v.fuelCost)}</Td><Td>{pkr(v.maintCost)}</Td>
@@ -133,12 +157,29 @@ export default async function FleetPage() {
       </div>
 
       <h4 className="text-sm font-bold mt-8 mb-2.5">Recent vehicle expenses</h4>
+      <form className="no-print flex flex-wrap gap-2.5 mb-2.5 items-center" action="/fleet">
+        <input type="text" name="eq" defaultValue={sp.eq || ""} placeholder="Search vehicle #, category, notes…" className="in w-64" />
+        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
+        {expenseQuery && <Link href="/fleet" className="text-xs text-slate hover:text-aqua">Clear</Link>}
+      </form>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Vehicle</Th><Th>Category</Th><Th>Amount</Th><Th>Notes</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Vehicle</Th><Th>Category</Th><Th>Amount</Th><Th>Notes</Th><Th className="no-print"></Th></tr></thead>
           <tbody>
-            {vehExpenses.length === 0 && <tr><td colSpan={4} className="text-center py-6 text-slate">No vehicle expenses logged yet.</td></tr>}
-            {vehExpenses.map((e) => <tr key={e.id} className="hover:bg-foam"><Td>{e.vehicles?.registration_no}</Td><Td>{e.category}</Td><Td>{pkr(e.amount)}</Td><Td>{e.notes}</Td></tr>)}
+            {visibleExpenses.length === 0 && <tr><td colSpan={5} className="text-center py-6 text-slate">{expenseQuery ? "No expenses match." : "No vehicle expenses logged yet."}</td></tr>}
+            {visibleExpenses.map((e) => (
+              <tr key={e.id} className="hover:bg-foam">
+                <Td>{e.vehicles?.registration_no}</Td><Td>{e.category}</Td><Td>{pkr(e.amount)}</Td><Td>{e.notes}</Td>
+                <Td className="no-print">
+                  {canDelete && (
+                    <ReasonConfirmButton action={deleteVehicleExpenseLog} id={e.id} label="Delete" icon="trash"
+                      confirmText={`Delete this ${e.category.toLowerCase()} entry for ${e.vehicles?.registration_no}?`}
+                      detailText="This can't be undone — use this only to correct a mis-entered amount or wrong vehicle."
+                      confirmLabel="Confirm Delete" busyLabel="Deleting…" />
+                  )}
+                </Td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

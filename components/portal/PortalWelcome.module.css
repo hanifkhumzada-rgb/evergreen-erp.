@@ -1,0 +1,11 @@
+.scene { position: relative; width: 82px; height: 128px; flex-shrink: 0; perspective: 600px; }
+.bottle { position: absolute; inset: 20px 12px 3px; border-radius: 24px 24px 18px 18px; border: 1px solid #c5fff3a6; background: linear-gradient(100deg,#ffffff40,#78eddf15 45%,#ffffff55 80%,#063e4550); box-shadow: inset 8px 0 14px #ffffff24,inset -8px 0 12px #01394350,0 12px 24px #002c4540; animation: float 5s ease-in-out infinite; }
+.bottle::before { content: ''; position: absolute; width: 24px; height: 15px; left: 50%; top: -14px; transform: translateX(-50%); background: repeating-linear-gradient(90deg,#83dcd7 0 3px,#e6fffc 3px 4px); border-radius: 5px 5px 2px 2px; }
+.label { position: absolute; inset: 30px 0 auto; padding: 6px 0; background: #effff5ed; color: #075b56; font-weight: 900; font-size: 22px; text-align: center; border-block: 2px solid #50c8b6; }
+.water { position: absolute; inset: auto 2px 2px; height: 22px; border-radius: 45% 45% 16px 16px; background: #4cddce66; }
+.bubble { position: absolute; bottom: 10px; border: 1px solid #b9fff1a6; border-radius: 50%; width: 7px; height: 7px; animation: rise 6s ease-in-out infinite; }
+.bubble:nth-child(2) { left: 0; animation-delay: -2s; }
+.bubble:nth-child(3) { right: 0; animation-delay: -4s; width: 11px; height: 11px; }
+@keyframes float { 0%,100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-7px) rotate(3deg); } }
+@keyframes rise { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: .7; } 100% { transform: translateY(-110px); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .bottle,.bubble { animation: none; } }

@@ -28,6 +28,7 @@ export default function OneTapDeliverButton({ variant, label, customer, delivere
     fd.set("cash_collected", String(cashCollected));
     fd.set("delivery_date", new Date().toISOString().slice(0, 10));
     fd.set("rider_id", currentUserId);
+    fd.set("request_id", crypto.randomUUID());
     try {
       const res = await submit(fd);
       if (res?.error) { setToast({ type: "error", message: res.error }); return; }

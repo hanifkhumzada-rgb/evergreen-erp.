@@ -1,41 +1,36 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, X, Search } from "lucide-react";
+import { Plus, X, Search, Droplets, BadgeDollarSign, RefreshCw } from "lucide-react";
 import { createDelivery } from "@/app/actions";
 import { pkr } from "@/lib/format";
 import Toast from "@/components/Toast";
 import { useOfflineSubmit } from "@/lib/useOfflineSubmit";
 
-// customers here already carry everything the search needs to show
-// pre-submit — zone/route/rate/bottle balance/outstanding/payment frequency
-// — all computed server-side in deliveries/page.js so this stays a plain
-// client-side filter (no round trip) matching AddSaleForm/AddPaymentForm's
-// "pass the full list as props" pattern used across the app.
-export default function DeliveryForm({ customers, products, riders = [], currentUserId, initialCustomerId }) {
-  const [open, setOpen] = useState(false);
+export default function DeliveryForm({ customers, products, riders = [], currentUserId, initialCustomerId, initialOpen = false }) {
+  const [open, setOpen] = useState(initialOpen);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(null);
   const [productId, setProductId] = useState(products?.[0]?.id || "");
+  const [requestId, setRequestId] = useState("");
+  const [deliveredQty, setDeliveredQty] = useState(1);
+  const [returnedQty, setReturnedQty] = useState(0);
   const formRef = useRef();
   const { submit, busy } = useOfflineSubmit("delivery", createDelivery, {
     label: (payload) => `Delivery — ${customers.find((c) => c.id === payload.customer_id)?.name || "customer"}`,
   });
 
-  // A per-row "Deliver" quick action elsewhere (e.g. the Customers workspace)
-  // links here with ?customer=<id> instead of duplicating this form's rate/
-  // bottle-balance lookups — open pre-selected the one time on mount.
   useEffect(() => {
     if (!initialCustomerId) return;
     const c = customers.find((x) => x.id === initialCustomerId);
     if (!c) return;
     setSelected(c);
+    setRequestId(crypto.randomUUID());
     setQuery(c.name);
     if (c.default_product_id) setProductId(c.default_product_id);
     setOpen(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialCustomerId]);
+  }, [initialCustomerId, customers]);
 
   const matches = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -45,9 +40,16 @@ export default function DeliveryForm({ customers, products, riders = [], current
       .slice(0, 8);
   }, [query, customers, selected]);
 
+  const currentBottleBalance = Number(selected?.bottleBalancesByProduct?.[productId] ?? (selected?.default_product_id === productId ? selected?.bottleBalance : 0) ?? 0);
+  const currentRate = Number(selected?.ratesByProduct?.[productId] ?? (selected?.default_product_id === productId ? selected?.rate : 0) ?? 0);
+  const projectedBottleBalance = Math.max(0, currentBottleBalance + Number(deliveredQty || 0) - Number(returnedQty || 0));
+  const maxReturn = currentBottleBalance + Number(deliveredQty || 0);
+
   const pickCustomer = (c) => {
     setSelected(c);
     setQuery(c.name);
+    setDeliveredQty(1);
+    setReturnedQty(0);
     if (c.default_product_id) setProductId(c.default_product_id);
   };
 
@@ -55,17 +57,24 @@ export default function DeliveryForm({ customers, products, riders = [], current
     setSelected(null);
     setQuery("");
     setProductId(products?.[0]?.id || "");
+    setRequestId(crypto.randomUUID());
+    setDeliveredQty(1);
+    setReturnedQty(0);
     formRef.current?.reset();
   };
 
   const handleSubmit = async (formData) => {
     setError("");
+    if (Number(returnedQty || 0) > maxReturn) {
+      setError(`Empty return cannot exceed ${maxReturn} bottles currently available with this customer.`);
+      return;
+    }
     try {
       const res = await submit(formData);
       if (res?.error) { setError(res.error); return; }
       setOpen(false);
       reset();
-      setToast({ type: "success", message: res?.offline ? "Delivery saved offline — it will sync automatically when internet returns." : "Delivery recorded." });
+      setToast({ type: "success", message: res?.offline ? "Delivery saved offline — it will sync automatically when internet returns." : "Delivery recorded and bottle balance updated." });
     } catch {
       setError("Could not save this delivery. Please try again.");
     }
@@ -73,30 +82,27 @@ export default function DeliveryForm({ customers, products, riders = [], current
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold">
+      <button type="button" onClick={() => { setRequestId(crypto.randomUUID()); setOpen(true); }} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold">
         <Plus size={15} /> New Delivery
       </button>
       {open && (
         <div className="fixed inset-0 bg-navy/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => { setOpen(false); reset(); }}>
-          <form ref={formRef} action={handleSubmit} onClick={(e) => e.stopPropagation()} className="bg-card rounded-t-2xl sm:rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <form ref={formRef} action={handleSubmit} onClick={(e) => e.stopPropagation()} className="bg-card rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 max-w-lg w-full max-h-[92vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="font-display text-lg font-semibold">New Delivery</h3>
+              <div>
+                <h3 className="font-display text-lg font-semibold">New Delivery</h3>
+                <p className="text-[11px] text-slate mt-0.5">Customer, bottles, rate and payment frequency stay linked to the live customer record.</p>
+              </div>
               <button type="button" onClick={() => { setOpen(false); reset(); }}><X size={18} /></button>
             </div>
-            {error && <p className="text-coral text-xs mb-3">{error}</p>}
+            {error && <p className="text-coral text-xs mb-3 rounded-lg bg-coralSoft px-3 py-2">{error}</p>}
+            <input type="hidden" name="request_id" value={requestId} />
 
-            <label className="block mb-1 relative">
+            <label className="block mb-2 relative">
               <span className="text-xs font-semibold text-slate block mb-1">Customer *</span>
               <div className="relative">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate" />
-                <input
-                  value={query}
-                  onChange={(e) => { setQuery(e.target.value); setSelected(null); }}
-                  placeholder="Search name, ID, phone, zone, route…"
-                  className="in pl-8"
-                  autoComplete="off"
-                  required
-                />
+                <input value={query} onChange={(e) => { setQuery(e.target.value); setSelected(null); }} placeholder="Search name, ID, phone, zone, route…" className="in pl-8" autoComplete="off" required />
                 <input type="hidden" name="customer_id" value={selected?.id || ""} required />
               </div>
               {matches.length > 0 && (
@@ -112,20 +118,29 @@ export default function DeliveryForm({ customers, products, riders = [], current
             </label>
 
             {selected && (
-              <div className="mb-3 p-3 rounded-xl bg-foam border border-line text-[12.5px] grid grid-cols-2 gap-x-3 gap-y-1">
-                <span className="text-slate">ID: <strong className="text-ink font-mono-num">{selected.code || "—"}</strong></span>
-                <span className="text-slate">Zone: <strong className="text-ink">{selected.zoneName || "—"}</strong></span>
-                <span className="text-slate">Route: <strong className="text-ink">{selected.route || "—"}</strong></span>
-                <span className="text-slate">Frequency: <strong className="text-ink">{selected.payment_frequency || "Monthly"}</strong></span>
-                <span className="text-slate">Bottle balance: <strong className="text-ink">{selected.bottleBalance ?? 0}</strong></span>
-                <span className="text-slate">Outstanding: <strong className={selected.balance > 0 ? "text-coral" : "text-green"}>{pkr(selected.balance || 0)}</strong></span>
-                <span className="text-slate col-span-2">Rate: <strong className="text-ink">{selected.rate ? pkr(selected.rate) : "uses standard rate"}</strong></span>
+              <div className="mb-4 rounded-2xl border border-line bg-foam/70 p-3">
+                <div className="grid grid-cols-2 gap-2 text-[12px]">
+                  <div><span className="text-slate">Customer ID</span><div className="font-semibold font-mono-num">{selected.code || "—"}</div></div>
+                  <div><span className="text-slate">Zone / Route</span><div className="font-semibold truncate">{selected.zoneName || "—"} · {selected.route || "—"}</div></div>
+                  <div className="rounded-xl border border-line bg-card p-2.5">
+                    <div className="flex items-center gap-1.5 text-slate"><BadgeDollarSign size={13} /> Rate</div>
+                    <div className="font-bold text-sm mt-1">{currentRate ? pkr(currentRate) : "Rate not configured"}</div>
+                  </div>
+                  <div className="rounded-xl border border-line bg-card p-2.5">
+                    <div className="flex items-center gap-1.5 text-slate"><RefreshCw size={13} /> Frequency / Type</div>
+                    <div className="font-bold text-sm mt-1">{selected.payment_frequency || "Monthly"}</div>
+                  </div>
+                </div>
+                <div className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-card border border-line px-3 py-2.5 text-xs">
+                  <span className="text-slate">Outstanding</span>
+                  <strong className={selected.balance > 0 ? "text-coral" : "text-green"}>{pkr(selected.balance || 0)}</strong>
+                </div>
               </div>
             )}
 
             <label className="block mb-3">
               <span className="text-xs font-semibold text-slate block mb-1">Bottle size *</span>
-              <select name="product_id" required className="in" value={productId} onChange={(e) => setProductId(e.target.value)}>
+              <select name="product_id" required className="in" value={productId} onChange={(e) => { setProductId(e.target.value); setReturnedQty(0); }}>
                 {!products?.length && <option value="">No active bottle product configured</option>}
                 {(products || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
               </select>
@@ -133,13 +148,28 @@ export default function DeliveryForm({ customers, products, riders = [], current
 
             <div className="grid grid-cols-2 gap-3 mb-3">
               <label className="block">
-                <span className="text-xs font-semibold text-slate block mb-1">Bottles delivered *</span>
-                <input name="delivered_qty" type="number" min={1} defaultValue={1} required className="in" />
+                <span className="text-xs font-semibold text-slate block mb-1">Bottle delivered *</span>
+                <input name="delivered_qty" type="number" min={1} value={deliveredQty} onChange={(e) => setDeliveredQty(Math.max(1, Number(e.target.value || 1)))} required className="in" />
               </label>
               <label className="block">
-                <span className="text-xs font-semibold text-slate block mb-1">Empty bottles returned</span>
-                <input name="returned_qty" type="number" min={0} defaultValue={0} className="in" />
+                <span className="text-xs font-semibold text-slate block mb-1">Empty bottle return</span>
+                <input name="returned_qty" type="number" min={0} max={maxReturn} value={returnedQty} onChange={(e) => setReturnedQty(Math.max(0, Number(e.target.value || 0)))} className="in" />
               </label>
+            </div>
+
+            <div className="mb-4 grid grid-cols-3 gap-2 rounded-2xl border border-aqua/20 bg-aquaSoft/60 p-3 text-center">
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-slate">Before</div>
+                <div className="mt-1 text-lg font-bold">{selected ? currentBottleBalance : "—"}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wide text-slate">Net change</div>
+                <div className="mt-1 text-lg font-bold">{selected ? `${Number(deliveredQty || 0) - Number(returnedQty || 0) >= 0 ? "+" : ""}${Number(deliveredQty || 0) - Number(returnedQty || 0)}` : "—"}</div>
+              </div>
+              <div className="rounded-xl bg-card border border-aqua/20 py-1.5">
+                <div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wide text-slate"><Droplets size={11} /> Total bottles</div>
+                <div className="mt-1 text-xl font-extrabold text-aqua">{selected ? projectedBottleBalance : "—"}</div>
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-3 mb-3">
@@ -149,7 +179,7 @@ export default function DeliveryForm({ customers, products, riders = [], current
               </label>
               <label className="block">
                 <span className="text-xs font-semibold text-slate block mb-1">Date</span>
-                <input name="delivery_date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} className="in" />
+                <input name="delivery_date" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className="in" />
               </label>
             </div>
 
@@ -160,6 +190,10 @@ export default function DeliveryForm({ customers, products, riders = [], current
                 {riders.map((r) => <option key={r.id} value={r.id}>{r.full_name}</option>)}
               </select>
             </label>
+
+            <div className="mb-3 rounded-xl border border-line bg-foam/60 px-3 py-2 text-[11px] text-slate">
+              Saving this delivery automatically updates the customer bottle balance, bottle inventory movement, delivery history and customer outstanding/collection.
+            </div>
 
             <button type="submit" disabled={busy || !selected || !productId} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">
               {busy ? "Saving…" : "Save Delivery"}

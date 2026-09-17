@@ -21,8 +21,8 @@ const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 // form covering the full Customer Master, matching how the customers table
 // is actually structured (permanent info here; sales/deliveries/payments/
 // bottle movements are transactions elsewhere that feed the AUTO fields).
-export default function CustomerForm({ mode = "create", customer, zones, products, vehicles, riders, routes = [], canManageFinancial, trigger }) {
-  const [open, setOpen] = useState(false);
+export default function CustomerForm({ mode = "create", customer, zones, products, vehicles, riders, routes = [], canManageFinancial, trigger, initialOpen = false }) {
+  const [open, setOpen] = useState(initialOpen);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -75,7 +75,7 @@ export default function CustomerForm({ mode = "create", customer, zones, product
   return (
     <>
       {trigger ? (
-        <span onClick={() => setOpen(true)}>{trigger}</span>
+        <button type="button" onClick={() => setOpen(true)} className="contents">{trigger}</button>
       ) : (
         <button type="button" onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold">
           <Plus size={15} /> New Customer
@@ -114,7 +114,10 @@ export default function CustomerForm({ mode = "create", customer, zones, product
             </Section>
 
             <Section title="Address & Delivery">
-              <Field label="Complete address"><input name="address" defaultValue={c.address} className="in" /></Field>
+              <Row>
+                <Field label="Building / Flat / Shop"><input name="building" defaultValue={c.building} className="in" placeholder="Building name, floor, flat or shop no." /></Field>
+                <Field label="Complete address"><input name="address" defaultValue={c.address} className="in" /></Field>
+              </Row>
               <Row>
                 <Field label="Area"><input name="area" defaultValue={c.area} className="in" /></Field>
                 <Field label="Zone">
@@ -208,7 +211,7 @@ export default function CustomerForm({ mode = "create", customer, zones, product
 
             <Section title="Bottle Information">
               <Row>
-                <Field label="Opening bottle balance"><input name="opening_bottles_with_customer" type="number" defaultValue={c.opening_bottles_with_customer ?? 0} className="in" /></Field>
+                <Field label="Starting bottles already with customer"><input name="opening_bottles_with_customer" type="number" defaultValue={c.opening_bottles_with_customer ?? 0} className="in" /></Field>
                 <Field label="Bottle limit"><input name="bottle_limit" type="number" defaultValue={c.bottle_limit ?? 20} className="in" /></Field>
               </Row>
             </Section>
@@ -278,7 +281,7 @@ function Field({ label, children }) {
 
 export function EditCustomerTrigger() {
   return (
-    <span className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold cursor-pointer hover:bg-foam">
+    <span className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-white/30 bg-white text-navy text-xs font-bold cursor-pointer hover:bg-aquaSoft">
       <Pencil size={14} /> Edit
     </span>
   );

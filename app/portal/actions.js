@@ -19,77 +19,7 @@ function portalEmailFor(customerId) {
   return `customer-${customerId}@portal.evergreenwater.internal`;
 }
 
-export async function requestPortalOtp(customerCode, mobile) {
-  const trimmedCode = String(customerCode || "").trim();
-  const trimmed = String(mobile || "").trim();
-  if (!trimmedCode) return { ok: false, error: "Enter your Customer ID." };
-  if (trimmed.replace(/\D/g, "").length < 7) return { ok: false, error: "Enter a valid mobile number." };
-
-  const admin = createAdminClient();
-
-  // Two-factor identity check the login screen asks for — Customer ID
-  // *and* the registered mobile number must both match the same active
-  // customer — before an OTP is even issued. Same trailing-10-digit
-  // normalization as fn_request_customer_otp() itself, since
-  // customers.mobile is stored inconsistently across rows.
-  const digits = trimmed.replace(/\D/g, "").slice(-10);
-  const { data: candidate } = await admin.from("customers").select("id, mobile, is_active").eq("code", trimmedCode).maybeSingle();
-  const candidateDigits = (candidate?.mobile || "").replace(/\D/g, "").slice(-10);
-  if (!candidate || !candidate.is_active || !digits || candidateDigits !== digits) {
-    return { ok: false, error: "Customer ID and mobile number don't match our records." };
-  }
-
-  const { data, error } = await admin.rpc("fn_request_customer_otp", { p_mobile: trimmed });
-  if (error || !data?.[0]) {
-    return { ok: false, error: "No active customer account found for that mobile number." };
-  }
-  const { customer_id: customerId, otp_code: otpCode } = data[0];
-
-  const { data: customer } = await admin.from("customers").select("business_id, mobile").eq("id", customerId).maybeSingle();
-  const toNumber = customer?.mobile || trimmed;
-  const body = `Your Evergreen Water verification code is ${otpCode}. It expires in 5 minutes. Do not share this code with anyone.`;
-
-  const configured = isTwilioConfigured();
-  const sendResult = configured
-    ? await sendTwilioMessage({ channel: "sms", toNumber, body })
-    : { ok: false, error: "SMS not configured" };
-
-  // Best-effort audit trail in the same notification_logs table every
-  // other send goes through — never blocks the OTP flow either way.
-  // related_type/related_id are left null (the idempotency unique index
-  // only applies when both are set) so repeated OTP requests never
-  // collide with each other.
-  try {
-    await admin.from("notification_logs").insert({
-      business_id: customer?.business_id, customer_id: customerId, template_key: "otp_verification",
-      channel: "sms", to_number: toNumber, message_body: body,
-      status: sendResult.ok ? "sent" : "failed",
-      provider_message_sid: sendResult.sid || null,
-      error_message: sendResult.ok ? null : sendResult.error,
-      sent_at: sendResult.ok ? new Date().toISOString() : null,
-    });
-  } catch {}
-
-  if (!configured) return { ok: false, error: "SMS delivery isn't configured yet. Ask the Owner to finish Twilio setup." };
-  if (!sendResult.ok) return { ok: false, error: "Couldn't send the verification code. Please try again shortly." };
-  return { ok: true };
-}
-
-export async function verifyPortalOtpAndSignIn(mobile, code) {
-  const trimmed = String(mobile || "").trim();
-  const trimmedCode = String(code || "").trim();
-  if (!trimmedCode) return { ok: false, error: "Enter the 6-digit code." };
-
-  const admin = createAdminClient();
-  const { data: customerId, error } = await admin.rpc("fn_verify_customer_otp", { p_mobile: trimmed, p_code: trimmedCode });
-  if (error || !customerId) {
-    const msg = error?.message || "";
-    if (msg.includes("Too many")) return { ok: false, error: "Too many incorrect attempts. Request a new code." };
-    if (msg.includes("Incorrect")) return { ok: false, error: "Incorrect code. Please try again." };
-    if (msg.includes("No active OTP")) return { ok: false, error: "That code has expired. Request a new one." };
-    return { ok: false, error: "Verification failed. Request a new code." };
-  }
-
+async function startPortalSession(admin, customerId) {
   const { data: customer } = await admin.from("customers").select("business_id, name").eq("id", customerId).maybeSingle();
   if (!customer) return { ok: false, error: "Customer record not found." };
 
@@ -123,16 +53,107 @@ export async function verifyPortalOtpAndSignIn(mobile, code) {
   }
 
   await admin.from("customer_portal_users").update({ last_login_at: new Date().toISOString() }).eq("id", authUserId);
-
-  // The actual session lives in cookies, written by the cookie-aware
-  // client — this is what makes auth.uid() (and therefore
-  // fn_current_customer_id()/fn_current_business_id()) resolve correctly
-  // on every later portal request.
   const supabase = await createClient();
   const { error: signInErr } = await supabase.auth.signInWithPassword({ email, password: rotatedPassword });
   if (signInErr) return { ok: false, error: "Could not start your session. Please try again." };
-
   return { ok: true };
+}
+
+export async function requestPortalOtp(customerCode, customerName, mobile) {
+  const trimmedCode = String(customerCode || "").trim().toUpperCase().replace(/\s+/g, "");
+  const trimmedName = String(customerName || "").trim();
+  const trimmed = String(mobile || "").trim();
+  if (!trimmedCode) return { ok: false, error: "Enter your Customer ID." };
+  if (!trimmedName) return { ok: false, error: "Enter your registered customer name." };
+  if (trimmed.replace(/\D/g, "").length < 7) return { ok: false, error: "Enter a valid mobile number." };
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch (error) {
+    console.error("[portal OTP] server configuration error", error?.message);
+    return { ok: false, error: "Customer Portal is temporarily unavailable. Please ask the Owner to check portal setup." };
+  }
+
+  // Two-factor identity check the login screen asks for — Customer ID
+  // *and* the registered mobile number must both match the same active
+  // customer — before an OTP is even issued. Same trailing-10-digit
+  // normalization as fn_request_customer_otp() itself, since
+  // customers.mobile is stored inconsistently across rows.
+  const digits = trimmed.replace(/\D/g, "").slice(-10);
+  const { data: candidate, error: lookupError } = await admin
+    .from("customers").select("id, name, mobile, is_active")
+    .ilike("code", trimmedCode).maybeSingle();
+  if (lookupError) {
+    console.error("[portal OTP] customer lookup failed", { code: lookupError.code, message: lookupError.message });
+    return { ok: false, error: "Customer Portal could not verify your account right now. Please try again shortly." };
+  }
+  const candidateDigits = (candidate?.mobile || "").replace(/\D/g, "").slice(-10);
+  const normalizedName = (value) => String(value || "").trim().replace(/\s+/g, " ").toLocaleLowerCase("en");
+  const nameMatches = normalizedName(candidate?.name) === normalizedName(trimmedName);
+  if (!candidate || !candidate.is_active || !nameMatches || !digits || candidateDigits !== digits) {
+    return { ok: false, error: "Customer ID, name and mobile number don't match our records." };
+  }
+
+  const { data, error } = await admin.rpc("fn_request_customer_otp", { p_mobile: trimmed });
+  if (error || !data?.[0]) {
+    return { ok: false, error: "No active customer account found for that mobile number." };
+  }
+  const { customer_id: customerId, otp_code: otpCode } = data[0];
+
+  const { data: customer } = await admin.from("customers").select("business_id, mobile").eq("id", customerId).maybeSingle();
+  const toNumber = customer?.mobile || trimmed;
+  const body = `Your Evergreen Water verification code is ${otpCode}. It expires in 5 minutes. Do not share this code with anyone.`;
+
+  const configured = isTwilioConfigured();
+  const sendResult = configured
+    ? await sendTwilioMessage({ channel: "sms", toNumber, body })
+    : { ok: false, error: "SMS not configured" };
+
+  // Best-effort audit trail in the same notification_logs table every
+  // other send goes through — never blocks the OTP flow either way.
+  // related_type/related_id are left null (the idempotency unique index
+  // only applies when both are set) so repeated OTP requests never
+  // collide with each other.
+  try {
+    await admin.from("notification_logs").insert({
+      business_id: customer?.business_id, customer_id: customerId, template_key: "otp_verification",
+      channel: "sms", to_number: toNumber, message_body: body,
+      status: sendResult.ok ? "sent" : "failed",
+      provider_message_sid: sendResult.sid || null,
+      error_message: sendResult.ok ? null : sendResult.error,
+      sent_at: sendResult.ok ? new Date().toISOString() : null,
+    });
+  } catch {}
+
+  // Temporary owner-approved testing mode: the customer ID + registered
+  // mobile match above is used to start the isolated Supabase customer
+  // session while SMS is unavailable. Remove this fallback when Twilio
+  // goes live so OTP becomes mandatory again.
+  if (!configured) {
+    const session = await startPortalSession(admin, customerId);
+    return session.ok ? { ...session, testingMode: true } : session;
+  }
+  if (!sendResult.ok) return { ok: false, error: "Couldn't send the verification code. Please try again shortly." };
+  return { ok: true };
+}
+
+export async function verifyPortalOtpAndSignIn(mobile, code) {
+  const trimmed = String(mobile || "").trim();
+  const trimmedCode = String(code || "").trim();
+  if (!trimmedCode) return { ok: false, error: "Enter the 6-digit code." };
+
+  const admin = createAdminClient();
+  const { data: customerId, error } = await admin.rpc("fn_verify_customer_otp", { p_mobile: trimmed, p_code: trimmedCode });
+  if (error || !customerId) {
+    const msg = error?.message || "";
+    if (msg.includes("Too many")) return { ok: false, error: "Too many incorrect attempts. Request a new code." };
+    if (msg.includes("Incorrect")) return { ok: false, error: "Incorrect code. Please try again." };
+    if (msg.includes("No active OTP")) return { ok: false, error: "That code has expired. Request a new one." };
+    return { ok: false, error: "Verification failed. Request a new code." };
+  }
+
+  return startPortalSession(admin, customerId);
 }
 
 export async function portalSignOut() {

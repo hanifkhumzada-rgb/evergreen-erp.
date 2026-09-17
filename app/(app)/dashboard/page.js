@@ -1,12 +1,12 @@
-import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import Link from "@/components/ErpNavLink";
 import { getCurrentProfile } from "@/lib/session";
 import { pkr } from "@/lib/format";
 import { KPI } from "@/components/ui";
 import { SalesTrendChart, ExpensePie, DeliveriesTrendChart, ZoneRevenueChart } from "@/components/LazyCharts";
 import PendingApprovals from "@/components/PendingApprovals";
+import DashboardSectionTabs from "@/components/DashboardSectionTabs";
 import {
-  AlertTriangle, UserPlus, Truck, ShoppingCart, Receipt, Wallet, Upload, BarChart3, Sparkles,
+  AlertTriangle, UserPlus, Truck, ShoppingCart, Receipt, Wallet, Upload, BarChart3, Sparkles, ClipboardPlus,
 } from "lucide-react";
 
 // Rendered server-side (often UTC on Vercel, not the business's own
@@ -54,6 +54,7 @@ function calcTrend(current, previous, lowerIsBetter = false) {
 }
 
 const QUICK_ACTIONS = [
+  { label: "Smart Entry", href: "/smart-entry", icon: ClipboardPlus, tone: "green" },
   { label: "New Customer", href: "/customers", icon: UserPlus, tone: "aqua" },
   { label: "New Delivery", href: "/deliveries", icon: Truck, tone: "navy" },
   { label: "New Sale", href: "/sales", icon: ShoppingCart, tone: "green" },
@@ -66,8 +67,7 @@ const TONE_BG = { aqua: "bg-aquaSoft text-aqua", navy: "bg-navy/10 text-navy", g
 
 export default async function DashboardPage({ searchParams }) {
   const sp = (await searchParams) || {};
-  const supabase = await createClient();
-  const { profile } = await getCurrentProfile(); // cached — layout.js already paid for this round trip
+  const { supabase, profile } = await getCurrentProfile(); // cached — layout.js already paid for this work
   const firstName = profile?.full_name?.split(" ")[0] || "there";
   const today = todayISO();
   const yesterday = daysAgo(1);
@@ -83,23 +83,30 @@ export default async function DashboardPage({ searchParams }) {
     { data: todayPayments }, { data: todayPurchases }, { data: todayCashTxns },
     yesterdayActiveCustomersRes,
     overdueRuleRes, { data: unpaidInvoices }, { data: monthToDateExpenses }, { data: lastMonthExpenses },
-    { data: custBottleBalances }, { data: bottleLimits },
-    { data: rangeInvoices }, { data: rangeDeliveries }, { data: rangeExpenses }, { data: rangePayments }, { data: rangeRiderDeliveries },
+    { data: bottleLimits },
+    { data: rangeInvoices }, { data: rangeDeliveriesRaw }, { data: rangeExpensesRaw }, { data: rangePaymentsRaw }, { data: rangeRiderDeliveriesRaw },
     { data: weekDeliveries }, { data: pendingApprovals },
   ] = await Promise.all([
-    supabase.from("invoices").select("net_amount, invoice_items(quantity)").eq("invoice_date", today).neq("status", "void"),
-    supabase.from("deliveries").select("*, delivery_items(delivered_qty, returned_qty)").eq("delivery_date", today),
-    supabase.from("expenses").select("*").eq("expense_date", today).in("status", ["approved", "paid"]),
+    supabase.from("invoices").select("net_amount").eq("invoice_date", today).neq("status", "void"),
+    supabase.from("deliveries").select("rider_id, status, amount_collected, profiles!deliveries_rider_id_fkey(full_name), delivery_items(delivered_qty, returned_qty)").eq("delivery_date", today),
+    supabase.from("expenses").select("amount").eq("expense_date", today).in("status", ["approved", "paid"]),
     supabase.from("v_customer_balance").select("balance"),
     supabase.from("products").select("id, name, low_stock_threshold"),
     // widened to 13 days back so the same fetch covers both the 7-day trend chart
     // and a prior-week comparison for the AI insights card; also carries zone info
     // for the "top zone this week" insight.
     supabase.from("invoices").select("net_amount, invoice_date, customers(zone_id, zones(name))").gte("invoice_date", daysAgo(13)).neq("status", "void"),
-    supabase.from("expenses").select("expense_categories(name), amount").in("status", ["approved", "paid"]),
+    // Expense-breakdown pie chart — bounded to the last 90 days (a "recent
+    // spend mix" view, not literally every expense the business has ever
+    // recorded) so this stays a flat, fast query as the ERP accumulates
+    // years of history instead of growing unbounded forever.
+    supabase.from("expenses").select("expense_categories(name), amount").in("status", ["approved", "paid"]).gte("expense_date", daysAgo(90)),
     supabase.from("v_cash_account_balance").select("name, type, current_balance"),
     supabase.from("v_bottle_reconciliation").select("product_id, warehouse"),
-    supabase.from("v_customer_bottle_balance").select("bottles_with_customer"),
+    // Reused below for both "bottles with customers" (dashboard KPI) and the
+    // per-customer bottle-limit alert — previously fetched as two separate
+    // queries against the same view.
+    supabase.from("v_customer_bottle_balance").select("customer_id, name, bottles_with_customer"),
     supabase.from("v_supplier_balance").select("balance"),
     supabase.from("product_prices").select("product_id, price"),
     supabase.from("customers").select("id", { count: "exact", head: true }).eq("is_active", true),
@@ -108,9 +115,9 @@ export default async function DashboardPage({ searchParams }) {
     // movement, reversed out of the current balance, for point-in-time balances —
     // there's no historical snapshot table, so this is the standard way to derive
     // "yesterday's balance" without one).
-    supabase.from("invoices").select("net_amount, invoice_items(quantity)").eq("invoice_date", yesterday).neq("status", "void"),
+    supabase.from("invoices").select("net_amount").eq("invoice_date", yesterday).neq("status", "void"),
     supabase.from("expenses").select("amount").eq("expense_date", yesterday).in("status", ["approved", "paid"]),
-    supabase.from("deliveries").select("*, delivery_items(delivered_qty)").eq("delivery_date", yesterday),
+    supabase.from("deliveries").select("status, delivery_items(delivered_qty)").eq("delivery_date", yesterday),
     supabase.from("payments").select("amount").eq("payment_date", today).eq("voided", false),
     supabase.from("purchases").select("purchase_date, purchase_items(quantity, rate, discount)").eq("purchase_date", today),
     supabase.from("cash_transactions").select("amount, cash_accounts(type)").eq("txn_date", today),
@@ -122,17 +129,20 @@ export default async function DashboardPage({ searchParams }) {
     supabase.from("expenses").select("amount, expense_categories(name)").in("status", ["approved", "paid"]).gte("expense_date", lastMonthRange().from).lte("expense_date", lastMonthRange().to),
     // Bottle alerts card — same "over their bottle_limit" check the Bottle
     // Ledger page's "Needs Attention" section and refresh_alerts() use.
-    supabase.from("v_customer_bottle_balance").select("customer_id, name, bottles_with_customer"),
+    // (bottleWithCustomers, fetched above, now carries customer_id/name too
+    // and covers this card as well — no second query against the same view.)
     supabase.from("customers").select("id, bottle_limit"),
     // Date-range business summary (Today/7 Days/This Month/Custom) — a
     // self-contained block, independent of the "today" KPIs above so it
     // doesn't disturb their carefully-tuned yesterday-comparison logic.
-    supabase.from("invoices").select("net_amount").gte("invoice_date", range.from).lte("invoice_date", range.to).neq("status", "void"),
-    supabase.from("deliveries").select("status, delivery_items(delivered_qty, returned_qty)").gte("delivery_date", range.from).lte("delivery_date", range.to),
-    supabase.from("expenses").select("amount").in("status", ["approved", "paid"]).gte("expense_date", range.from).lte("expense_date", range.to),
-    supabase.from("payments").select("amount").gte("payment_date", range.from).lte("payment_date", range.to).eq("voided", false),
+    // When the range is exactly today, this would be an identical query to
+    // todayInvoices above — reused instead of fetched twice (see below).
+    rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("invoices").select("net_amount").gte("invoice_date", range.from).lte("invoice_date", range.to).neq("status", "void"),
+    rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("deliveries").select("status, delivery_items(delivered_qty, returned_qty)").gte("delivery_date", range.from).lte("delivery_date", range.to),
+    rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("expenses").select("amount").in("status", ["approved", "paid"]).gte("expense_date", range.from).lte("expense_date", range.to),
+    rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("payments").select("amount").gte("payment_date", range.from).lte("payment_date", range.to).eq("voided", false),
     // Employee performance leaderboard for the same range.
-    supabase.from("deliveries").select("rider_id, status, amount_collected, profiles!deliveries_rider_id_fkey(full_name)").gte("delivery_date", range.from).lte("delivery_date", range.to),
+    rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("deliveries").select("rider_id, status, amount_collected, profiles!deliveries_rider_id_fkey(full_name)").gte("delivery_date", range.from).lte("delivery_date", range.to),
     // Deliveries trend chart — always a fixed last-7-days window (like the
     // sales trend above), independent of the Today/7 Days/Month toggle so
     // there's always a meaningful multi-day shape to plot.
@@ -141,6 +151,11 @@ export default async function DashboardPage({ searchParams }) {
       ? supabase.from("expenses").select("id, description, amount, expense_date, expense_categories(name)").eq("status", "submitted").order("created_at", { ascending: false }).limit(8)
       : Promise.resolve({ data: [] }),
   ]);
+
+  const rangeDeliveries = rangeKey === "today" ? todayDeliveries : rangeDeliveriesRaw;
+  const rangeExpenses = rangeKey === "today" ? todayExpenses : rangeExpensesRaw;
+  const rangePayments = rangeKey === "today" ? todayPayments : rangePaymentsRaw;
+  const rangeRiderDeliveries = rangeKey === "today" ? todayDeliveries : rangeRiderDeliveriesRaw;
 
   const cashBalance = (cashBalances || []).filter((a) => a.type === "cash").reduce((a, c) => a + Number(c.current_balance), 0);
   const bankBalance = (cashBalances || []).filter((a) => a.type === "bank").reduce((a, c) => a + Number(c.current_balance), 0);
@@ -204,7 +219,7 @@ export default async function DashboardPage({ searchParams }) {
   const bottleLimitMap = {};
   (bottleLimits || []).forEach((c) => { bottleLimitMap[c.id] = c.bottle_limit ?? 20; });
   const custBottleTotals = {};
-  (custBottleBalances || []).forEach((b) => {
+  (bottleWithCustomers || []).forEach((b) => {
     const row = custBottleTotals[b.customer_id] || { name: b.name, total: 0 };
     row.total += Number(b.bottles_with_customer);
     custBottleTotals[b.customer_id] = row;
@@ -274,7 +289,7 @@ export default async function DashboardPage({ searchParams }) {
   }
 
   // Date-range business summary
-  const rangeSales = (rangeInvoices || []).reduce((a, i) => a + Number(i.net_amount), 0);
+  const rangeSales = (rangeKey === "today" ? (todayInvoices || []) : (rangeInvoices || [])).reduce((a, i) => a + Number(i.net_amount), 0);
   const rangeDelivered = (rangeDeliveries || []).filter((d) => d.status === "delivered").reduce((a, d) => a + (d.delivery_items || []).reduce((b, i) => b + Number(i.delivered_qty), 0), 0);
   const rangeReturned = (rangeDeliveries || []).filter((d) => d.status === "delivered").reduce((a, d) => a + (d.delivery_items || []).reduce((b, i) => b + Number(i.returned_qty), 0), 0);
   const rangeExpAmt = (rangeExpenses || []).reduce((a, e) => a + Number(e.amount), 0);
@@ -300,7 +315,8 @@ export default async function DashboardPage({ searchParams }) {
 
   return (
     <div>
-      <div className="mb-5 rounded-3xl border border-aqua/20 bg-gradient-to-r from-[#073F3A] via-[#07564D] to-[#087C69] p-5 text-white shadow-lg shadow-aqua/10 sm:p-7">
+      <div className="water-orb relative mb-5 overflow-hidden rounded-3xl border border-aqua/20 bg-gradient-to-r from-[#073F3A] via-[#07564D] to-[#087C69] p-5 text-white shadow-lg shadow-aqua/10 sm:p-7">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-6 -top-10 h-40 w-28 rotate-12 rounded-[35%_35%_42%_42%] border border-white/15 bg-gradient-to-br from-white/20 to-aqua/10 shadow-2xl"><span className="absolute inset-x-3 top-16 grid h-12 place-items-center rounded-xl bg-navy/45 font-display text-xl font-bold">EW</span></div>
         <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#A9DDD7]">Evergreen executive workspace</p>
         <h2 className="font-display text-2xl font-semibold sm:text-3xl">Owner Control Room</h2>
         <p className="mt-1 text-sm text-[#D7EFEC]">{greeting()}, {firstName} · {new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</p>
@@ -312,6 +328,8 @@ export default async function DashboardPage({ searchParams }) {
         </div>
       </div>
 
+      <DashboardSectionTabs />
+
       {["owner", "admin"].includes(profile?.roles?.key) && (pendingApprovals || []).length > 0 && (
         <section className="mb-6">
           <div className="mb-2 flex items-center justify-between">
@@ -322,7 +340,12 @@ export default async function DashboardPage({ searchParams }) {
         </section>
       )}
 
-      <div className="no-print grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 mb-6 max-w-2xl">
+      <section id="dashboard-overview" className="dashboard-anchor mb-6 rounded-3xl border border-line bg-card/80 p-3.5 sm:p-5">
+        <div className="mb-3 flex items-end justify-between gap-3">
+          <div><h3 className="font-display text-lg font-semibold">Daily command shortcuts</h3><p className="text-xs text-slate">Record work or open the report you need.</p></div>
+          <Link href="/smart-entry" className="hidden text-xs font-bold text-aqua hover:underline sm:block">Open Smart Entry →</Link>
+        </div>
+      <div className="no-print grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-8">
         {QUICK_ACTIONS.map((a) => {
           const Icon = a.icon;
           return (
@@ -336,9 +359,11 @@ export default async function DashboardPage({ searchParams }) {
           );
         })}
       </div>
+      </section>
 
-      <div className="no-print flex flex-wrap items-center gap-2 mb-4">
-        <span className="text-xs font-semibold text-slate">Business summary:</span>
+      <section className="dashboard-anchor" aria-labelledby="business-summary-title">
+      <div className="erp-toolbar no-print flex flex-wrap items-center gap-2 mb-4">
+        <span id="business-summary-title" className="text-xs font-semibold text-slate">Business summary:</span>
         {[["today", "Today"], ["7d", "Last 7 Days"], ["month", "This Month"]].map(([k, label]) => (
           <Link key={k} href={`/dashboard?range=${k}`}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${rangeKey === k ? "bg-navy text-white border-navy" : "border-line bg-card"}`}>
@@ -353,7 +378,7 @@ export default async function DashboardPage({ searchParams }) {
           <button type="submit" className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${rangeKey === "custom" ? "bg-navy text-white border-navy" : "border-line bg-card"}`}>Go</button>
         </form>
       </div>
-      <div className="flex flex-wrap gap-3.5 mb-6">
+      <div className="dashboard-kpi-grid mb-6">
         <KPI label="DELIVERIES" value={rangeDeliveryCount} tone="navy" />
         <KPI label="BOTTLES DELIVERED" value={rangeDelivered} tone="aqua" />
         <KPI label="BOTTLES RETURNED" value={rangeReturned} tone="aqua" />
@@ -363,6 +388,8 @@ export default async function DashboardPage({ searchParams }) {
         <KPI label="NET PROFIT" value={pkr(rangeNet)} tone={rangeNet >= 0 ? "green" : "coral"} sub="revenue − expenses" />
         <KPI label="OVERDUE CUSTOMERS" value={overdueCustomerCount ?? 0} tone={overdueCustomerCount > 0 ? "coral" : "slate"} sub={overdueDays != null ? `> ${overdueDays} days` : "rule disabled"} href="/payments" />
       </div>
+
+      </section>
 
       {leaderboard.length > 0 && (
         <div className="border border-line rounded-2xl p-4 mb-6 bg-card">
@@ -378,8 +405,9 @@ export default async function DashboardPage({ searchParams }) {
         </div>
       )}
 
+      <section id="dashboard-today" className="dashboard-anchor">
       <h4 className="text-xs font-bold tracking-wide text-slate mb-2 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-aqua" />TODAY AT A GLANCE</h4>
-      <div className="flex flex-wrap gap-3.5 mb-6">
+      <div className="dashboard-kpi-grid mb-6">
         <KPI label="TODAY'S SALES" value={pkr(salesAmt)} tone="navy" sub={`${(todayInvoices || []).length} invoices`} trend={calcTrend(salesAmt, ySalesAmt)} href="/sales" />
         <KPI label="COLLECTIONS" value={pkr(todayPaymentsAmt)} tone="green" sub="received today" href="/payments" />
         <KPI label="DELIVERIES" value={completedDeliveries} tone="aqua" sub={`${pendingDeliveries} pending · ${missedDeliveries} missed`} href="/deliveries" />
@@ -390,8 +418,11 @@ export default async function DashboardPage({ searchParams }) {
         <KPI label="ACTIVE CUSTOMERS" value={activeCustomers} tone="aqua" trend={calcTrend(activeCustomers, yActiveCustomers)} href="/customers" />
       </div>
 
+      </section>
+
+      <section id="dashboard-finance" className="dashboard-anchor">
       <h4 className="text-xs font-bold tracking-wide text-slate mb-2 flex items-center gap-1.5"><span className="w-1.5 h-1.5 rounded-full bg-navy" />ACCOUNTING SNAPSHOT</h4>
-      <div className="flex flex-wrap gap-3.5 mb-6">
+      <div className="dashboard-kpi-grid mb-6">
         <KPI label="CASH" value={pkr(cashBalance)} tone="green" trend={calcTrend(cashBalance, yCashBalance)} href="/accounting/chart-of-accounts" />
         <KPI label="BANK" value={pkr(bankBalance)} tone="green" trend={calcTrend(bankBalance, yBankBalance)} href="/accounting/chart-of-accounts" />
         <KPI label="RECEIVABLES" value={pkr(receivables)} tone="coral" trend={calcTrend(receivables, yReceivables, true)} href="/ledger" />
@@ -400,6 +431,9 @@ export default async function DashboardPage({ searchParams }) {
         <KPI label="BOTTLE LIABILITY" value={pkr(bottleLiability)} tone="navy" sub={`${withCustomersBottles} bottles with customers`} trend={calcTrend(bottleLiability, yBottleLiability, true)} href="/bottle-ledger" />
       </div>
 
+      </section>
+
+      <section id="dashboard-insights" className="dashboard-anchor">
       <div className="border border-aqua/20 bg-gradient-to-br from-aquaSoft/70 to-card rounded-2xl p-4 mb-4">
         <h4 className="text-sm font-bold mb-2.5 flex items-center gap-1.5">
           <span className="w-6 h-6 rounded-lg bg-aqua text-white flex items-center justify-center flex-shrink-0"><Sparkles size={13} /></span>
@@ -459,6 +493,7 @@ export default async function DashboardPage({ searchParams }) {
           {(overdueCustomerCount || 0) + lowStock.length + (overdueCustomers || []).length + overBottleLimitCustomers.length === 0 && <p className="text-sm text-slate">No critical alerts right now.</p>}
         </div>
       </div>
+      </section>
     </div>
   );
 }

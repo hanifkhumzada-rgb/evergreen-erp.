@@ -1,11 +1,12 @@
 import { getCurrentProfile } from "@/lib/session";
-import Link from "next/link";
+import Link from "@/components/ErpNavLink";
 import { pkr, fmtDate } from "@/lib/format";
 import { Badge, KPI, DocumentActionBar, Th, Td } from "@/components/ui";
 import MarkDeliveredButton from "@/components/MarkDeliveredButton";
 import DeliveryStatusButton from "@/components/DeliveryStatusButton";
 import BulkImportButton from "@/components/BulkImportButton";
 import DeliveryForm from "@/components/DeliveryForm";
+import DeliveryCorrectionForm from "@/components/DeliveryCorrectionForm";
 import DeliverSheet from "@/components/DeliverSheet";
 import OneTapDeliverButton, { SkipDeliveryButton } from "@/components/OneTapDeliverButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
@@ -13,7 +14,7 @@ import WhatsAppButton from "@/components/WhatsAppButton";
 import { bulkImportDeliveries, voidDelivery } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
-import { Phone, MessageCircle } from "lucide-react";
+import { Phone, MessageCircle, Search } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 function todayISO() { return new Date().toISOString().slice(0, 10); }
@@ -48,6 +49,13 @@ export default async function DeliveriesPage({ searchParams }) {
       .select("*, customers(*), delivery_items(expected_qty)")
       .eq("rider_id", user.id).eq("delivery_date", todayISO());
 
+    const riderCustomerIds = [...new Set((deliveries || []).map((d) => d.customer_id).filter(Boolean))];
+    const { data: riderBalances } = riderCustomerIds.length
+      ? await supabase.from("v_customer_bottle_balance").select("customer_id, bottles_with_customer").in("customer_id", riderCustomerIds)
+      : { data: [] };
+    const bottleBalanceMap = {};
+    (riderBalances || []).forEach((b) => { bottleBalanceMap[b.customer_id] = (bottleBalanceMap[b.customer_id] || 0) + Number(b.bottles_with_customer || 0); });
+
     return (
       <div>
         <h2 className="font-display text-2xl font-semibold mb-4">Today&apos;s Route</h2>
@@ -55,17 +63,22 @@ export default async function DeliveriesPage({ searchParams }) {
           {(deliveries || []).length === 0 && <p className="text-sm text-slate">No deliveries assigned for today.</p>}
           {(deliveries || []).map((d) => {
             const qty = (d.delivery_items || []).reduce((a, i) => a + Number(i.expected_qty), 0);
+            // Empties expected back defaults to what this customer currently
+            // holds (their running bottle balance), not today's delivered
+            // quantity — those two numbers coincide only by coincidence in a
+            // strict 1-for-1 exchange. Both stay editable on confirm.
+            const emptyExpected = bottleBalanceMap[d.customer_id] ?? qty;
             return (
               <div key={d.id} className="border border-line rounded-2xl p-4">
                 <div className="flex justify-between"><strong>{d.customers?.name}</strong><Badge text={d.status} tone={STATUS_TONE(d.status)} /></div>
                 <p className="text-xs text-slate my-1">{d.customers?.address}</p>
-                <p className="text-sm">Qty: <strong>{qty}</strong> · Empty expected: <strong>{qty}</strong></p>
+                <p className="text-sm">Qty: <strong>{qty}</strong> · Empty expected: <strong>{emptyExpected}</strong></p>
                 <div className="flex gap-2 mt-2.5 flex-wrap">
                   <a href={`tel:${d.customers?.mobile}`} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold"><Phone size={14} /> Call</a>
                   {d.customers?.whatsapp_number && <a href={`https://wa.me/${d.customers.whatsapp_number.replace(/^0/, "92")}`} target="_blank" className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold"><MessageCircle size={14} /> WhatsApp</a>}
                   {d.status !== "delivered" && (
                     <>
-                      <MarkDeliveredButton deliveryId={d.id} emptyExpected={qty} />
+                      <MarkDeliveredButton deliveryId={d.id} deliveredDefault={qty} emptyExpected={emptyExpected} />
                       <DeliveryStatusButton deliveryId={d.id} status="missed" label="Failed" tone="coral" />
                       <DeliveryStatusButton deliveryId={d.id} status="rescheduled" label="Reschedule" tone="amber" />
                       <DeliveryStatusButton deliveryId={d.id} status="cancelled" label="Cancel" tone="coral" />
@@ -82,6 +95,11 @@ export default async function DeliveriesPage({ searchParams }) {
   }
 
   const today = todayISO();
+  const historyMonth = /^\d{4}-\d{2}$/.test(sp.month || "") ? sp.month : today.slice(0, 7);
+  const historyFrom = `${historyMonth}-01`;
+  const historyUntilDate = new Date(`${historyFrom}T00:00:00Z`);
+  historyUntilDate.setUTCMonth(historyUntilDate.getUTCMonth() + 1);
+  const historyUntil = historyUntilDate.toISOString().slice(0, 10);
   const [
     branding,
     { data: deliveries }, { data: todayDeliveries }, { data: lastDeliveredRaw },
@@ -91,8 +109,9 @@ export default async function DeliveriesPage({ searchParams }) {
   ] = await Promise.all([
     getBrandingLite(supabase),
     supabase.from("deliveries")
-      .select("*, customers(name, zone_id), profiles!deliveries_rider_id_fkey(id, full_name), delivery_items(expected_qty)")
-      .order("delivery_date", { ascending: false }).limit(200),
+      .select("*, customers(name, code, mobile, zone_id), profiles!deliveries_rider_id_fkey(id, full_name), delivery_items(product_id, expected_qty, delivered_qty, returned_qty)")
+      .gte("delivery_date", historyFrom).lt("delivery_date", historyUntil)
+      .order("delivery_date", { ascending: false }).limit(1000),
     supabase.from("deliveries")
       .select("id, customer_id, status, amount, amount_collected, rider_remarks, profiles!deliveries_rider_id_fkey(full_name), delivery_items(delivered_qty)")
       .eq("delivery_date", today),
@@ -100,19 +119,19 @@ export default async function DeliveriesPage({ searchParams }) {
       .select("customer_id, delivery_date, amount_collected, delivery_items(delivered_qty, returned_qty)")
       .eq("status", "delivered").order("delivery_date", { ascending: false }).limit(500),
     supabase.from("customers")
-      .select("id, code, name, mobile, route, route_id, routes(name), zone_id, zones(name), default_product_id, payment_frequency, regular_qty, preferred_days, delivery_frequency, assigned_rider_id, status, is_active"),
-    supabase.from("zones").select("*"),
+      .select("id, code, name, mobile, route, route_id, routes(name), zone_id, zones(name), default_product_id, payment_frequency, payment_terms, regular_qty, preferred_days, delivery_frequency, assigned_rider_id, status, is_active"),
+    supabase.from("zones").select("id, name"),
     supabase.from("routes").select("id, name").eq("is_active", true).order("name"),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
     supabase.from("v_customer_balance").select("customer_id, balance"),
-    supabase.from("v_customer_bottle_balance").select("customer_id, bottles_with_customer"),
+    supabase.from("v_customer_bottle_balance").select("customer_id, product_id, bottles_with_customer"),
     supabase.from("customer_prices").select("customer_id, product_id, price, effective_from, effective_to"),
     supabase.from("product_prices").select("product_id, price, effective_from, effective_to"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").eq("roles.key", "rider").eq("is_active", true).order("full_name"),
     supabase.rpc("fn_has_permission", { perm_key: "deliveries.delete" }),
   ]);
 
-  const qtyOf = (d) => (d.delivery_items || []).reduce((a, i) => a + Number(i.expected_qty), 0);
+  const qtyOf = (d) => (d.delivery_items || []).reduce((a, i) => a + Number(i.delivered_qty ?? i.expected_qty), 0);
 
   const balanceMap = {};
   (balances || []).forEach((b) => { balanceMap[b.customer_id] = Number(b.balance); });
@@ -126,10 +145,21 @@ export default async function DeliveriesPage({ searchParams }) {
     const prodPrice = latestValidPrice((productPrices || []).filter((p) => p.product_id === c.default_product_id), today);
     if (prodPrice) rateMap[c.id] = Number(prodPrice.price);
   });
+  const bottleBalancesByCustomer = {};
+  (bottleBalances || []).forEach((b) => { (bottleBalancesByCustomer[b.customer_id] ||= {})[b.product_id] = Number(b.bottles_with_customer || 0); });
+  const ratesByCustomer = {};
+  (customersRaw || []).forEach((c) => {
+    ratesByCustomer[c.id] = Object.fromEntries((products || []).map((p) => {
+      const override = latestValidPrice((customerPrices || []).filter((price) => price.customer_id === c.id && price.product_id === p.id), today);
+      const standard = latestValidPrice((productPrices || []).filter((price) => price.product_id === p.id), today);
+      return [p.id, Number(override?.price ?? standard?.price ?? 0)];
+    }));
+  });
   const formCustomers = (customersRaw || []).map((c) => ({
     id: c.id, code: c.code, name: c.name, mobile: c.mobile, route: c.route,
     zoneName: c.zones?.name, default_product_id: c.default_product_id, payment_frequency: c.payment_frequency,
     balance: balanceMap[c.id] || 0, bottleBalance: bottleBalanceMap[c.id] || 0, rate: rateMap[c.id] || 0,
+    bottleBalancesByProduct: bottleBalancesByCustomer[c.id] || {}, ratesByProduct: ratesByCustomer[c.id] || {},
   }));
 
   // TODAY'S DELIVERIES — customers due today, one status per customer.
@@ -176,6 +206,8 @@ export default async function DeliveriesPage({ searchParams }) {
       id: c.id, code: c.code, name: c.name, mobile: c.mobile, zoneName: c.zones?.name, routeName: c.routes?.name || c.route,
       rate: rateMap[c.id] || 0, regularQty: Number(c.regular_qty) || 0, defaultProductId: c.default_product_id,
       bottleBalance: bottleBalanceMap[c.id] || 0, outstanding: balanceMap[c.id] || 0,
+      paymentFrequency: c.payment_frequency || "Monthly",
+      collectOnDelivery: c.payment_frequency === "Daily" || /cash\s*on\s*delivery|\bcash\b/i.test(c.payment_terms || ""),
       status, deliveredToday: todayRow, lastDelivery: lastDeliveryMap[c.id],
     };
   });
@@ -193,13 +225,34 @@ export default async function DeliveriesPage({ searchParams }) {
   const fromDate = sp.from || "";
   const toDate = sp.to || "";
   const historyRider = sp.hrider || "";
+  const historyQuery = (sp.hq || "").trim().toLowerCase();
   const allRows = (deliveries || []);
   const historyRows = allRows.filter((d) => {
+    if (historyQuery && !`${d.customers?.name || ""} ${d.customers?.code || ""} ${d.customers?.mobile || ""}`.toLowerCase().includes(historyQuery)) return false;
     if (statusFilter && d.status !== statusFilter) return false;
     if (historyRider && d.rider_id !== historyRider) return false;
     if (fromDate && d.delivery_date < fromDate) return false;
     if (toDate && d.delivery_date > toDate) return false;
     return true;
+  });
+  const historySort = sp.sort || "name";
+  const monthlyCustomerRows = Object.values(historyRows.filter((d) => d.status === "delivered").reduce((acc, d) => {
+    const id = d.customer_id;
+    const row = acc[id] || { id, code: d.customers?.code || "—", name: d.customers?.name || "Unknown", visits: 0, qty: 0, returned: 0, amount: 0, collected: 0, first: d.delivery_date, latest: d.delivery_date };
+    row.visits += 1;
+    row.qty += qtyOf(d);
+    row.returned += (d.delivery_items || []).reduce((sum, item) => sum + Number(item.returned_qty || 0), 0);
+    row.amount += Number(d.amount || 0);
+    row.collected += Number(d.amount_collected || 0);
+    if (d.delivery_date < row.first) row.first = d.delivery_date;
+    if (d.delivery_date > row.latest) row.latest = d.delivery_date;
+    acc[id] = row;
+    return acc;
+  }, {})).sort((a, b) => {
+    if (historySort === "code") return a.code.localeCompare(b.code, undefined, { numeric: true });
+    if (historySort === "qty") return b.qty - a.qty;
+    if (historySort === "latest") return b.latest.localeCompare(a.latest);
+    return a.name.localeCompare(b.name);
   });
   const exportRows = historyRows.map((d) => ({ Date: d.delivery_date, Customer: d.customers?.name, Qty: qtyOf(d), DeliveryBoy: d.profiles?.full_name, Status: d.status, CashCollected: d.amount_collected }));
   const hasHistoryFilters = statusFilter || historyRider || fromDate || toDate;
@@ -221,7 +274,7 @@ export default async function DeliveriesPage({ searchParams }) {
             sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Qty: 5, CashCollected: 600, Date: "2026-08-31", Product: "19L", Returned: 5 }}
             previewType="deliveries"
           />
-          <DeliveryForm customers={formCustomers} products={products || []} riders={riders || []} currentUserId={user.id} initialCustomerId={sp.customer || ""} />
+          <DeliveryForm customers={formCustomers} products={products || []} riders={riders || []} currentUserId={user.id} initialCustomerId={sp.customer || ""} initialOpen={sp.quick === "new"} />
         </div>
       </div>
 
@@ -247,7 +300,7 @@ export default async function DeliveriesPage({ searchParams }) {
           <option value="">All delivery boys</option>
           {(riders || []).map((r) => <option key={r.id} value={r.id}>{r.full_name}</option>)}
         </select>
-        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Filter</button>
+        <button type="submit" className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold"><Search size={14} /> Search</button>
         {hasTodayFilters && <Link href="/deliveries" className="text-xs text-slate hover:text-aqua">Clear</Link>}
       </form>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-8">
@@ -276,13 +329,14 @@ export default async function DeliveriesPage({ searchParams }) {
                 {c.lastDelivery && (
                   <OneTapDeliverButton
                     variant="repeat" label="Repeat Last" customer={c} currentUserId={user.id}
-                    deliveredQty={c.lastDelivery.deliveredQty} returnedQty={c.lastDelivery.returnedQty} cashCollected={c.lastDelivery.cashCollected}
+                    deliveredQty={c.lastDelivery.deliveredQty} returnedQty={c.lastDelivery.returnedQty}
+                    cashCollected={c.collectOnDelivery ? Math.round(c.lastDelivery.deliveredQty * c.rate) : 0}
                   />
                 )}
                 {!c.lastDelivery && c.regularQty > 0 && (
                   <OneTapDeliverButton
                     variant="complete" label="Complete" customer={c} currentUserId={user.id}
-                    deliveredQty={c.regularQty} returnedQty={c.regularQty} cashCollected={Math.round(c.regularQty * c.rate)}
+                    deliveredQty={c.regularQty} returnedQty={c.regularQty} cashCollected={c.collectOnDelivery ? Math.round(c.regularQty * c.rate) : 0}
                   />
                 )}
                 <SkipDeliveryButton customerId={c.id} />
@@ -300,10 +354,12 @@ export default async function DeliveriesPage({ searchParams }) {
         ))}
       </div>
 
-      <details className="mb-4">
-        <summary className="no-print cursor-pointer font-display text-base font-semibold mb-3">Delivery History</summary>
-        <div className="mt-3">
-          <form className="no-print flex flex-wrap gap-2.5 mb-2 items-center" action="/deliveries">
+      <section className="mb-4">
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2"><div><h3 className="font-display text-lg font-semibold">Delivery History</h3><p className="text-xs text-slate">Har delivery apni original date aur quantity ke saath separate record hai.</p></div><Badge text={historyMonth} tone="aqua" /></div>
+        <div>
+          <form className="erp-toolbar no-print flex flex-wrap gap-2.5 mb-3 items-center" action="/deliveries">
+            <input type="search" name="hq" defaultValue={sp.hq || ""} placeholder="Search history by customer…" className="px-3 py-2 rounded-xl border border-line bg-card text-xs w-56" />
+            <input type="month" name="month" defaultValue={historyMonth} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
             <select name="hrider" defaultValue={historyRider} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
               <option value="">All delivery boys</option>
               {(riders || []).map((r) => <option key={r.id} value={r.id}>{r.full_name}</option>)}
@@ -317,10 +373,13 @@ export default async function DeliveriesPage({ searchParams }) {
               <option value="cancelled">Cancelled</option>
               <option value="void">Voided</option>
             </select>
+            <select name="sort" defaultValue={historySort} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
+              <option value="name">Sort: Customer name</option><option value="code">Sort: Customer ID</option><option value="qty">Sort: Highest quantity</option><option value="latest">Sort: Latest delivery</option>
+            </select>
             <input type="date" name="from" defaultValue={fromDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
             <input type="date" name="to" defaultValue={toDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
-            <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Filter</button>
-            {hasHistoryFilters && <Link href="/deliveries" className="text-xs text-slate hover:text-aqua">Clear</Link>}
+            <button type="submit" className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold"><Search size={14} /> Search</button>
+            {(hasHistoryFilters || historyQuery || sp.month) && <Link href="/deliveries" className="text-xs text-slate hover:text-aqua">Clear</Link>}
             <div className="flex-1" />
             <DocumentActionBar
               print
@@ -329,17 +388,25 @@ export default async function DeliveriesPage({ searchParams }) {
             />
           </form>
           <p className="no-print text-xs text-slate mb-2">{historyRows.length} of {allRows.length} deliveries</p>
+          <div className="mb-4 overflow-x-auto rounded-2xl border border-line bg-card">
+            <div className="flex items-center justify-between gap-3 border-b border-line bg-gradient-to-r from-aquaSoft to-card px-4 py-3"><div><h4 className="text-sm font-bold">Customer Monthly Totals</h4><p className="text-[11px] text-slate">Old records remain separate; totals automatically include every delivery in {historyMonth}.</p></div><Badge text={`${monthlyCustomerRows.length} customers`} tone="green" /></div>
+            <table className="w-full min-w-[780px] text-[13px] border-collapse">
+              <thead><tr className="bg-foam"><Th>#</Th><Th>Customer ID</Th><Th>Customer</Th><Th>Visits</Th><Th>Total Qty</Th><Th>Returned</Th><Th>Sales</Th><Th>Collected</Th><Th>First / Latest</Th></tr></thead>
+              <tbody>{monthlyCustomerRows.length === 0 ? <tr><td colSpan={9} className="py-7 text-center text-slate">No completed deliveries in this selection.</td></tr> : monthlyCustomerRows.map((row, index) => <tr key={row.id} className="hover:bg-aquaSoft/40"><Td>{index + 1}</Td><Td>{row.code}</Td><Td>{row.name}</Td><Td>{row.visits}</Td><Td><strong>{row.qty}</strong></Td><Td>{row.returned}</Td><Td>{pkr(row.amount)}</Td><Td>{pkr(row.collected)}</Td><Td>{fmtDate(row.first)} · {fmtDate(row.latest)}</Td></tr>)}</tbody>
+            </table>
+          </div>
           <div className="overflow-x-auto border border-line rounded-2xl">
             <table className="w-full text-[13.5px] border-collapse">
-              <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Delivery Boy</Th><Th>Status</Th><Th>Cash Collected</Th><Th>Notes</Th><Th className="no-print">&nbsp;</Th></tr></thead>
+              <thead><tr className="bg-foam"><Th>#</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Delivery Boy</Th><Th>Status</Th><Th>Cash Collected</Th><Th>Notes</Th><Th className="no-print">&nbsp;</Th></tr></thead>
               <tbody>
-                {historyRows.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate">No deliveries match.</td></tr>}
-                {historyRows.map((d) => (
+                {historyRows.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-slate">No deliveries match.</td></tr>}
+                {historyRows.map((d, index) => (
                   <tr key={d.id} className={`hover:bg-foam ${d.status === "void" ? "opacity-60" : ""}`}>
-                    <Td>{fmtDate(d.delivery_date)}</Td><Td>{d.customers?.name}</Td><Td>{qtyOf(d)}</Td><Td>{d.profiles?.full_name || "—"}</Td>
+                    <Td>{index + 1}</Td><Td>{fmtDate(d.delivery_date)}</Td><Td>{d.customers?.name}</Td><Td>{qtyOf(d)}</Td><Td>{d.profiles?.full_name || "—"}</Td>
                     <Td><Badge text={d.status} tone={STATUS_TONE(d.status)} />{d.status === "void" && d.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{d.void_reason}</div>}</Td>
                     <Td>{pkr(d.amount_collected)}</Td><Td className="max-w-[220px] truncate">{d.rider_remarks || "—"}</Td>
                     <Td className="no-print">
+                      {profile?.roles?.key === "owner" && ["delivered", "partially_delivered"].includes(d.status) && <DeliveryCorrectionForm delivery={d} products={products || []} />}
                       {canVoidDeliveries && d.status !== "void" && (
                         <ReasonConfirmButton action={voidDelivery} id={d.id} label="Void"
                           confirmText={`Void this delivery for ${d.customers?.name}?`}
@@ -353,7 +420,7 @@ export default async function DeliveriesPage({ searchParams }) {
             </table>
           </div>
         </div>
-      </details>
+      </section>
       <DocumentPrintFooter />
     </div>
   );

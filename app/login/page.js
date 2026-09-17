@@ -6,6 +6,7 @@ import { REMEMBER_ME_COOKIE, REMEMBER_ME_MAX_AGE } from "@/lib/rememberMe";
 import { User, Lock, Eye, EyeOff, Check, Mail, Droplet, MessageCircleHeart, BarChart3, ShieldCheck } from "lucide-react";
 import ThemeToggle from "@/components/ThemeToggle";
 import Image from "next/image";
+import PwaInstallButton from "@/components/PwaInstallButton";
 
 // Supabase Auth already rate-limits sign-in attempts server-side (per
 // project, not configurable from app code) — this is an additional
@@ -236,7 +237,14 @@ export default function LoginPage() {
                   {isLocked ? `Try again in ${lockCountdown}s` : loading ? "Signing in…" : "Sign In"}
                 </button>
               </form>
-              <div className="mt-7 pt-5 border-t border-line flex items-center justify-between text-[11px] text-slate"><span>Secure business workspace</span><span className="inline-flex items-center gap-1"><ShieldCheck size={12} className="text-aqua"/> Role protected</span></div>
+              <div className="mt-6 flex justify-center"><PwaInstallButton label="Install EW ERP App" /></div>
+              <div className="mt-5 pt-5 border-t border-line flex items-center justify-between text-[11px] text-slate"><span>Secure business workspace</span><span className="inline-flex items-center gap-1"><ShieldCheck size={12} className="text-aqua"/> Role protected</span></div>
+              <p className="mt-5 text-center text-[12px] text-slate">
+                Are you a customer?{' '}
+                <a href="/portal/login" className="font-semibold text-aqua transition-colors hover:text-teal-700">
+                  Customer Portal
+                </a>
+              </p>
             </>
           ) : (
             <>

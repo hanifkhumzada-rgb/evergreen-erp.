@@ -9,6 +9,7 @@ import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { bulkImportPayments, voidPayment } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
+import { Search } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -47,12 +48,23 @@ function recoveryPriority(daysOverdue, balance, hasHistory, highThreshold) {
 export default async function PaymentsPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const supabase = await createClient();
+  // Every recovery-frequency window this page understands tops out at 30
+  // days (FREQ_DAYS.Monthly), so a payment older than ~13 months can never
+  // change a due-date computation — it's already as overdue as it'll ever
+  // be bucketed. Bounding the lookback keeps this query flat instead of
+  // growing with the business's entire payment history forever.
+  const paymentLookback = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  const historyQuery = (sp.hq || "").trim().toLowerCase();
+  // A search needs to reach the full history, not just the default
+  // recent-200 feed — only cap when there's no search term to narrow it.
+  let paymentQuery = supabase.from("payments").select("*, customers(name), profiles!payments_received_by_fkey(full_name)").order("created_at", { ascending: false });
+  if (!historyQuery) paymentQuery = paymentQuery.limit(200);
   const [branding, { data: payments }, { data: balances }, { data: collectors }, { data: allPayments }, { data: customersMeta }, { data: canVoid }, { data: highRule }] = await Promise.all([
     getBrandingLite(supabase),
-    supabase.from("payments").select("*, customers(name), profiles!payments_received_by_fkey(full_name)").order("created_at", { ascending: false }).limit(200),
+    paymentQuery,
     supabase.from("v_customer_balance").select("customer_id, name, balance"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").neq("roles.key", "customer").eq("is_active", true).order("full_name"),
-    supabase.from("payments").select("customer_id, payment_date, amount, customers(name)").eq("voided", false).order("payment_date", { ascending: false }),
+    supabase.from("payments").select("customer_id, payment_date, amount, customers(name)").eq("voided", false).gte("payment_date", paymentLookback).order("payment_date", { ascending: false }),
     supabase.from("customers").select("id, payment_frequency, mobile"),
     supabase.rpc("fn_has_permission", { perm_key: "payments.delete" }),
     // Reuses the existing "Outstanding balance recovery" automation rule
@@ -60,7 +72,8 @@ export default async function PaymentsPage({ searchParams }) {
     // Outstanding cutoff, instead of a second hardcoded threshold.
     supabase.from("automation_rules").select("threshold_value").eq("key", "outstanding_balance").maybeSingle(),
   ]);
-  const exportRows = (payments || []).map((p) => ({ Date: p.payment_date, Customer: p.customers?.name, Amount: p.amount, Method: p.method, Collector: p.profiles?.full_name, Reference: p.reference }));
+  const paymentRows = (payments || []).filter((p) => !historyQuery || `${p.customers?.name || ""} ${p.payment_date || ""} ${p.method || ""} ${p.reference || ""} ${p.profiles?.full_name || ""}`.toLowerCase().includes(historyQuery));
+  const exportRows = paymentRows.map((p) => ({ Date: p.payment_date, Customer: p.customers?.name, Amount: p.amount, Method: p.method, Collector: p.profiles?.full_name, Reference: p.reference }));
   const highOutstandingThreshold = Number(highRule?.threshold_value) || 10000;
 
   const lastPaymentMap = {};
@@ -196,6 +209,11 @@ export default async function PaymentsPage({ searchParams }) {
       <p className="text-[11px] text-slate mb-6">Due dates are estimated from each customer&apos;s payment frequency and last payment date — not a stored due-date field. Priority is a follow-up sort aid (days overdue + outstanding amount + payment history), not a financial figure.</p>
 
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
+        <form action="/payments" className="flex items-center gap-2">
+          <input type="search" name="hq" defaultValue={sp.hq || ""} placeholder="Search payment history…" className="px-3 py-2 rounded-xl border border-line bg-card text-xs w-52" />
+          <button type="submit" className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold"><Search size={14} /> Search</button>
+          {historyQuery ? <Link href="/payments" className="text-xs text-slate">Clear</Link> : null}
+        </form>
         <div className="flex-1" />
         <BulkImportButton
           label="Bulk Import"
@@ -213,14 +231,15 @@ export default async function PaymentsPage({ searchParams }) {
           customers={(balances || []).map((b) => ({ id: b.customer_id, name: b.name, balance: b.balance, frequency: freqMap[b.customer_id] }))}
           collectors={collectors || []}
           initialCustomerId={sp.customer || ""}
+          initialOpen={sp.quick === "new"}
         />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Amount</Th><Th>Method</Th><Th>Collected By</Th><Th>Reference</Th><Th>Status</Th><Th>&nbsp;</Th></tr></thead>
           <tbody>
-            {(payments || []).length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate">No payments yet.</td></tr>}
-            {(payments || []).map((p) => (
+            {paymentRows.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate">No payments match.</td></tr>}
+            {paymentRows.map((p) => (
               <tr key={p.id} className={`hover:bg-foam ${p.voided ? "opacity-60" : ""}`}>
                 <Td>{fmtDate(p.payment_date)}</Td><Td>{p.customers?.name}</Td><Td>{pkr(p.amount)}</Td><Td>{p.method}</Td><Td>{p.profiles?.full_name || "—"}</Td><Td className="text-slate">{p.reference || "—"}</Td>
                 <Td>{p.voided ? <><Badge text="Voided" tone="coral" />{p.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{p.void_reason}</div>}</> : <Badge text="Active" tone="green" />}</Td>

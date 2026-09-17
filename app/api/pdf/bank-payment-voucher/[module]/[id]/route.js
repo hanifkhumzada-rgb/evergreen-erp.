@@ -1,17 +1,12 @@
 import { NextResponse } from "next/server";
 import { renderToBuffer } from "@react-pdf/renderer";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, createAdminClient } from "@/lib/supabase/server";
 import BankPaymentVoucherDocument from "@/lib/pdf/BankPaymentVoucherDocument";
 import { getBusinessBranding } from "@/lib/pdf/business";
 import { pdfContentDisposition } from "@/lib/pdf/response";
 
 const EXPENSE_TX_TYPE_FALLBACK = "Expense Payment";
 
-// Bank Payment Voucher — only ever for bank-method expenses/payments (a cash
-// one uses the existing Payment Receipt Voucher instead). Renders the
-// journal entry the expense/payment already posted (fn_journal_from_expense
-// / fn_journal_from_payment, migration 0002) rather than reconstructing the
-// debit/credit split here, so the voucher can never drift from the books.
 export async function GET(request, { params }) {
   const { module: mod, id } = params;
   if (mod !== "expenses" && mod !== "payments") {
@@ -22,21 +17,43 @@ export async function GET(request, { params }) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return new NextResponse("Unauthorized", { status: 401 });
 
+  const permissionKey = mod === "expenses" ? "expenses.view" : "payments.view";
+  const [{ data: canView, error: viewPermissionError }, { data: canExport, error: exportPermissionError }] = await Promise.all([
+    supabase.rpc("fn_has_permission", { perm_key: permissionKey }),
+    supabase.rpc("fn_has_permission", { perm_key: "reports.export_pdf" }),
+  ]);
+
+  if (viewPermissionError || exportPermissionError || !canView || !canExport) {
+    return new NextResponse("You do not have permission to view or export this voucher", { status: 403 });
+  }
+
+  let admin;
+  try {
+    admin = createAdminClient();
+  } catch {
+    return new NextResponse("PDF service is not configured on the server", { status: 500 });
+  }
+
   const [{ data: record, error: recordError }, branding] = await Promise.all([
     mod === "expenses"
-      ? supabase.from("expenses").select("*, expense_categories(name), profiles!expenses_employee_id_fkey(employee_code, full_name)").eq("id", id).single()
-      : supabase.from("payments").select("*, customers(code, name)").eq("id", id).single(),
-    getBusinessBranding(supabase),
+      ? admin.from("expenses").select("*, expense_categories(name), profiles!expenses_employee_id_fkey(employee_code, full_name)").eq("id", id).single()
+      : admin.from("payments").select("*, customers(code, name)").eq("id", id).single(),
+    getBusinessBranding(admin),
   ]);
-  if (recordError || !record) return new NextResponse(`${mod === "expenses" ? "Expense" : "Payment"} not found`, { status: 404 });
+
+  if (recordError || !record) {
+    return new NextResponse(`${mod === "expenses" ? "Expense" : "Payment"} not found`, { status: 404 });
+  }
 
   const method = mod === "expenses" ? record.payment_method : record.method;
-  if (method !== "bank") return new NextResponse("Bank Payment Voucher is only available for bank-method transactions", { status: 400 });
+  if (method !== "bank") {
+    return new NextResponse("Bank Payment Voucher is only available for bank-method transactions", { status: 400 });
+  }
 
-  const { data: bpvNo, error: bpvError } = await supabase.rpc("fn_get_or_create_bpv_no", { p_module: mod, p_id: id });
-  if (bpvError) return new NextResponse(bpvError.message, { status: 403 });
+  const { data: bpvNo, error: bpvError } = await admin.rpc("fn_get_or_create_bpv_no", { p_module: mod, p_id: id });
+  if (bpvError) return new NextResponse(`Could not prepare voucher: ${bpvError.message}`, { status: 500 });
 
-  const { data: entry } = await supabase
+  const { data: entry } = await admin
     .from("journal_entries")
     .select("*, journal_lines(*, chart_of_accounts(code, name))")
     .eq("source_module", mod)
@@ -66,6 +83,7 @@ export async function GET(request, { params }) {
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": pdfContentDisposition(request, `bpv-${bpvNo}.pdf`),
+      "Cache-Control": "private, no-store",
     },
   });
 }

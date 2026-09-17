@@ -6,10 +6,11 @@ import AddExpenseForm from "@/components/AddExpenseForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import PendingApprovals from "@/components/PendingApprovals";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
+import RecordPreview from "@/components/RecordPreview";
 import { bulkImportExpenses, voidExpense } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
-import { Tag } from "lucide-react";
+import { Search, Tag } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -25,23 +26,18 @@ const STATUS_BADGE = {
 export default async function ExpensesPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const { supabase, profile } = await getCurrentProfile();
+  // Unbounded on purpose — allTimeCategoryTotals below is labeled "all
+  // time" and search/filters need to reach the full history, not just a
+  // recent window (RLS already scopes this to one business's own expenses).
   const [branding, { data: expenses }, { data: categories }, { data: canVoid }] = await Promise.all([
     getBrandingLite(supabase),
-    supabase.from("expenses").select("*, expense_categories(name), profiles!expenses_submitted_by_fkey(full_name)").order("created_at", { ascending: false }).limit(200),
+    supabase.from("expenses").select("*, expense_categories(name), profiles!expenses_submitted_by_fkey(full_name)").order("created_at", { ascending: false }),
     supabase.from("expense_categories").select("id, name").order("name"),
     supabase.rpc("fn_has_permission", { perm_key: "expenses.delete" }),
   ]);
   const isOwner = profile?.roles?.key === "owner";
   const pendingExpenses = (expenses || []).filter((e) => e.status === "submitted");
 
-  // KPIs + category tiles — counted spend is approved/paid only, matching
-  // the Dashboard's TODAY'S EXPENSES figure (both filter to the same
-  // ["approved","paid"] set) so the same calendar day reads the same
-  // total on both pages. Submitted (pending-approval) amounts are real
-  // but not yet confirmed spend — they show up only in the PENDING
-  // APPROVAL count, never folded into a spend total. Production &
-  // Filling has its own workspace against production_batches; nothing
-  // here overlaps it since no expense_categories row represents filling.
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = today.slice(0, 7) + "-01";
   const spendRows = (expenses || []).filter((e) => ["approved", "paid"].includes(e.status));
@@ -66,22 +62,40 @@ export default async function ExpensesPage({ searchParams }) {
   const statusFilter = sp.status || "";
   const fromDate = sp.from || "";
   const toDate = sp.to || "";
+  const q = (sp.q || "").trim().toLowerCase();
   const allRows = expenses || [];
   const rows = allRows.filter((e) => {
+    if (q && !`${e.description || ""} ${e.expense_categories?.name || ""} ${e.payment_method || ""} ${e.profiles?.full_name || ""} ${e.receipt_reference || ""}`.toLowerCase().includes(q)) return false;
     if (categoryFilter && e.expense_categories?.name !== categoryFilter) return false;
     if (statusFilter && e.status !== statusFilter) return false;
     if (fromDate && e.expense_date < fromDate) return false;
     if (toDate && e.expense_date > toDate) return false;
     return true;
   });
-  const hasFilters = categoryFilter || statusFilter || fromDate || toDate;
+  const hasFilters = q || categoryFilter || statusFilter || fromDate || toDate;
   const exportRows = rows.map((e) => ({ Date: e.expense_date, Category: e.expense_categories?.name, Description: e.description, Amount: e.amount, Method: e.payment_method, Status: e.status, EnteredBy: e.profiles?.full_name, Receipt: e.receipt_reference }));
 
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Expenses" meta={`${rows.length} of ${allRows.length} expenses\nGenerated ${fmtDate(today)}`} />
       <h2 className="no-print font-display text-2xl font-semibold mb-1">Expenses</h2>
-      <p className="no-print text-slate text-sm mb-4">Operating costs by category — filling/production costs live in their own workspace.</p>
+      <p className="no-print text-slate text-sm mb-4">Operating costs by category — search, preview and verify before changing anything.</p>
+
+      <form className="no-print flex flex-wrap gap-2.5 mb-4 items-center" action="/expenses">
+        <input type="search" name="q" defaultValue={sp.q || ""} placeholder="Search expense, category, receipt…" className="px-3 py-2 rounded-xl border border-line bg-card text-xs w-60" />
+        <select name="category" defaultValue={categoryFilter} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
+          <option value="">All categories</option>
+          {(categories || []).map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
+        </select>
+        <select name="status" defaultValue={statusFilter} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
+          <option value="">All statuses</option>
+          {Object.entries(STATUS_BADGE).map(([v, b]) => <option key={v} value={v}>{b.text}</option>)}
+        </select>
+        <input type="date" name="from" defaultValue={fromDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
+        <input type="date" name="to" defaultValue={toDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
+        <button type="submit" className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold"><Search size={14} /> Search</button>
+        {hasFilters && <Link href="/expenses" className="text-xs text-slate hover:text-aqua">Clear</Link>}
+      </form>
 
       <div className="no-print flex flex-wrap gap-3.5 mb-5">
         <KPI label="TODAY" value={pkr(todayTotal)} tone="navy" />
@@ -105,20 +119,6 @@ export default async function ExpensesPage({ searchParams }) {
       </div>
 
       {isOwner && <PendingApprovals expenses={pendingExpenses} />}
-      <form className="no-print flex flex-wrap gap-2.5 mb-2 items-center" action="/expenses">
-        <select name="category" defaultValue={categoryFilter} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
-          <option value="">All categories</option>
-          {(categories || []).map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
-        </select>
-        <select name="status" defaultValue={statusFilter} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
-          <option value="">All statuses</option>
-          {Object.entries(STATUS_BADGE).map(([v, b]) => <option key={v} value={v}>{b.text}</option>)}
-        </select>
-        <input type="date" name="from" defaultValue={fromDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
-        <input type="date" name="to" defaultValue={toDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
-        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Filter</button>
-        {hasFilters && <Link href="/expenses" className="text-xs text-slate hover:text-aqua">Clear</Link>}
-      </form>
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <BulkImportButton
@@ -133,26 +133,40 @@ export default async function ExpensesPage({ searchParams }) {
           excel={{ rows: exportRows, sheetName: "Expenses", reportTitle: "Expenses", branding }}
           share={{ title: "Expenses" }}
         />
-        <AddExpenseForm />
+        <AddExpenseForm initialOpen={sp.quick === "new"} categories={categories || []} />
       </div>
       <p className="no-print text-xs text-slate mb-2">{rows.length} of {allRows.length} expenses</p>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Category</Th><Th>Description</Th><Th>Amount</Th><Th>Method</Th><Th>Entered By</Th><Th>Receipt</Th><Th>Status</Th><Th>&nbsp;</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Category</Th><Th>Description</Th><Th>Amount</Th><Th>Method</Th><Th>Entered By</Th><Th>Receipt</Th><Th>Status</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
             {rows.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-slate">No expenses match.</td></tr>}
             {rows.map((e) => {
               const badge = STATUS_BADGE[e.status] || STATUS_BADGE.approved;
+              const previewFields = [
+                { label: "Date", value: fmtDate(e.expense_date) },
+                { label: "Category", value: e.expense_categories?.name },
+                { label: "Amount", value: pkr(e.amount), emphasis: true },
+                { label: "Method", value: e.payment_method },
+                { label: "Entered By", value: e.profiles?.full_name || "—" },
+                { label: "Status", value: badge.text },
+                { label: "Receipt / Reference", value: e.receipt_reference || "—" },
+                { label: "Description", value: e.description, fullWidth: true },
+                ...(e.void_reason ? [{ label: "Void Reason", value: e.void_reason, fullWidth: true }] : []),
+              ];
+              const previewExcel = [{ Date: e.expense_date, Category: e.expense_categories?.name, Description: e.description, Amount: e.amount, Method: e.payment_method, EnteredBy: e.profiles?.full_name, Receipt: e.receipt_reference, Status: badge.text }];
               return (
                 <tr key={e.id} className={`hover:bg-foam ${e.voided ? "opacity-60" : ""}`}>
                   <Td>{fmtDate(e.expense_date)}</Td><Td>{e.expense_categories?.name}</Td><Td>{e.description}</Td><Td>{pkr(e.amount)}</Td><Td>{e.payment_method}</Td>
                   <Td>{e.profiles?.full_name || "—"}</Td><Td className="text-xs text-slate max-w-[140px] truncate">{e.receipt_reference || "—"}</Td>
                   <Td><Badge text={badge.text} tone={badge.tone} />{e.voided && e.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{e.void_reason}</div>}</Td>
-                  <Td>
+                  <Td className="no-print">
                     <div className="flex items-center gap-1.5">
+                      <RecordPreview iconOnly title={`${e.expense_categories?.name || "Expense"} · ${pkr(e.amount)}`} subtitle="Read-only expense preview" fields={previewFields} excelRows={previewExcel} excelTitle={`Expense_${e.expense_date}`} />
                       {e.payment_method === "bank" && ["approved", "paid"].includes(e.status) && (
                         <DocumentActionBar compact pdfHref={`/api/pdf/bank-payment-voucher/expenses/${e.id}`} pdfLabel="BPV" />
                       )}
+                      {isOwner && !e.voided && e.status !== "void" && <AddExpenseForm expense={e} categories={categories || []} />}
                       {canVoid && !e.voided && <ReasonConfirmButton action={voidExpense} id={e.id} confirmText={`Void expense "${e.description || e.expense_categories?.name}"?`} />}
                     </div>
                   </Td>

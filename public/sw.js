@@ -2,8 +2,8 @@
 // below (see the fetch handler comment) — this alone clears the corrupted
 // chunks that were causing "Something went wrong" indefinitely, in every
 // tab on this origin, until this deploy.
-const CACHE_NAME = "evergreen-shell-v2";
-const SHELL_ASSETS = ["/manifest.json", "/icon-192.png", "/icon-512.png"];
+const CACHE_NAME = "evergreen-shell-v3";
+const SHELL_ASSETS = ["/manifest.json", "/portal-manifest.json", "/icon-192.png", "/icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(

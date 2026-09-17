@@ -1,5 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import { Badge } from "@/components/ui";
+import { Callout } from "@/components/ui";
 import AutomationRulesForm from "@/components/AutomationRulesForm";
 import AutomationCenterForm from "@/components/AutomationCenterForm";
 import CustomerTrackingToggle from "@/components/CustomerTrackingToggle";
@@ -52,7 +52,7 @@ export default async function AutomationCenterPage() {
       </div>
       {!twilioConfigured && (
         <div className="mb-5">
-          <Badge text="WhatsApp/SMS sending needs Twilio configured (Settings → Integrations) — every automation below is safe to turn on now and will start sending the moment it's connected." tone="amber" />
+          <Callout tone="amber">WhatsApp/SMS sending needs Twilio configured (Settings → Integrations) — every automation below is safe to turn on now and will start sending the moment it's connected.</Callout>
         </div>
       )}
       <div className="flex flex-col gap-5">

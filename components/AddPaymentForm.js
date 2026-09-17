@@ -5,8 +5,8 @@ import { createPayment } from "@/app/actions";
 import Toast from "@/components/Toast";
 import { useOfflineSubmit } from "@/lib/useOfflineSubmit";
 
-export default function AddPaymentForm({ customers, collectors = [], initialCustomerId }) {
-  const [open, setOpen] = useState(false);
+export default function AddPaymentForm({ customers, collectors = [], initialCustomerId, initialOpen = false }) {
+  const [open, setOpen] = useState(initialOpen);
   const [toast, setToast] = useState(null);
   const [customerId, setCustomerId] = useState(initialCustomerId || "");
   const formRef = useRef();
