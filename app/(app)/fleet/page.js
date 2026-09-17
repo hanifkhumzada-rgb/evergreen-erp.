@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, KPI, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
+import { Badge, KPI, DocumentActionBar, Th, Td } from "@/components/ui";
 import { AddVehicleForm, AddVehicleExpenseForm, EditVehicleDatesForm } from "@/components/FleetForms";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
@@ -96,8 +96,11 @@ export default async function FleetPage() {
           sampleRow={{ "Registration No": "LEA-1234", "Vehicle Type": "Suzuki Bolan", Driver: "" }}
           previewType="vehicles"
         />
-        <ExportExcelButton rows={exportRows} sheetName="Fleet" reportTitle="Fleet Report" branding={branding} />
-        <PrintButton />
+        <DocumentActionBar
+          print
+          excel={{ rows: exportRows, sheetName: "Fleet", reportTitle: "Fleet Report", branding }}
+          share={{ title: "Fleet Report" }}
+        />
         {vehicles?.length > 0 && <AddVehicleExpenseForm vehicles={vehicles.map((v) => ({ id: v.id, vehicle_no: v.registration_no }))} />}
         <AddVehicleForm employees={(riders || []).map((r) => ({ id: r.id, name: r.full_name }))} />
       </div>

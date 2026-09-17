@@ -2,7 +2,7 @@ import { Droplet } from "lucide-react";
 import { requirePortalCustomer } from "@/app/portal/actions";
 import { fmtDate, pkr } from "@/lib/format";
 import StatementPeriodPicker from "@/components/portal/StatementPeriodPicker";
-import { DownloadPdfButton, PrintButton } from "@/components/ui";
+import { DocumentActionBar } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
@@ -66,8 +66,12 @@ export default async function PortalStatementPage({ searchParams }) {
       <StatementPeriodPicker month={month} year={year} />
 
       <div className="flex gap-2">
-        <DownloadPdfButton href={pdfHref} label="Download PDF" />
-        <PrintButton />
+        <DocumentActionBar
+          print
+          pdfHref={pdfHref}
+          pdfLabel="Statement"
+          share={{ title: "Monthly Statement", text: `My statement for ${month}/${year}` }}
+        />
       </div>
 
       <div className="bg-card border border-line rounded-2xl p-4">

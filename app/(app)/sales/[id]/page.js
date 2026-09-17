@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, PrintButton, DownloadPdfButton } from "@/components/ui";
+import { Badge, DocumentActionBar } from "@/components/ui";
 import DocumentPrintHeader from "@/components/DocumentPrintHeader";
 import { getBrandingLite } from "@/lib/pdf/business";
 
@@ -47,8 +47,12 @@ export default async function InvoicePage({ params }) {
       <Link href="/sales" className="no-print flex items-center gap-2 text-aqua font-semibold text-sm mb-4"><ArrowLeft size={18} /> Back to Sales</Link>
 
       <div className="no-print flex gap-2 mb-4">
-        <PrintButton />
-        <DownloadPdfButton href={`/api/pdf/invoice/${s.id}`} label="Download PDF" />
+        <DocumentActionBar
+          print
+          pdfHref={`/api/pdf/invoice/${s.id}`}
+          pdfLabel="Invoice"
+          share={{ title: `Invoice ${s.invoice_no}`, text: `Invoice ${s.invoice_no} — Total ${pkr(s.net_amount)}, Balance ${pkr(balance)}.` }}
+        />
         {c?.whatsapp_number && (
           <a href={`https://wa.me/${c.whatsapp_number.replace(/^0/, "92")}?text=${encodeURIComponent(`Invoice ${s.invoice_no} — Total ${pkr(s.net_amount)}, Balance ${pkr(balance)}. Evergreen Water.`)}`} target="_blank"
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold">Share on WhatsApp</a>
@@ -63,10 +67,10 @@ export default async function InvoicePage({ params }) {
           meta={`Invoice No: ${s.invoice_no}\nDate: ${fmtDate(s.invoice_date)}\nDue: ${s.due_date ? fmtDate(s.due_date) : "—"}\nStatus: ${STATUS_LABEL[s.status] || s.status}`}
         />
 
-        <div className="bg-foam rounded-xl p-4 mb-5 flex items-start justify-between gap-4">
+        <div className="bg-foam rounded-xl p-4 pl-5 mb-5 flex items-start justify-between gap-4 border-l-[3px] border-l-aqua">
           <div className="flex-1">
             <div className="text-[10px] font-bold text-slate uppercase tracking-wide mb-1">Bill To</div>
-            <div className="text-lg font-bold text-ink">{c?.name}</div>
+            <div className="text-xl font-bold text-navy tracking-tight">{c?.name}</div>
             <div className="text-xs text-slate mt-0.5">Client ID: {c?.code || "—"}</div>
             <div className="text-[13px] text-ink mt-2">{[c?.mobile, c?.address].filter(Boolean).join("   ·   ")}</div>
             {c?.zones?.name && <div className="text-xs text-slate mt-1">Area / Zone: {c.zones.name}</div>}
@@ -111,9 +115,9 @@ export default async function InvoicePage({ params }) {
             <div className="flex justify-between py-1 border-t border-line mt-1 pt-2"><span className="text-slate">Previous balance</span><span>{pkr(previousBalance)}</span></div>
             <div className="flex justify-between py-1"><span className="text-slate">Current invoice amount</span><span className="font-semibold">{pkr(s.net_amount)}</span></div>
             <div className="flex justify-between py-1"><span className="text-slate">Amount paid</span><span className="text-green">{pkr(paid)}</span></div>
-            <div className="flex justify-between items-center py-2.5 px-3 mt-2 rounded-lg bg-navy text-white">
-              <span className="text-sm font-bold">Total Payable</span>
-              <span className="text-lg font-bold">{pkr(newBalance)}</span>
+            <div className="flex justify-between items-center py-3 px-3.5 mt-2 rounded-lg bg-navy text-white border-l-[3px] border-l-aqua">
+              <span className="text-[11px] font-bold uppercase tracking-wide">Total Payable</span>
+              <span className="text-xl font-bold">{pkr(newBalance)}</span>
             </div>
           </div>
         </div>

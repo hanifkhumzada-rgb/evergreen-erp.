@@ -12,14 +12,23 @@ export const dynamic = "force-dynamic";
 // Owner/Admin/Manager (unchanged — still gated on gps.view) where each
 // staff member was most recently, live-updating via Supabase Realtime
 // rather than a manual refresh.
+// StaffLocationTracker pings every 45s while the app is open, so 15
+// minutes is a generous cutoff for "most recent" — comfortably survives a
+// brief network drop or backgrounded tab without ever needing to scan
+// this table's full 24h retention window (which, generalized to every
+// staff role, is now thousands of rows) just to find one row per person.
+const RECENT_LOCATION_WINDOW_MINUTES = 15;
+
 export default async function TrackingPage() {
   const supabase = await createClient();
+  const recentCutoff = new Date(Date.now() - RECENT_LOCATION_WINDOW_MINUTES * 60000).toISOString();
 
   const [{ data: staff }, { data: locations }] = await Promise.all([
     supabase.from("profiles").select("id, full_name, roles!inner(key, name)").neq("roles.key", "customer").eq("is_active", true).order("full_name"),
     // Most recent row first per person — reduced to one-per-person below.
     // RLS (gps.view) already scopes this to the caller's own business.
-    supabase.from("staff_locations").select("user_id, latitude, longitude, recorded_at").order("recorded_at", { ascending: false }),
+    supabase.from("staff_locations").select("user_id, latitude, longitude, recorded_at")
+      .gte("recorded_at", recentCutoff).order("recorded_at", { ascending: false }),
   ]);
 
   const latestByUser = {};

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, KPI, ExportExcelButton, PrintButton, Th, Td, DownloadPdfButton } from "@/components/ui";
+import { Badge, KPI, DocumentActionBar, Th, Td } from "@/components/ui";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import AddPaymentForm from "@/components/AddPaymentForm";
 import BulkImportButton from "@/components/BulkImportButton";
@@ -204,8 +204,11 @@ export default async function PaymentsPage({ searchParams }) {
           sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Amount: 1000, Date: "2026-08-31", Method: "Cash" }}
           previewType="payments"
         />
-        <ExportExcelButton rows={exportRows} sheetName="Payments" reportTitle="Payments" branding={branding} />
-        <PrintButton />
+        <DocumentActionBar
+          print
+          excel={{ rows: exportRows, sheetName: "Payments", reportTitle: "Payments", branding }}
+          share={{ title: "Payments" }}
+        />
         <AddPaymentForm
           customers={(balances || []).map((b) => ({ id: b.customer_id, name: b.name, balance: b.balance, frequency: freqMap[b.customer_id] }))}
           collectors={collectors || []}
@@ -223,8 +226,8 @@ export default async function PaymentsPage({ searchParams }) {
                 <Td>{p.voided ? <><Badge text="Voided" tone="coral" />{p.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{p.void_reason}</div>}</> : <Badge text="Active" tone="green" />}</Td>
                 <Td>
                   <div className="flex items-center gap-1.5">
-                    <DownloadPdfButton href={`/api/pdf/payment-receipt/${p.id}`} label="Voucher" />
-                    {p.method === "bank" && <DownloadPdfButton href={`/api/pdf/bank-payment-voucher/payments/${p.id}`} label="BPV" />}
+                    <DocumentActionBar compact pdfHref={`/api/pdf/payment-receipt/${p.id}`} pdfLabel="Receipt" />
+                    {p.method === "bank" && <DocumentActionBar compact pdfHref={`/api/pdf/bank-payment-voucher/payments/${p.id}`} pdfLabel="BPV" />}
                     {canVoid && !p.voided && <ReasonConfirmButton action={voidPayment} id={p.id} confirmText={`Void payment of ${pkr(p.amount)} from ${p.customers?.name}?`} />}
                   </div>
                 </Td>

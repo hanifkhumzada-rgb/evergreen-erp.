@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
+import { Badge, DocumentActionBar, Th, Td } from "@/components/ui";
 import BulkImportButton from "@/components/BulkImportButton";
 import { bulkImportPurchases } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
@@ -32,8 +32,11 @@ export default async function InventoryPage() {
       <h2 className="no-print font-display text-2xl font-semibold mb-4">Inventory</h2>
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
-        <ExportExcelButton rows={exportRows} sheetName="Inventory" reportTitle="Inventory" branding={branding} />
-        <PrintButton />
+        <DocumentActionBar
+          print
+          excel={{ rows: exportRows, sheetName: "Inventory", reportTitle: "Inventory", branding }}
+          share={{ title: "Inventory" }}
+        />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">

@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, ExportExcelButton, PrintButton, DownloadPdfButton, Th, Td } from "@/components/ui";
+import { Badge, DocumentActionBar, Th, Td } from "@/components/ui";
 import AddSaleForm from "@/components/AddSaleForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import { bulkImportSales } from "@/app/actions";
@@ -41,9 +41,13 @@ export default async function SalesPage() {
           sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Qty: 5, Paid: 500, Date: "2026-08-31", Method: "Cash", Product: "19L" }}
           previewType="sales"
         />
-        <ExportExcelButton rows={exportRows} sheetName="Sales" reportTitle="Sales" branding={branding} />
-        <DownloadPdfButton href={`/api/pdf/daily-sales?date=${new Date().toISOString().slice(0, 10)}`} label="Download Today's PDF" />
-        <PrintButton />
+        <DocumentActionBar
+          print
+          pdfHref={`/api/pdf/daily-sales?date=${today}`}
+          pdfLabel="Today's Report"
+          excel={{ rows: exportRows, sheetName: "Sales", reportTitle: "Sales", branding }}
+          share={{ title: "Sales" }}
+        />
         <AddSaleForm customers={customers || []} products={products || []} />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">

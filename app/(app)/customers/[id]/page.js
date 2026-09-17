@@ -2,7 +2,7 @@ import { getCurrentProfile } from "@/lib/session";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { pkr, fmtDate } from "@/lib/format";
-import { KPI, Badge, Th, Td, PrintButton, DownloadPdfButton } from "@/components/ui";
+import { KPI, Badge, Th, Td, DocumentActionBar } from "@/components/ui";
 import CustomerForm, { EditCustomerTrigger } from "@/components/CustomerForm";
 import RecurringScheduleControl from "@/components/RecurringScheduleControl";
 import { SalesTrendChart } from "@/components/LazyCharts";
@@ -194,8 +194,12 @@ export default async function CustomerProfilePage({ params }) {
             canManageFinancial={canManageFinancial}
             trigger={<EditCustomerTrigger />}
           />
-          <DownloadPdfButton href={`/api/pdf/customer-statement/${c.id}`} label="Download Statement" />
-          <PrintButton />
+          <DocumentActionBar
+            print
+            pdfHref={`/api/pdf/customer-statement/${c.id}`}
+            pdfLabel="Statement"
+            share={{ title: `${c.name} — Customer Profile` }}
+          />
           {canDelete && c.status !== "archived" && (
             <ReasonConfirmButton action={archiveCustomer} id={c.id} label="Archive" icon="archive"
               confirmText={`Archive ${c.name}?`}

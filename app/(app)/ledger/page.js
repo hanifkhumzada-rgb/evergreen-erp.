@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { pkr, fmtDate, refNoFromDescription } from "@/lib/format";
-import { KPI, ExportExcelButton, PrintButton, DownloadPdfButton, Th, Td } from "@/components/ui";
+import { KPI, DocumentActionBar, Th, Td } from "@/components/ui";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { getBrandingLite } from "@/lib/pdf/business";
@@ -57,9 +57,13 @@ export default async function LedgerPage({ searchParams }) {
           missing-type="button" issue that broke /customers' "New Customer". */}
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
-        <ExportExcelButton rows={exportRows} sheetName="Ledger" reportTitle="Customer Ledger" branding={branding} />
-        <DownloadPdfButton href="/api/pdf/outstanding" label="Download Outstanding PDF" />
-        <PrintButton />
+        <DocumentActionBar
+          print
+          pdfHref="/api/pdf/outstanding"
+          pdfLabel="Outstanding Report"
+          excel={{ rows: exportRows, sheetName: "Ledger", reportTitle: "Customer Ledger", branding }}
+          share={{ title: "Customer Ledger" }}
+        />
       </div>
 
       <div className="overflow-x-auto border border-line rounded-2xl">
@@ -141,8 +145,12 @@ async function CustomerTimeline({ supabase, customerId }) {
             <WhatsAppButton phone={c.mobile}
               message={`Hi ${c.name}, this is a friendly reminder from Evergreen Water — your current outstanding balance is Rs ${Math.round(closingBalance).toLocaleString("en-PK")}. Please arrange payment at your earliest convenience. Thank you!`} />
           )}
-          <DownloadPdfButton href={`/api/pdf/customer-statement/${c.id}`} label="Download Statement" />
-          <PrintButton />
+          <DocumentActionBar
+            print
+            pdfHref={`/api/pdf/customer-statement/${c.id}`}
+            pdfLabel="Statement"
+            share={{ title: `${c.name} — Account Statement` }}
+          />
           <Link href={`/customers/${c.id}`} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold">Full Profile</Link>
         </div>
       </div>

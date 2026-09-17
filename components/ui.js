@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, FileDown, Loader2, Eye } from "lucide-react";
+import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, FileDown, Loader2, Eye, Share2 } from "lucide-react";
 
 export function Badge({ text, tone = "slate" }) {
   const map = {
@@ -37,10 +37,13 @@ export function KPI({ label, value, sub, tone = "navy", trend, href }) {
   return href ? <Link href={href}>{card}</Link> : card;
 }
 
-// Shared toolbar-button treatment (Export Excel / Download PDF / Print) —
-// one class string so all three stay visually identical and any future
-// hover/focus tweak only needs to happen here.
+// Shared toolbar-button treatment (Print / View+Download PDF / Download
+// Excel / Share) — one class string so every action across the app stays
+// visually identical and any future hover/focus tweak only needs to
+// happen here. `_ICON` is the same treatment as a fixed-size square for
+// compact/icon-only placements (table rows, tight per-item toolbars).
 const TOOLBAR_BTN = "no-print flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold text-ink transition-colors hover:border-aqua/40 hover:bg-aquaSoft/60 hover:text-aqua focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aqua/40";
+const TOOLBAR_BTN_ICON = "no-print flex items-center justify-center w-8 h-8 rounded-lg border border-line bg-card text-ink transition-colors hover:border-aqua/40 hover:bg-aquaSoft/60 hover:text-aqua focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-aqua/40";
 
 // Every export goes through lib/excel.js's buildBrandedWorkbook —
 // company logo/name/tagline, report title, period and a generated
@@ -61,7 +64,7 @@ const TOOLBAR_BTN = "no-print flex items-center gap-1.5 px-3 py-2 rounded-lg bor
 // when the Export Excel button is never clicked (confirmed: it measurably
 // did, before this fix). This way it's its own on-demand chunk, loaded
 // only when someone actually exports.
-export function ExportExcelButton({ rows, sheetName = "Sheet1", reportTitle, branding, period }) {
+export function ExportExcelButton({ rows, sheetName = "Sheet1", reportTitle, branding, period, compact = false }) {
   const [loading, setLoading] = useState(false);
 
   const handleExport = async () => {
@@ -89,35 +92,94 @@ export function ExportExcelButton({ rows, sheetName = "Sheet1", reportTitle, bra
   };
 
   return (
-    <button type="button" onClick={handleExport} disabled={loading} className={`${TOOLBAR_BTN} disabled:opacity-60`}>
-      {loading ? <Loader2 size={14} className="animate-spin" /> : <FileSpreadsheet size={14} />} Export Excel
+    <button type="button" onClick={handleExport} disabled={loading} className={`${compact ? TOOLBAR_BTN_ICON : TOOLBAR_BTN} disabled:opacity-60`} title="Download Excel">
+      {loading ? <Loader2 size={14} className="animate-spin" /> : <FileSpreadsheet size={14} />} {!compact && "Download Excel"}
     </button>
   );
 }
 
-// Server-generated branded PDF download (Customer Statement, Daily Sales,
-// Outstanding/Receivables only) — a plain link to a route handler that
-// streams back a real PDF, not window.print(). Every other page keeps its
-// existing PrintButton untouched.
-export function DownloadPdfButton({ href, label = "Download PDF" }) {
-  const previewHref = `${href}${href.includes("?") ? "&" : "?"}preview=1`;
+// Server-generated branded PDF (Invoice, Customer Statement, Daily Sales,
+// Outstanding, Bank Payment Voucher, Journal Voucher, Payment Receipt) —
+// a plain link to a route handler that streams back a real PDF. The
+// primary action opens it inline in a new tab so the browser's own PDF
+// viewer (thumbnails, zoom, print icon, download icon) handles it; the
+// small icon-only link next to it forces an explicit save-to-disk via
+// `?download=1` for anyone who wants that directly instead.
+function PdfAction({ href, label, compact }) {
+  const downloadHref = `${href}${href.includes("?") ? "&" : "?"}download=1`;
   return (
-    <span className="no-print inline-flex items-center gap-1.5">
-      <a href={previewHref} target="_blank" rel="noopener noreferrer" className={TOOLBAR_BTN} title="Open PDF without downloading">
-        <Eye size={14} /> Preview
+    <span className="inline-flex items-center gap-1.5">
+      <a href={href} target="_blank" rel="noopener noreferrer" className={compact ? TOOLBAR_BTN_ICON : TOOLBAR_BTN} title="Opens in your browser's PDF viewer">
+        <Eye size={14} /> {!compact && label}
       </a>
-      <a href={href} className={TOOLBAR_BTN}>
-        <FileDown size={14} /> {label}
+      <a href={downloadHref} className={TOOLBAR_BTN_ICON} title="Download to device">
+        <FileDown size={14} />
       </a>
     </span>
   );
 }
 
-export function PrintButton() {
+function PrintAction({ compact }) {
   return (
-    <button type="button" onClick={() => window.print()} className={TOOLBAR_BTN}>
-      <Printer size={14} /> Export PDF
+    <button type="button" onClick={() => window.print()} className={compact ? TOOLBAR_BTN_ICON : TOOLBAR_BTN} title="Print">
+      <Printer size={14} /> {!compact && "Print"}
     </button>
+  );
+}
+
+// Native Web Share API where the browser/device supports it (mobile
+// Chrome/Safari show the OS share sheet — WhatsApp, Mail, etc.); falls
+// back to copying the link to the clipboard everywhere else (desktop
+// browsers mostly don't implement navigator.share).
+function ShareAction({ title, text, url, compact }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = async () => {
+    const shareUrl = url || (typeof window !== "undefined" ? window.location.href : "");
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title, text, url: shareUrl });
+      } catch {
+        // User dismissed the share sheet — not an error.
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      window.prompt("Copy this link:", shareUrl);
+    }
+  };
+
+  return (
+    <button type="button" onClick={handleShare} className={compact ? TOOLBAR_BTN_ICON : TOOLBAR_BTN} title={copied ? "Copied!" : "Share"}>
+      <Share2 size={14} /> {!compact && (copied ? "Copied!" : "Share")}
+    </button>
+  );
+}
+
+// The one action bar every report/document/print-preview view in the app
+// should use, so Print/PDF/Excel/Share always look and behave the same
+// way instead of each page wiring up its own slightly different buttons.
+// Every prop is optional — a view that has no tabular data to export
+// (e.g. a single customer/invoice page) simply omits `excel` and gets no
+// Excel button, rather than a disabled one.
+//   print   — true to show a Print button (calls window.print())
+//   pdfHref — the /api/pdf/... route for this document; renders View+Download
+//   pdfLabel — label on the View button (defaults to "View PDF")
+//   excel   — { rows, sheetName, reportTitle, branding, period } for ExportExcelButton
+//   share   — { title, text, url } for the Share button (url defaults to the current page)
+//   compact — icon-only buttons, for tight spaces like table rows
+export function DocumentActionBar({ print = false, pdfHref, pdfLabel = "View PDF", excel, share, compact = false }) {
+  return (
+    <span className="no-print inline-flex flex-wrap items-center gap-1.5">
+      {print && <PrintAction compact={compact} />}
+      {pdfHref && <PdfAction href={pdfHref} label={pdfLabel} compact={compact} />}
+      {excel && <ExportExcelButton {...excel} compact={compact} />}
+      {share && <ShareAction {...share} compact={compact} />}
+    </span>
   );
 }
 

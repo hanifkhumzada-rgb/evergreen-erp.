@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { PrintButton } from "@/components/ui";
+import { DocumentActionBar } from "@/components/ui";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 
@@ -31,7 +31,7 @@ export default async function BalanceSheetPage() {
       <DocumentPrintHeader branding={branding} title="Balance Sheet" meta={`As of ${fmtDate(new Date().toISOString())}`} />
       <h2 className="no-print font-display text-2xl font-semibold mb-1">Balance Sheet</h2>
       <p className="no-print text-slate text-sm mb-5">Assets, liabilities and equity as of today — calculated live from posted journal entries.</p>
-      <div className="no-print mb-3"><PrintButton /></div>
+      <div className="no-print mb-3"><DocumentActionBar print share={{ title: "Balance Sheet" }} /></div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 max-w-3xl">
         <div className="border border-line rounded-2xl p-5">

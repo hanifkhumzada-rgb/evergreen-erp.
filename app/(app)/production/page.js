@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { KPI, ExportExcelButton, PrintButton, Th, Td, Badge } from "@/components/ui";
+import { KPI, DocumentActionBar, Th, Td, Badge } from "@/components/ui";
 import ProductionBatchForm from "@/components/ProductionBatchForm";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { voidProductionBatch } from "@/app/actions";
@@ -49,8 +49,11 @@ export default async function ProductionPage() {
 
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
-        <ExportExcelButton rows={exportRows} sheetName="Production" reportTitle="Production & Filling" branding={branding} />
-        <PrintButton />
+        <DocumentActionBar
+          print
+          excel={{ rows: exportRows, sheetName: "Production", reportTitle: "Production & Filling", branding }}
+          share={{ title: "Production & Filling" }}
+        />
         <ProductionBatchForm products={products || []} />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">

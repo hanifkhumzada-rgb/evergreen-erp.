@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { ExportExcelButton, PrintButton, Th, Td, KPI } from "@/components/ui";
+import { DocumentActionBar, Th, Td, KPI } from "@/components/ui";
 import EmployeeAdvanceForm from "@/components/EmployeeAdvanceForm";
 import EmployeeEditForm from "@/components/EmployeeEditForm";
 import AttendanceButtons from "@/components/AttendanceButtons";
@@ -58,8 +58,11 @@ export default async function EmployeesPage() {
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <EmployeeAdvanceForm employees={perf} />
-        <ExportExcelButton rows={exportRows} sheetName="Employees" reportTitle="Employees" branding={branding} />
-        <PrintButton />
+        <DocumentActionBar
+          print
+          excel={{ rows: exportRows, sheetName: "Employees", reportTitle: "Employees", branding }}
+          share={{ title: "Employees" }}
+        />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { PrintButton, ExportExcelButton, Th, Td } from "@/components/ui";
+import { DocumentActionBar, Th, Td } from "@/components/ui";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 
@@ -24,8 +24,11 @@ export default async function TrialBalancePage() {
       <p className="no-print text-slate text-sm mb-5">Every account&apos;s total debits and credits, calculated live from posted journal entries.</p>
 
       <div className="no-print flex gap-2.5 mb-3">
-        <ExportExcelButton rows={exportRows} sheetName="Trial Balance" reportTitle="Trial Balance" branding={branding} />
-        <PrintButton />
+        <DocumentActionBar
+          print
+          excel={{ rows: exportRows, sheetName: "Trial Balance", reportTitle: "Trial Balance", branding }}
+          share={{ title: "Trial Balance" }}
+        />
       </div>
 
       <div className="overflow-x-auto border border-line rounded-2xl">

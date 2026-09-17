@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, KPI, ExportExcelButton, PrintButton, DownloadPdfButton, Th, Td } from "@/components/ui";
+import { Badge, KPI, DocumentActionBar, Th, Td } from "@/components/ui";
 import AddSaleForm from "@/components/AddSaleForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
@@ -92,9 +92,13 @@ export default async function InvoicesPage({ searchParams }) {
           sampleRow={{ Phone: "03001234567", Name: "Ali Traders", Qty: 5, Paid: 500, Date: "2026-08-31", Method: "Cash", Product: "19L" }}
           previewType="sales"
         />
-        <ExportExcelButton rows={exportRows} sheetName="Invoices" reportTitle="Invoice Center" branding={branding} />
-        <DownloadPdfButton href={`/api/pdf/daily-sales?date=${today}`} label="Download Today's PDF" />
-        <PrintButton />
+        <DocumentActionBar
+          print
+          pdfHref={`/api/pdf/daily-sales?date=${today}`}
+          pdfLabel="Today's Report"
+          excel={{ rows: exportRows, sheetName: "Invoices", reportTitle: "Invoice Center", branding }}
+          share={{ title: "Invoice Center" }}
+        />
         <AddSaleForm customers={customers || []} products={products || []} initialCustomerId={sp.customer || ""} />
       </div>
       <p className="no-print text-xs text-slate mb-2">{rows.length} of {allRows.length} invoices</p>

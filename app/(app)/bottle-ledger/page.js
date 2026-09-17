@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
+import { Badge, DocumentActionBar, Th, Td } from "@/components/ui";
 import BottleReconciliationForm from "@/components/BottleReconciliationForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import { bulkImportBottleOpeningBalances } from "@/app/actions";
@@ -202,8 +202,11 @@ export default async function BottleLedgerPage() {
 
       <h4 className="text-sm font-bold mb-2.5">Activity timeline</h4>
       <div className="no-print flex gap-2.5 mb-3">
-        <ExportExcelButton rows={exportRows} sheetName="Bottle Ledger" reportTitle="Bottle Ledger" branding={branding} />
-        <PrintButton />
+        <DocumentActionBar
+          print
+          excel={{ rows: exportRows, sheetName: "Bottle Ledger", reportTitle: "Bottle Ledger", branding }}
+          share={{ title: "Bottle Ledger" }}
+        />
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">

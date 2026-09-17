@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
+import { DocumentActionBar, Th, Td } from "@/components/ui";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { FileSpreadsheet } from "lucide-react";
 
@@ -62,8 +62,11 @@ export default function ReportsBrowser({ reports, branding }) {
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <h3 className="font-display text-lg font-semibold">{selected}</h3>
           <div className="no-print flex gap-2">
-            <ExportExcelButton rows={rows} sheetName={selected.slice(0, 30)} reportTitle={selected} branding={branding} />
-            <PrintButton />
+            <DocumentActionBar
+              print
+              excel={{ rows, sheetName: selected.slice(0, 30), reportTitle: selected, branding }}
+              share={{ title: selected }}
+            />
           </div>
         </div>
         <div className="overflow-x-auto border border-line rounded-2xl">

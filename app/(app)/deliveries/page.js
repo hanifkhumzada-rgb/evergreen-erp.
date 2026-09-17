@@ -1,7 +1,7 @@
 import { getCurrentProfile } from "@/lib/session";
 import Link from "next/link";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, KPI, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
+import { Badge, KPI, DocumentActionBar, Th, Td } from "@/components/ui";
 import MarkDeliveredButton from "@/components/MarkDeliveredButton";
 import DeliveryStatusButton from "@/components/DeliveryStatusButton";
 import BulkImportButton from "@/components/BulkImportButton";
@@ -322,8 +322,11 @@ export default async function DeliveriesPage({ searchParams }) {
             <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Filter</button>
             {hasHistoryFilters && <Link href="/deliveries" className="text-xs text-slate hover:text-aqua">Clear</Link>}
             <div className="flex-1" />
-            <ExportExcelButton rows={exportRows} sheetName="Deliveries" reportTitle="Deliveries" branding={branding} />
-            <PrintButton />
+            <DocumentActionBar
+              print
+              excel={{ rows: exportRows, sheetName: "Deliveries", reportTitle: "Deliveries", branding }}
+              share={{ title: "Deliveries" }}
+            />
           </form>
           <p className="no-print text-xs text-slate mb-2">{historyRows.length} of {allRows.length} deliveries</p>
           <div className="overflow-x-auto border border-line rounded-2xl">

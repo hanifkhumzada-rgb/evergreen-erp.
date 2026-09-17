@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { PrintButton } from "@/components/ui";
+import { DocumentActionBar } from "@/components/ui";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 
@@ -39,10 +39,12 @@ export default async function ProfitLossPage({ searchParams }) {
         <label className="text-xs font-semibold text-slate">To<br /><input type="date" name="to" defaultValue={to} className="mt-1 px-2.5 py-2 rounded-lg border border-line bg-card text-ink text-sm" /></label>
         <button type="submit" className="px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold">Apply</button>
       </form>
-      {/* Sibling <div> — PrintButton is a plain onClick=window.print() button,
-          never meant to submit the date-range form above (same bug class as
-          /customers' "New Customer"). */}
-      <div className="no-print flex justify-end mb-3"><PrintButton /></div>
+      {/* Sibling <div> — DocumentActionBar's buttons are plain onClick
+          handlers, never meant to submit the date-range form above (same
+          bug class as /customers' "New Customer"). */}
+      <div className="no-print flex justify-end mb-3">
+        <DocumentActionBar print share={{ title: "Profit & Loss" }} />
+      </div>
 
       <div className="border border-line rounded-2xl p-6 max-w-lg">
         <Section title="Revenue" items={byName("INCOME")} total={income} />

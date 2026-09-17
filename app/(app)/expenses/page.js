@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getCurrentProfile } from "@/lib/session";
 import { pkr, fmtDate } from "@/lib/format";
-import { KPI, ExportExcelButton, PrintButton, Th, Td, Badge, DownloadPdfButton } from "@/components/ui";
+import { KPI, DocumentActionBar, Th, Td, Badge } from "@/components/ui";
 import AddExpenseForm from "@/components/AddExpenseForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import PendingApprovals from "@/components/PendingApprovals";
@@ -128,8 +128,11 @@ export default async function ExpensesPage({ searchParams }) {
           sampleRow={{ Category: "Fuel", Description: "Bike fuel", Amount: 500, Date: "2026-08-31", Method: "Cash" }}
           previewType="expenses"
         />
-        <ExportExcelButton rows={exportRows} sheetName="Expenses" reportTitle="Expenses" branding={branding} />
-        <PrintButton />
+        <DocumentActionBar
+          print
+          excel={{ rows: exportRows, sheetName: "Expenses", reportTitle: "Expenses", branding }}
+          share={{ title: "Expenses" }}
+        />
         <AddExpenseForm />
       </div>
       <p className="no-print text-xs text-slate mb-2">{rows.length} of {allRows.length} expenses</p>
@@ -148,7 +151,7 @@ export default async function ExpensesPage({ searchParams }) {
                   <Td>
                     <div className="flex items-center gap-1.5">
                       {e.payment_method === "bank" && ["approved", "paid"].includes(e.status) && (
-                        <DownloadPdfButton href={`/api/pdf/bank-payment-voucher/expenses/${e.id}`} label="BPV" />
+                        <DocumentActionBar compact pdfHref={`/api/pdf/bank-payment-voucher/expenses/${e.id}`} pdfLabel="BPV" />
                       )}
                       {canVoid && !e.voided && <ReasonConfirmButton action={voidExpense} id={e.id} confirmText={`Void expense "${e.description || e.expense_categories?.name}"?`} />}
                     </div>

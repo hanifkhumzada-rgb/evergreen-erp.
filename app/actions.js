@@ -247,9 +247,8 @@ export async function checkDuplicateCustomer(mobile, name) {
 
 export async function createCustomer(formData) {
   const { supabase, user } = await requireUser();
-  const role = await getUserRole(supabase, user);
+  const [role, businessId] = await Promise.all([getUserRole(supabase, user), getUserBusinessId(supabase, user.id)]);
   const canManageFinancial = FINANCIAL_ROLES.includes(role);
-  const businessId = await getUserBusinessId(supabase, user.id);
   if (!businessId) return { error: "Your account is not assigned to a business. Ask the Owner to update your employee profile." };
 
   const { data: nextCode } = await supabase.rpc("fn_next_customer_code");
@@ -483,7 +482,10 @@ export async function voidInvoice(invoiceId, reason) {
 
 export async function createPayment(formData) {
   const { supabase, user } = await requireUser();
-  const { data: receiptNo } = await supabase.rpc("fn_next_receipt_no");
+  const [{ data: receiptNo }, businessId] = await Promise.all([
+    supabase.rpc("fn_next_receipt_no"),
+    getUserBusinessId(supabase, user.id),
+  ]);
   const methodMap = { Cash: "cash", "Bank Transfer": "bank", JazzCash: "jazzcash", Easypaisa: "easypaisa" };
   const method = methodMap[formData.get("method")] || "cash";
   const customerId = formData.get("customer_id");
@@ -1660,9 +1662,8 @@ async function resolveRiderByName(supabase, value) {
 // createCustomer/updateCustomer's gate.
 export async function bulkImportCustomers(rows) {
   const { supabase, user } = await requireUser();
-  const businessId = await getUserBusinessId(supabase, user.id);
+  const [businessId, role] = await Promise.all([getUserBusinessId(supabase, user.id), getUserRole(supabase, user)]);
   if (!businessId) return { error: "Your account is not assigned to a business.", imported: 0, failed: rows.length };
-  const role = await getUserRole(supabase, user);
   const canManageFinancial = FINANCIAL_ROLES.includes(role);
   let imported = 0, failed = 0, duplicateCodesReassigned = 0;
 

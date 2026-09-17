@@ -1,7 +1,7 @@
 import { getCurrentProfile } from "@/lib/session";
 import Link from "next/link";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, KPI, ExportExcelButton, PrintButton, Th, Td } from "@/components/ui";
+import { Badge, KPI, DocumentActionBar, Th, Td } from "@/components/ui";
 import CustomerForm from "@/components/CustomerForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
@@ -169,8 +169,8 @@ export default async function CustomersPage({ searchParams }) {
         {hasFilters && <Link href="/customers" className="text-xs text-slate hover:text-aqua">Clear</Link>}
       </form>
       {/* Deliberately a sibling <div>, not inside the filter <form> above —
-          every trigger button here (BulkImportButton/ExportExcelButton/
-          PrintButton/CustomerForm's "New Customer") is a plain <button>
+          every trigger button here (BulkImportButton/DocumentActionBar/
+          CustomerForm's "New Customer") is a plain <button>
           without type="button" set at the component level, so nesting it
           inside a <form> makes clicking it ALSO submit that form (a real
           navigation to /customers), racing and killing the just-opened
@@ -187,8 +187,11 @@ export default async function CustomersPage({ searchParams }) {
           duplicateKey="Mobile"
           existingValues={(customers || []).map((c) => c.mobile).filter(Boolean)}
         />
-        <ExportExcelButton rows={exportRows} sheetName="Customers" reportTitle="Customers" branding={branding} />
-        <PrintButton />
+        <DocumentActionBar
+          print
+          excel={{ rows: exportRows, sheetName: "Customers", reportTitle: "Customers", branding }}
+          share={{ title: "Customers" }}
+        />
       </div>
       <p className="no-print text-xs text-slate mb-2">{rows.length} of {allRows.length} customers</p>
       <div className="overflow-x-auto border border-line rounded-2xl">
