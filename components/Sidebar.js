@@ -135,7 +135,8 @@ function NotifBadge({ count }) {
 
 function NavList({ entries, pathname, unreadNotifications, onNavigate }) {
   const activeGroup = entries.find((entry) => entry.type === "group" && isEntryActive(entry, pathname))?.key;
-  const [opened, setOpened] = useState(activeGroup || "operations");
+  const [opened, setOpened] = useState(() => new Set([activeGroup || "operations"]));
+  useEffect(() => { if (activeGroup) setOpened(prev => new Set(prev).add(activeGroup)); }, [activeGroup]);
   const [query, setQuery] = useState("");
   const filtered = useMemo(() => {
     if (!query.trim()) return entries;
@@ -153,6 +154,11 @@ function NavList({ entries, pathname, unreadNotifications, onNavigate }) {
         <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8FB8B3]" />
         <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a workspace…" className="erp-sidebar-search w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-8 pr-3 text-xs text-white outline-none placeholder:text-[#8FB8B3] focus:border-aqua/60 focus:bg-white/10" />
       </label>
+      <div className="flex items-center justify-between px-1 text-[10px] text-[#A8CBC7]">
+        <span>{entries.flatMap(e => e.type === "link" ? [e] : e.items).length} workspaces</span>
+        <button type="button" onClick={() => setOpened(new Set(entries.filter(e => e.type === "group").map(e => e.key)))}>Expand all</button>
+        <button type="button" onClick={() => setOpened(new Set())}>Collapse all</button>
+      </div>
       <div className="nav-scroll flex flex-1 flex-col gap-1.5 overflow-y-auto pr-1">
         {filtered.map((entry) => {
           if (entry.type === "link") {
@@ -161,11 +167,11 @@ function NavList({ entries, pathname, unreadNotifications, onNavigate }) {
             return <Link key={entry.href} href={entry.href} onClick={onNavigate} className={`erp-sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-[12.5px] font-semibold ${active ? "erp-sidebar-link-active bg-gradient-to-r from-aqua to-[#087C69] text-white" : "text-[#C7DEDC] hover:bg-white/5"}`}><Icon size={15} /><span className="flex-1">{entry.label}</span></Link>;
           }
           const active = isEntryActive(entry, pathname);
-          const expanded = Boolean(query.trim()) || opened === entry.key || active;
+          const expanded = Boolean(query.trim()) || opened.has(entry.key);
           const GroupIcon = entry.icon;
           return (
             <div key={entry.key}>
-              <button type="button" onClick={() => setOpened(expanded ? null : entry.key)} className={`erp-sidebar-group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-semibold ${active ? "bg-white/10 text-white" : "text-[#A8CBC7] hover:bg-white/5"}`}>
+              <button type="button" aria-expanded={expanded} onClick={() => setOpened(prev => { const next = new Set(prev); if (next.has(entry.key)) next.delete(entry.key); else next.add(entry.key); return next; })} className={`erp-sidebar-group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-semibold ${active ? "bg-white/10 text-white" : "text-[#A8CBC7] hover:bg-white/5"}`}>
                 <GroupIcon size={16} /><span className="flex-1 text-left">{entry.label}</span><ChevronDown size={14} className={`transition-transform ${expanded ? "rotate-180" : ""}`} />
               </button>
               {expanded && <div className="flex flex-col gap-0.5 pl-2 mt-1">{entry.items.map((item) => {
@@ -213,7 +219,7 @@ export default function Sidebar({ role, permissions = [], unreadNotifications = 
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setPinned(localStorage.getItem("sidebarPinned") === "1");
+    setPinned(localStorage.getItem("sidebarPinned") !== "0");
     setMounted(true);
   }, []);
 

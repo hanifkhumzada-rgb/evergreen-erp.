@@ -5,9 +5,9 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        navy: "#073B3A",
-        navyLight: "#0E4F4D",
-        aqua: "#059669",
+        navy: "var(--erp-navy, #073B3A)",
+        navyLight: "var(--erp-navy-light, #0E4F4D)",
+        aqua: "var(--erp-accent, #059669)",
         aquaSoft: "var(--aquaSoft)",
         foam: "var(--foam)",
         card: "var(--card)",

@@ -58,6 +58,21 @@ export default function GlobalSearch() {
   const [isPending, startTransition] = useTransition();
   const timeoutRef = useRef(null);
   const containerRef = useRef(null);
+  const inputRef = useRef(null);
+  const sequenceRef = useRef(0);
+
+  useEffect(() => {
+    const shortcut = e => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        if (window.matchMedia("(min-width: 768px)").matches) inputRef.current?.focus();
+        else setMobileOpen(true);
+      }
+      if (e.key === "Escape") { setOpen(false); setMobileOpen(false); }
+    };
+    document.addEventListener("keydown", shortcut);
+    return () => { document.removeEventListener("keydown", shortcut); clearTimeout(timeoutRef.current); sequenceRef.current++; };
+  }, []);
 
   useEffect(() => {
     function onClickOutside(e) {
@@ -68,6 +83,7 @@ export default function GlobalSearch() {
   }, []);
 
   const handleChange = (value) => {
+    const sequence = ++sequenceRef.current;
     setQuery(value);
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     if (value.trim().length < 2) {
@@ -79,9 +95,11 @@ export default function GlobalSearch() {
       startTransition(async () => {
         try {
           const res = await globalSearch(value.trim());
+          if (sequence !== sequenceRef.current) return;
           setResults(res);
           setOpen(true);
         } catch {
+          if (sequence !== sequenceRef.current) return;
           setResults(null);
           setOpen(false);
         }
@@ -96,10 +114,12 @@ export default function GlobalSearch() {
       <div className="hidden md:flex items-center gap-2 px-3 py-1.75 rounded-lg border border-line bg-foam w-52 lg:w-72">
         <Search size={14} className="text-slate flex-shrink-0" />
         <input
+          ref={inputRef}
+          aria-label="Search business records (Ctrl K)"
           value={query}
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => results && setOpen(true)}
-          placeholder="Search customers, sales, deliveries…"
+          placeholder="Search records… Ctrl K"
           className="bg-transparent outline-none text-sm flex-1 min-w-0"
         />
       </div>

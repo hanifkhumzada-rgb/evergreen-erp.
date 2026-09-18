@@ -28,6 +28,8 @@ function DefaultCell({ roleDefault, active, onClick }) {
 
 export default function PermissionMatrix({ userId, rows }) {
   const [staged, setStaged] = useState(() => new Map(rows.map((r) => [r.key, r.override])));
+  const [baseline, setBaseline] = useState(() => new Map(rows.map(r => [r.key, r.override])));
+  const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [savedMsg, setSavedMsg] = useState("");
@@ -36,27 +38,28 @@ export default function PermissionMatrix({ userId, rows }) {
   const modules = useMemo(() => {
     const byModule = new Map();
     for (const r of rows) {
+      if (query.trim() && !`${r.module} ${r.key} ${r.description}`.toLowerCase().includes(query.trim().toLowerCase())) continue;
       if (!byModule.has(r.module)) byModule.set(r.module, []);
       byModule.get(r.module).push(r);
     }
     return [...byModule.entries()].sort((a, b) => a[0].localeCompare(b[0]));
-  }, [rows]);
+  }, [rows, query]);
 
-  const dirty = useMemo(() => rows.some((r) => staged.get(r.key) !== r.override), [rows, staged]);
+  const dirty = useMemo(() => rows.some((r) => staged.get(r.key) !== baseline.get(r.key)), [rows, staged, baseline]);
 
   const setOne = (key, value) => { setStaged((prev) => new Map(prev).set(key, value)); setSavedMsg(""); };
   const selectAll = () => { setStaged(new Map(rows.map((r) => [r.key, true]))); setSavedMsg(""); };
   const clearAll = () => { setStaged(new Map(rows.map((r) => [r.key, false]))); setSavedMsg(""); };
-  const discard = () => { setStaged(new Map(rows.map((r) => [r.key, r.override]))); setSavedMsg(""); setError(""); };
+  const discard = () => { setStaged(new Map(baseline)); setSavedMsg(""); setError(""); };
 
   const save = async () => {
     setBusy(true); setError(""); setSavedMsg("");
-    const updates = rows.filter((r) => staged.get(r.key) !== r.override).map((r) => ({ permissionKey: r.key, allow: staged.get(r.key) }));
+    const updates = rows.filter((r) => staged.get(r.key) !== baseline.get(r.key)).map((r) => ({ permissionKey: r.key, allow: staged.get(r.key) }));
     try {
       const res = await bulkSetUserPermissionOverrides(userId, updates);
       setBusy(false);
       if (res?.error) setError(res.error);
-      else { setSavedMsg(`Saved ${updates.length} change${updates.length === 1 ? "" : "s"}.`); rows.forEach((r) => { r.override = staged.get(r.key); }); }
+      else { setSavedMsg(`Saved ${updates.length} change${updates.length === 1 ? "" : "s"}.`); setBaseline(new Map(staged)); }
     } catch {
       setBusy(false);
       setError("Network error — please check your connection and try again.");
@@ -71,7 +74,7 @@ export default function PermissionMatrix({ userId, rows }) {
       setBusy(false);
       if (res?.error) setError(res.error);
       else {
-        rows.forEach((r) => { r.override = null; });
+        setBaseline(new Map(rows.map(r => [r.key, null])));
         setStaged(new Map(rows.map((r) => [r.key, null])));
         setSavedMsg("Reset to role defaults.");
       }
@@ -86,6 +89,11 @@ export default function PermissionMatrix({ userId, rows }) {
 
   return (
     <div>
+      <div className="mb-4 rounded-xl border border-line bg-foam p-3 text-xs space-y-2">
+        <p><strong>{rows.filter(r => staged.get(r.key) ?? r.roleDefault).length}</strong> effective permissions · {rows.filter(r => staged.get(r.key) !== baseline.get(r.key)).length} unsaved changes</p>
+        <p className="text-slate">Deny × · Role default –/✓ · Grant ✓. Changes take effect only after Save. Server and database still enforce access.</p>
+        <input aria-label="Search permissions" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search module or action…" className="in w-full" />
+      </div>
       <div className="no-print flex flex-wrap items-center gap-2 mb-4">
         <button type="button" onClick={selectAll} disabled={busy} className="px-3 py-2 rounded-lg border border-line text-xs font-semibold hover:bg-foam disabled:opacity-50">Select All</button>
         <button type="button" onClick={clearAll} disabled={busy} className="px-3 py-2 rounded-lg border border-line text-xs font-semibold hover:bg-foam disabled:opacity-50">Clear All</button>

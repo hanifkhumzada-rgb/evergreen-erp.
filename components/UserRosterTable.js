@@ -11,20 +11,24 @@ import { Search } from "lucide-react";
 // the two sibling pages over the same user list behave consistently.
 export default function UserRosterTable({ users, roles, selfId }) {
   const [q, setQ] = useState("");
+  const [status, setStatus] = useState("all");
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
-    if (!needle) return users;
-    return users.filter((u) =>
+    return users.filter((u) => (status === "all" || Boolean(u.is_active) === (status === "active")) && (!needle ||
       u.full_name?.toLowerCase().includes(needle) ||
       u.phone?.toLowerCase().includes(needle) ||
       u.roles?.name?.toLowerCase().includes(needle) ||
-      u.roles?.key?.toLowerCase().includes(needle)
+      u.roles?.key?.toLowerCase().includes(needle))
     );
-  }, [users, q]);
+  }, [users, q, status]);
 
   return (
     <div>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-4 rounded-xl border border-line bg-foam p-3 text-xs">
+        <span><strong>{users.length}</strong> users · <strong>{users.filter(u => u.is_active).length}</strong> active · {filtered.length} shown</span>
+        <select aria-label="Filter user status" value={status} onChange={e => setStatus(e.target.value)} className="rounded-lg border border-line bg-card p-2"><option value="all">All statuses</option><option value="active">Active</option><option value="inactive">Inactive</option></select>
+      </div>
       <div className="relative mb-4 max-w-sm">
         <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate pointer-events-none" />
         <input

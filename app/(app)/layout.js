@@ -9,6 +9,7 @@ import QuickAdd from "@/components/QuickAdd";
 import NavigationControls from "@/components/NavigationControls";
 import { Bell, Command } from "lucide-react";
 import WorkspaceIdentity from "@/components/WorkspaceIdentity";
+import ErpAppearance from "@/components/ErpAppearance";
 
 export default async function AppLayout({ children }) {
   const { user, profile, roleKey, permissions: effectivePermissions, unreadNotifications } = await getCurrentProfile();
@@ -34,7 +35,7 @@ export default async function AppLayout({ children }) {
   const roleLabel = embeddedRole?.name || (roleKey ? roleKey[0].toUpperCase() + roleKey.slice(1) : "—");
 
   return (
-    <SidebarProvider>
+    <ErpAppearance><SidebarProvider>
     <div className="min-h-screen app-shell-bg flex">
       <Sidebar role={roleKey} permissions={effectivePermissions} unreadNotifications={unreadNotifications} />
       <div className="flex-1 min-w-0 flex flex-col">
@@ -48,7 +49,7 @@ export default async function AppLayout({ children }) {
           </div>
           <div className="flex items-center gap-4">
             <OfflineIndicator />
-            <div className="hidden sm:flex items-center gap-2 rounded-xl border border-line bg-foam/70 px-2 py-1"><Command size={13} className="text-slate" /><GlobalSearch /></div>
+            <div className="flex items-center gap-2 rounded-xl border border-line bg-foam/70 px-2 py-1"><Command size={13} className="hidden sm:block text-slate" /><GlobalSearch /></div>
             <Link href="/notifications" className="relative p-1.5 -m-1.5 rounded-lg hover:bg-foam transition-colors" aria-label="Notifications">
               <Bell size={17} className="text-slate" />
               {unreadNotifications > 0 && <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-coral ring-2 ring-card" />}
@@ -68,6 +69,6 @@ export default async function AppLayout({ children }) {
         <QuickAdd role={roleKey} permissions={effectivePermissions} />
       </div>
     </div>
-    </SidebarProvider>
+    </SidebarProvider></ErpAppearance>
   );
 }
