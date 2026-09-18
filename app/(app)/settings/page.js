@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ErpNavLink";
 import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Callout } from "@/components/ui";
@@ -17,6 +17,14 @@ export default async function SettingsPage() {
     <div>
       <h2 className="font-display text-2xl font-semibold mb-1">Settings</h2>
       <p className="text-slate text-sm mb-4">Business branding, integrations, and automation — all in one place.</p>
+      {canManage && <nav aria-label="Settings workspaces" className="grid sm:grid-cols-2 xl:grid-cols-4 gap-3 mb-5">
+        {[
+          ["/user-management", "Users", "Staff roles and active accounts"],
+          ["/user-management/permissions", "Permissions", "Per-user actions and role defaults"],
+          ["/automation", "Notification rules", "Triggers, channels and thresholds"],
+          ["/communication", "Message delivery log", "Delivery results, failed sends and retry"],
+        ].map(([href, label, hint]) => <Link key={href} href={href} className="rounded-2xl border border-line bg-card p-4 hover:bg-foam"><h3 className="text-sm font-bold text-aqua">{label}</h3><p className="mt-1 text-xs text-slate">{hint}</p></Link>)}
+      </nav>}
       <div className="flex flex-col gap-5">
         {canManage
           ? <BusinessSettingsForm settings={businessSettings} />
@@ -44,7 +52,7 @@ export default async function SettingsPage() {
           </p>
           <div className="mt-3.5 flex flex-col gap-1.5">
             <Callout>Bottle deposit liability — tracked, but not yet auto-posted as a journal entry</Callout>
-            <Callout>Granular per-action permissions (view/create/edit/approve/export) — Coming Soon, role-level only for now</Callout>
+            <Callout>Granular per-action permissions and user overrides — manage under Users → Permissions</Callout>
             <Callout>Route performance &amp; driver on-time % — Coming Soon</Callout>
             <Callout>Automated notification triggers (low stock, overdue, bottle limit, inactive, payment overdue, low activity) — configurable in the Automation Center</Callout>
             <Callout>WhatsApp/SMS via Twilio — built, needs live credentials in Settings → Integrations to actually send</Callout>
