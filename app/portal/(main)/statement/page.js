@@ -15,8 +15,14 @@ export default async function PortalStatementPage({ searchParams }) {
   const periodEnd = new Date(Date.UTC(year, month, 1));
 
   const [{ data: entries }, { data: bottleTxns }] = await Promise.all([
+    // Bounded to periodEnd — everything below only ever uses entries
+    // strictly before it (the opening-balance rollup needs everything
+    // before periodStart, the period rows need [periodStart, periodEnd)),
+    // so fetching a long-tenured customer's entire ledger history every
+    // time any single month is viewed was pure waste.
     supabase.from("customer_ledger_entries").select("entry_date, reference_type, description, debit, credit")
-      .eq("customer_id", customerId).order("entry_date", { ascending: true }).order("created_at", { ascending: true }),
+      .eq("customer_id", customerId).lt("entry_date", periodEnd.toISOString().slice(0, 10))
+      .order("entry_date", { ascending: true }).order("created_at", { ascending: true }),
     supabase.from("bottle_transactions").select("txn_date, quantity, from_state, to_state")
       .eq("customer_id", customerId).lt("txn_date", periodEnd.toISOString().slice(0, 10)),
   ]);

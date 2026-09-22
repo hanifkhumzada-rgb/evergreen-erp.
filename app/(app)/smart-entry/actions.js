@@ -43,46 +43,44 @@ export async function createAndSubmitSmartEntry(entryType, payload, idempotencyK
 
 // Bulk: one smart_entries row per input row, each independently created +
 // submitted. A bad row never blocks or rolls back a good one — that
-// isolation is exactly why this loops over the single-row RPCs instead of
-// batching them into one call.
+// isolation only requires each row's own outcome to be independent, not
+// that the round trips themselves run one at a time, so every row's
+// mini-pipeline runs concurrently instead of serially (order preserved in
+// `results` via Promise.all).
 export async function bulkSubmitSmartEntries(entryType, rows) {
   const supabase = await createClient();
-  const results = [];
-  let saved = 0, failed = 0, pending = 0;
-  for (const row of rows) {
+  const outcomes = await Promise.all(rows.map(async (row) => {
     let entryId = row.entryId;
     if (entryId) {
       const { error: updateError } = await supabase.rpc("fn_smart_entry_update", { p_id: entryId, p_payload: row.payload });
-      if (updateError) { failed++; results.push({ rowId: row.__rowId, ok: false, error: updateError.message, payload: row.payload }); continue; }
+      if (updateError) return { bucket: "failed", result: { rowId: row.__rowId, ok: false, error: updateError.message, payload: row.payload } };
     } else {
       const idempotencyKey = row.__key || undefined;
       const { data: created, error: createError } = await supabase.rpc("fn_smart_entry_create", {
         p_entry_type: entryType, p_payload: row.payload, p_source: "bulk", p_idempotency_key: idempotencyKey,
       });
       if (createError) {
-        failed++;
-        results.push({ rowId: row.__rowId, ok: false, error: createError.message, payload: row.payload });
-        continue;
+        return { bucket: "failed", result: { rowId: row.__rowId, ok: false, error: createError.message, payload: row.payload } };
       }
       entryId = created.id;
     }
     const { data: submitted, error: submitError } = await supabase.rpc("fn_smart_entry_submit", { p_id: entryId });
     if (submitError) {
-      failed++;
-      results.push({ rowId: row.__rowId, ok: false, error: submitError.message, payload: row.payload, entryId });
-      continue;
+      return { bucket: "failed", result: { rowId: row.__rowId, ok: false, error: submitError.message, payload: row.payload, entryId } };
     }
     if (submitted.status === "failed") {
-      failed++;
-      results.push({ rowId: row.__rowId, ok: false, entry: submitted, payload: row.payload, errors: submitted.validation_errors });
-    } else if (submitted.status === "pending_approval") {
-      pending++;
-      results.push({ rowId: row.__rowId, ok: true, entry: submitted, payload: row.payload });
-    } else {
-      saved++;
-      results.push({ rowId: row.__rowId, ok: true, entry: submitted, payload: row.payload });
+      return { bucket: "failed", result: { rowId: row.__rowId, ok: false, entry: submitted, payload: row.payload, errors: submitted.validation_errors } };
     }
-  }
+    if (submitted.status === "pending_approval") {
+      return { bucket: "pending", result: { rowId: row.__rowId, ok: true, entry: submitted, payload: row.payload } };
+    }
+    return { bucket: "saved", result: { rowId: row.__rowId, ok: true, entry: submitted, payload: row.payload } };
+  }));
+
+  const results = outcomes.map((o) => o.result);
+  const saved = outcomes.filter((o) => o.bucket === "saved").length;
+  const pending = outcomes.filter((o) => o.bucket === "pending").length;
+  const failed = outcomes.filter((o) => o.bucket === "failed").length;
   revalidateEverything();
   return { total: rows.length, saved, pending, failed, results };
 }
@@ -90,13 +88,12 @@ export async function bulkSubmitSmartEntries(entryType, rows) {
 // Bulk "Save Draft" — persists every row as a draft, no validation/posting.
 export async function bulkSaveDraftSmartEntries(entryType, rows) {
   const supabase = await createClient();
-  const results = [];
-  for (const row of rows) {
+  const results = await Promise.all(rows.map(async (row) => {
     const { data, error } = await supabase.rpc("fn_smart_entry_create", {
       p_entry_type: entryType, p_payload: row.payload, p_source: "bulk", p_idempotency_key: row.__key || undefined,
     });
-    results.push(error ? { rowId: row.__rowId, ok: false, error: error.message } : { rowId: row.__rowId, ok: true, entry: data });
-  }
+    return error ? { rowId: row.__rowId, ok: false, error: error.message } : { rowId: row.__rowId, ok: true, entry: data };
+  }));
   revalidatePath("/smart-entry");
   return { results };
 }

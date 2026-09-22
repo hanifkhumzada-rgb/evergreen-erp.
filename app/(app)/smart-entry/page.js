@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { getCurrentProfile } from "@/lib/session";
 import { ENTRY_TYPES } from "@/components/smart-entry/fieldConfig";
 import SmartEntryClient from "@/components/smart-entry/SmartEntryClient";
 
@@ -15,11 +15,13 @@ const REQUIRED_PERMISSION = {
 };
 
 export default async function SmartEntryPage() {
-  const supabase = await createClient();
+  // getCurrentProfile() is cached per request — layout.js already paid for
+  // fn_erp_workspace_context() (which itself calls fn_my_permission_keys()
+  // and resolves the role key), so this reuses that instead of re-issuing
+  // both RPCs a second time.
+  const { supabase, roleKey, permissions: permList } = await getCurrentProfile();
 
-  const [permRes, roleRes, customersRes, productsRes, zonesRes, categoriesRes, cashRes, staffRes, inventoryRes, pendingRes, recentRes] = await Promise.all([
-    supabase.rpc("fn_my_permission_keys"),
-    supabase.rpc("fn_current_role_key"),
+  const [customersRes, productsRes, zonesRes, categoriesRes, cashRes, staffRes, inventoryRes, pendingRes, recentRes] = await Promise.all([
     supabase.from("customers").select("id, code, name, mobile, is_active, zone_id, zones(name)").order("name"),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
     supabase.from("zones").select("id, name").order("name"),
@@ -31,8 +33,7 @@ export default async function SmartEntryPage() {
     supabase.from("smart_entries").select("*, creator:profiles!smart_entries_created_by_fkey(full_name), approver:profiles!smart_entries_approved_by_fkey(full_name)").order("created_at", { ascending: false }).limit(100),
   ]);
 
-  const permissions = new Set((permRes.data || []).map((r) => r.permission_key));
-  const roleKey = roleRes.data;
+  const permissions = new Set(permList || []);
   const isOwner = roleKey === "owner";
   const canApprove = isOwner || permissions.has("smart_entry.approve");
 

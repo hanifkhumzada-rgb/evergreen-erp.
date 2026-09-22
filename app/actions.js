@@ -936,13 +936,13 @@ export async function reportStaffLocation(latitude, longitude) {
   if (typeof latitude !== "number" || typeof longitude !== "number" || Number.isNaN(latitude) || Number.isNaN(longitude)) {
     return { error: "Invalid coordinates." };
   }
-  const { error } = await supabase.from("staff_locations").insert({ user_id: user.id, latitude, longitude });
+  // Insert (this ping) and delete (this user's points older than 24h) touch
+  // disjoint rows, so they run in parallel rather than one after the other.
+  const [{ error }] = await Promise.all([
+    supabase.from("staff_locations").insert({ user_id: user.id, latitude, longitude }),
+    supabase.from("staff_locations").delete().eq("user_id", user.id).lt("recorded_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
+  ]);
   if (error) return { error: error.message };
-
-  // Current-location tracking only, not a trip history feature — trim this
-  // person's own older points on every write instead of running a separate
-  // cleanup job for what's a genuinely small table.
-  await supabase.from("staff_locations").delete().eq("user_id", user.id).lt("recorded_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString());
   return { ok: true };
 }
 

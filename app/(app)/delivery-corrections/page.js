@@ -17,17 +17,14 @@ export default async function DeliveryCorrectionsPage({ searchParams }) {
   untilDate.setUTCMonth(untilDate.getUTCMonth() + 1);
   const until = untilDate.toISOString().slice(0, 10);
 
-  const { supabase, profile } = await getCurrentProfile();
-  const [{ data: deliveries }, { data: editPermission }] = await Promise.all([
-    supabase.from("deliveries")
-      .select("id, delivery_no, delivery_date, status, amount, amount_collected, rider_remarks, customers(id,name,code,mobile), profiles!deliveries_rider_id_fkey(full_name), delivery_items(product_id,delivered_qty,returned_qty,unit_price,products(name,sku))")
-      .gte("delivery_date", from).lt("delivery_date", until)
-      .in("status", ["delivered", "partially_delivered"])
-      .order("delivery_date", { ascending: false }).limit(1000),
-    supabase.rpc("fn_has_permission", { perm_key: "deliveries.edit" }),
-  ]);
+  const { supabase, profile, permissions } = await getCurrentProfile();
+  const { data: deliveries } = await supabase.from("deliveries")
+    .select("id, delivery_no, delivery_date, status, amount, amount_collected, rider_remarks, customers(id,name,code,mobile), profiles!deliveries_rider_id_fkey(full_name), delivery_items(product_id,delivered_qty,returned_qty,unit_price,products(name,sku))")
+    .gte("delivery_date", from).lt("delivery_date", until)
+    .in("status", ["delivered", "partially_delivered"])
+    .order("delivery_date", { ascending: false }).limit(1000);
 
-  const canEdit = editPermission && profile?.roles?.key === "owner";
+  const canEdit = (permissions || []).includes("deliveries.edit") && profile?.roles?.key === "owner";
   const rows = (deliveries || []).filter((d) => {
     if (!q) return true;
     return `${d.delivery_no || ""} ${d.customers?.name || ""} ${d.customers?.code || ""} ${d.customers?.mobile || ""}`.toLowerCase().includes(q.toLowerCase());

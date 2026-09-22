@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { sendTwilioMessage, isTwilioConfigured } from "@/lib/twilio";
+import { getPortalCustomer } from "@/lib/portalSession";
 
 // Customer Portal auth — OTP over SMS (Twilio, Phase 3), bridged into a
 // REAL Supabase Auth session (not a custom cookie/session system). This
@@ -164,10 +165,13 @@ export async function portalSignOut() {
 // --- Authenticated portal actions below ---
 
 export async function requirePortalCustomer() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+  // getPortalCustomer() is wrapped in React's cache() — when a page.js
+  // Server Component calls this during the same render pass
+  // app/portal/(main)/layout.js already ran in, this reuses that result
+  // instead of repeating the auth.getUser() round trip and the
+  // fn_current_customer_id() RPC call a second time.
+  const { supabase, user, customerId } = await getPortalCustomer();
   if (!user) throw new Error("Not authenticated");
-  const { data: customerId } = await supabase.rpc("fn_current_customer_id");
   if (!customerId) throw new Error("Not a customer session");
   return { supabase, user, customerId };
 }
@@ -205,27 +209,32 @@ export async function submitCustomerFeedback(formData) {
   });
   if (error) return { ok: false, error: error.message };
 
-  try {
-    await supabase.from("customer_notifications").insert({
-      customer_id: customerId, title: "Thanks for your feedback!",
-      message: "We've received your feedback and appreciate you taking the time to share it.",
-      type: "feedback",
-    });
-  } catch { /* best-effort */ }
+  // The "thanks" notification and the low-rating owner-alert lookup are
+  // independent of each other (neither needs the other's result), so they
+  // run together instead of one after the other.
+  const thanksPromise = supabase.from("customer_notifications").insert({
+    customer_id: customerId, title: "Thanks for your feedback!",
+    message: "We've received your feedback and appreciate you taking the time to share it.",
+    type: "feedback",
+  }).then(() => {}, () => {}); // best-effort
 
   // A low rating is worth the Owner's attention the same way any other
   // automated alert is — reuses the existing `notifications` table (the
   // Owner's alert feed) rather than inventing a second one.
-  if (overall <= 2) {
-    const admin = createAdminClient();
-    const { data: customer } = await admin.from("customers").select("name, business_id").eq("id", customerId).maybeSingle();
-    await admin.from("notifications").insert({
-      business_id: customer?.business_id,
-      severity: "warning",
-      title: "Low customer rating received",
-      message: `${customer?.name || "A customer"} left a ${overall}-star rating${comment ? `: "${comment}"` : "."}`,
-    });
-  }
+  const alertPromise = overall <= 2
+    ? (async () => {
+        const admin = createAdminClient();
+        const { data: customer } = await admin.from("customers").select("name, business_id").eq("id", customerId).maybeSingle();
+        await admin.from("notifications").insert({
+          business_id: customer?.business_id,
+          severity: "warning",
+          title: "Low customer rating received",
+          message: `${customer?.name || "A customer"} left a ${overall}-star rating${comment ? `: "${comment}"` : "."}`,
+        });
+      })()
+    : Promise.resolve();
+
+  await Promise.all([thanksPromise, alertPromise]);
 
   revalidatePath("/portal/feedback");
   return { ok: true };
