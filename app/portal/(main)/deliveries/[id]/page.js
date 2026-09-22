@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Truck } from "lucide-react";
-import { requirePortalCustomer } from "@/app/portal/actions";
+import { requirePortalCustomer } from "@/lib/portal/session";
 import { fmtDate, pkr } from "@/lib/format";
 
 export const dynamic = "force-dynamic";

@@ -1,5 +1,5 @@
 import { Droplet } from "lucide-react";
-import { requirePortalCustomer } from "@/app/portal/actions";
+import { requirePortalCustomer } from "@/lib/portal/session";
 import { fmtDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
