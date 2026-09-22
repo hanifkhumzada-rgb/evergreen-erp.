@@ -1,5 +1,5 @@
 import { User, Phone, MapPin, Droplet } from "lucide-react";
-import { requirePortalCustomer } from "@/app/portal/actions";
+import { requirePortalCustomer } from "@/lib/portal/session";
 
 export const dynamic = "force-dynamic";
 

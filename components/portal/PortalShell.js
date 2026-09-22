@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Home, Truck, Wallet, FileText, Droplet, LifeBuoy, Star, User, LogOut, Grid2X2, X, ChevronRight, Bell } from "lucide-react";
+import { Home, Truck, Wallet, FileText, Droplet, LifeBuoy, Star, User, LogOut, Grid2X2, X, ChevronRight, ChevronLeft, Bell } from "lucide-react";
 import { portalSignOut } from "@/app/portal/actions";
 
 const PRIMARY_NAV = [
@@ -26,11 +26,16 @@ export default function PortalShell({ customerName, customerCode, unreadCount, c
   useEffect(() => setMoreOpen(false), [pathname]);
   const handleSignOut = async () => { await portalSignOut(); router.replace("/portal/login"); router.refresh(); };
   const moreActive = MORE_NAV.some(({ href }) => pathname.startsWith(href));
+  const isHome = pathname === "/portal";
 
   return <div className="min-h-screen app-shell-bg flex flex-col">
     <header className="sticky top-0 z-30 glass-bar border-b border-line px-4 py-3 flex items-center justify-between">
-      <div className="flex items-center gap-2.5 min-w-0"><Image src="/ew-mark.svg" width={38} height={38} alt="Evergreen Water" className="rounded-xl shadow-sm flex-shrink-0" priority /><div className="min-w-0"><div className="text-sm font-bold leading-tight truncate">{customerName || "My Evergreen Water"}</div><div className="text-[10.5px] text-slate leading-tight mt-0.5">{customerCode ? `Customer ID · ${customerCode}` : "Customer portal"}</div></div></div>
-      <div className="flex items-center gap-1.5"><Link href="/portal" aria-label="Notifications" className="relative w-9 h-9 grid place-items-center rounded-xl hover:bg-foam"><Bell size={17} className="text-slate" />{unreadCount > 0 ? <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-coral rounded-full ring-2 ring-card" /> : null}</Link><button type="button" onClick={handleSignOut} aria-label="Sign out" className="w-9 h-9 grid place-items-center rounded-xl hover:bg-coralSoft text-slate hover:text-coral"><LogOut size={17} /></button></div>
+      <div className="flex items-center gap-2 min-w-0">
+        {!isHome && <button type="button" onClick={() => router.back()} aria-label="Go back" className="w-9 h-9 grid place-items-center rounded-xl border border-line bg-card hover:bg-foam"><ChevronLeft size={18}/></button>}
+        <Image src="/ew-mark.svg" width={38} height={38} alt="Evergreen Water" className="rounded-xl shadow-sm flex-shrink-0" priority />
+        <div className="min-w-0"><div className="text-sm font-bold leading-tight truncate">{customerName || "My Evergreen Water"}</div><div className="text-[10.5px] text-slate leading-tight mt-0.5">{customerCode ? `Customer ID · ${customerCode}` : "Customer portal"}</div></div>
+      </div>
+      <div className="flex items-center gap-1.5"><Link href="/portal/notifications" aria-label="Notifications" className="relative w-9 h-9 grid place-items-center rounded-xl hover:bg-foam"><Bell size={17} className="text-slate" />{unreadCount > 0 ? <span className="absolute top-1.5 right-1.5 min-w-4 h-4 px-1 grid place-items-center text-[8px] font-bold text-white bg-coral rounded-full ring-2 ring-card">{Math.min(unreadCount, 99)}</span> : null}</Link><button type="button" onClick={handleSignOut} aria-label="Sign out" className="w-9 h-9 grid place-items-center rounded-xl hover:bg-coralSoft text-slate hover:text-coral"><LogOut size={17} /></button></div>
     </header>
     <main className="page-stage flex-1 max-w-3xl w-full mx-auto p-4 sm:p-6 pb-28">{children}</main>
     {moreOpen ? <div className="fixed inset-0 z-40 bg-navy/45 backdrop-blur-[2px]" onClick={() => setMoreOpen(false)} /> : null}

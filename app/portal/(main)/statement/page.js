@@ -1,5 +1,5 @@
 import { Droplet } from "lucide-react";
-import { requirePortalCustomer } from "@/app/portal/actions";
+import { requirePortalCustomer } from "@/lib/portal/session";
 import { fmtDate, pkr } from "@/lib/format";
 import StatementPeriodPicker from "@/components/portal/StatementPeriodPicker";
 import { DocumentActionBar } from "@/components/ui";
