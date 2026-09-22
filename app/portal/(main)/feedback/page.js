@@ -1,5 +1,5 @@
 import { Star } from "lucide-react";
-import { requirePortalCustomer } from "@/app/portal/actions";
+import { requirePortalCustomer } from "@/lib/portal/session";
 import { fmtDate } from "@/lib/format";
 import FeedbackForm from "@/components/portal/FeedbackForm";
 

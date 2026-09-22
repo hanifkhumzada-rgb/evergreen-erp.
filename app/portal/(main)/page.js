@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Droplet, Wallet, Calendar, Truck, RotateCcw, Bell, PackagePlus, CalendarOff, MessageCircle } from "lucide-react";
-import { requirePortalCustomer } from "@/app/portal/actions";
+import { requirePortalCustomer } from "@/lib/portal/session";
 import { pkr, fmtDate } from "@/lib/format";
 import CustomerRiderMap from "@/components/portal/CustomerRiderMap";
 import PortalWelcome from "@/components/portal/PortalWelcome";
@@ -32,16 +32,16 @@ export default async function PortalDashboardPage() {
 
   const [
     { data: customer }, { data: todayDeliveries }, { data: monthDeliveries },
-    { data: bottleBalances }, { data: ledgerEntries }, { data: lastPayment }, { data: recentNotifications },
+    { data: bottleBalances }, { data: customerBalance }, { data: lastPayment }, { data: recentNotifications },
     { data: businessSettings },
   ] = await Promise.all([
-    supabase.from("customers").select("name, code, opening_balance, payment_frequency, bottle_limit").eq("id", customerId).maybeSingle(),
+    supabase.from("customers").select("name, code, payment_frequency, bottle_limit").eq("id", customerId).maybeSingle(),
     supabase.from("deliveries").select("id, delivery_no, status, amount, rider_id, delivered_at, delivery_items(delivered_qty, returned_qty, products(name))")
       .eq("customer_id", customerId).eq("delivery_date", today).order("created_at", { ascending: false }),
     supabase.from("deliveries").select("id, amount, status, delivery_items(delivered_qty, returned_qty)")
       .eq("customer_id", customerId).gte("delivery_date", monthStart).lte("delivery_date", today).eq("status", "delivered"),
     supabase.from("v_customer_bottle_balance").select("product_name, bottles_with_customer").eq("customer_id", customerId),
-    supabase.from("customer_ledger_entries").select("debit, credit").eq("customer_id", customerId),
+    supabase.from("v_customer_balance").select("balance").eq("customer_id", customerId).maybeSingle(),
     supabase.from("payments").select("amount, payment_date").eq("customer_id", customerId).eq("voided", false).order("payment_date", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("customer_notifications").select("id, title, message, created_at, is_read").eq("customer_id", customerId).order("created_at", { ascending: false }).limit(3),
     // Owner-controlled toggle (Automation Center) — business_settings has
@@ -53,9 +53,7 @@ export default async function PortalDashboardPage() {
 
   const liveTrackingEnabled = businessSettings?.customer_live_tracking_enabled !== false;
 
-  const openingBalance = Number(customer?.opening_balance) || 0;
-  const ledgerNet = (ledgerEntries || []).reduce((sum, e) => sum + (Number(e.debit) || 0) - (Number(e.credit) || 0), 0);
-  const outstanding = openingBalance + ledgerNet;
+  const outstanding = Number(customerBalance?.balance) || 0;
 
   const monthBottles = (monthDeliveries || []).reduce((sum, d) => sum + (d.delivery_items || []).reduce((s, i) => s + (i.delivered_qty || 0), 0), 0);
   const monthReturns = (monthDeliveries || []).reduce((sum, d) => sum + (d.delivery_items || []).reduce((s, i) => s + (i.returned_qty || 0), 0), 0);

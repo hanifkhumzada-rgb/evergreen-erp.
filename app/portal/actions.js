@@ -3,7 +3,7 @@ import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { createAdminClient, createClient } from "@/lib/supabase/server";
 import { sendTwilioMessage, isTwilioConfigured } from "@/lib/twilio";
-import { getPortalCustomer } from "@/lib/portalSession";
+import { requirePortalCustomer } from "@/lib/portal/session";
 
 // Customer Portal auth — OTP over SMS (Twilio, Phase 3), bridged into a
 // REAL Supabase Auth session (not a custom cookie/session system). This
@@ -164,18 +164,6 @@ export async function portalSignOut() {
 
 // --- Authenticated portal actions below ---
 
-export async function requirePortalCustomer() {
-  // getPortalCustomer() is wrapped in React's cache() — when a page.js
-  // Server Component calls this during the same render pass
-  // app/portal/(main)/layout.js already ran in, this reuses that result
-  // instead of repeating the auth.getUser() round trip and the
-  // fn_current_customer_id() RPC call a second time.
-  const { supabase, user, customerId } = await getPortalCustomer();
-  if (!user) throw new Error("Not authenticated");
-  if (!customerId) throw new Error("Not a customer session");
-  return { supabase, user, customerId };
-}
-
 export async function submitCustomerIssue(formData) {
   const { supabase, customerId } = await requirePortalCustomer();
   const deliveryId = formData.get("delivery_id") || null;
@@ -244,4 +232,12 @@ export async function markCustomerNotificationRead(notificationId) {
   const { supabase } = await requirePortalCustomer();
   await supabase.from("customer_notifications").update({ is_read: true }).eq("id", notificationId);
   revalidatePath("/portal");
+}
+
+export async function markAllCustomerNotificationsRead() {
+  const { supabase, customerId } = await requirePortalCustomer();
+  await supabase.from("customer_notifications").update({ is_read: true })
+    .eq("customer_id", customerId).eq("is_read", false);
+  revalidatePath("/portal");
+  revalidatePath("/portal/notifications");
 }

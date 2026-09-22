@@ -74,7 +74,11 @@ export default function BusinessSettingsForm({ settings }) {
         </p>
       </div>
 
-      <div>
+      <nav aria-label="Company settings sections" className="no-print flex flex-wrap gap-2">
+        {[["identity", "Company"], ["contact", "Contact & NTN"], ["payment", "Payment details"], ["numbering", "Numbering"]].map(([id, label]) => <a key={id} href={`#company-${id}`} className="rounded-lg border border-line bg-foam px-3 py-2 text-xs font-semibold text-aqua">{label}</a>)}
+      </nav>
+
+      <div id="company-identity" className="scroll-mt-28">
         <div className="text-[11px] font-bold tracking-wider text-slate mb-2.5">COMPANY IDENTITY</div>
         <div className="flex flex-wrap gap-3">
           <Field label="Company Name" name="business_name" defaultValue={s.business_name} half />
@@ -87,7 +91,7 @@ export default function BusinessSettingsForm({ settings }) {
         </div>
       </div>
 
-      <div>
+      <div id="company-contact" className="scroll-mt-28">
         <div className="text-[11px] font-bold tracking-wider text-slate mb-2.5">CONTACT &amp; REGISTRATION</div>
         <div className="flex flex-wrap gap-3">
           <Field label="Address" name="address" defaultValue={s.address} textarea />
@@ -99,7 +103,7 @@ export default function BusinessSettingsForm({ settings }) {
         </div>
       </div>
 
-      <div>
+      <div id="company-payment" className="scroll-mt-28">
         <div className="text-[11px] font-bold tracking-wider text-slate mb-2.5">BANK &amp; PAYMENT DETAILS</div>
         <div className="flex flex-wrap gap-3">
           <Field label="Bank / Payment Details" name="bank_details" defaultValue={s.bank_details} textarea hint="Bank name, account title, account number / IBAN — shown on invoices under Payment Method." />
@@ -108,7 +112,7 @@ export default function BusinessSettingsForm({ settings }) {
         </div>
       </div>
 
-      <div>
+      <div id="company-numbering" className="scroll-mt-28">
         <div className="text-[11px] font-bold tracking-wider text-slate mb-2.5">DOCUMENT NUMBER PREFIXES</div>
         <div className="flex flex-wrap gap-3">
           <Field label="Invoice Prefix" name="invoice_prefix" defaultValue={s.invoice_prefix} hint={`Next: ${s.invoice_prefix || ""}${s.next_invoice_number ?? 1}`} half />
