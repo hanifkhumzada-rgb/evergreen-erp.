@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Droplet, Wallet, Calendar, Truck, RotateCcw, Bell, PackagePlus, CalendarOff, MessageCircle } from "lucide-react";
 import { requirePortalCustomer } from "@/lib/portal/session";
 import { pkr, fmtDate } from "@/lib/format";
-import CustomerRiderMap from "@/components/portal/CustomerRiderMap";
+import CustomerRiderMap from "@/components/portal/CustomerRiderMapLazy";
 import PortalWelcome from "@/components/portal/PortalWelcome";
 
 export const dynamic = "force-dynamic";
