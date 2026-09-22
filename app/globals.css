@@ -300,15 +300,15 @@ table tr.hover\:bg-foam:hover {
 }
 .app-shell-bg button:focus-visible,
 .app-shell-bg a:focus-visible {
-  outline: 2px solid #059669;
+  outline: 2px solid var(--erp-accent, #059669);
   outline-offset: 2px;
 }
 .app-shell-bg .in:hover:not(:disabled) {
-  border-color: color-mix(in srgb, #059669 38%, var(--line));
+  border-color: color-mix(in srgb, var(--erp-accent, #059669) 38%, var(--line));
 }
 .erp-sidebar-surface {
   background:
-    radial-gradient(circle at 20% 2%, rgba(36,201,159,.22), transparent 15rem),
+    radial-gradient(circle at 20% 2%, color-mix(in srgb, var(--erp-accent, #059669) 30%, transparent), transparent 15rem),
     linear-gradient(180deg, var(--erp-navy, #073B3A) 0%, var(--erp-navy, #052D2C) 100%);
   box-shadow: 12px 0 36px rgba(5,45,44,.12);
 }
@@ -321,7 +321,7 @@ table tr.hover\:bg-foam:hover {
   transform: translateX(2px);
 }
 .erp-sidebar-link-active {
-  box-shadow: 0 8px 22px rgba(5,150,105,.24), inset 0 1px 0 rgba(255,255,255,.15);
+  box-shadow: 0 8px 22px color-mix(in srgb, var(--erp-accent, #059669) 28%, transparent), inset 0 1px 0 rgba(255,255,255,.15);
 }
 .erp-sidebar-group {
   min-height: 38px;
@@ -336,7 +336,7 @@ table tr.hover\:bg-foam:hover {
 }
 .quick-add-root > button {
   min-height: 50px;
-  box-shadow: 0 14px 36px rgba(5,150,105,.28), inset 0 1px 0 rgba(255,255,255,.18);
+  box-shadow: 0 14px 36px color-mix(in srgb, var(--erp-accent, #059669) 32%, transparent), inset 0 1px 0 rgba(255,255,255,.18);
 }
 
 @media (max-width: 639px) {

@@ -8,7 +8,7 @@ module.exports = {
         navy: "var(--erp-navy, #073B3A)",
         navyLight: "var(--erp-navy-light, #0E4F4D)",
         aqua: "var(--erp-accent, #059669)",
-        aquaSoft: "var(--aquaSoft)",
+        aquaSoft: "var(--erp-accent-soft, var(--aquaSoft))",
         foam: "var(--foam)",
         card: "var(--card)",
         ink: "var(--ink)",
