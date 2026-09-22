@@ -34,11 +34,22 @@ export function SidebarToggleButton() {
 
 const NAV = [
   { type: "link", href: "/dashboard", label: "Dashboard", icon: Home, roles: [...OWNER_ROLES, "manager", "accountant"] },
+  // Top-level, not nested in the Operations group below — this page IS the
+  // daily SOP as a checklist (import/verify → run deliveries → record
+  // collections → record expenses → reconcile bottles → close the day),
+  // each step showing live done/pending status and linking straight to its
+  // page. It's the natural "start your day here" landing spot right after
+  // Dashboard, so it gets the same 1-click billing Dashboard/Smart Entry do
+  // instead of being buried as the first item inside a collapsed group.
+  { type: "link", href: "/operations", label: "Daily Operations", icon: CalendarCheck, roles: [...OWNER_ROLES, "manager", "accountant"] },
   { type: "link", href: "/smart-entry", label: "Smart Entry", icon: Sparkles, roles: [...OWNER_ROLES, "manager", "accountant", "rider"] },
   { type: "group", key: "operations", label: "Operations", icon: Truck, items: [
-    { href: "/operations", label: "Daily Operations", icon: CalendarCheck, roles: [...OWNER_ROLES, "manager", "accountant"] },
     { href: "/customers", label: "Customers", icon: Users, roles: [...OWNER_ROLES, "manager"] },
     { href: "/deliveries", label: "Deliveries", icon: Truck, roles: [...OWNER_ROLES, "manager", "rider"] },
+    // Grouped with Deliveries, not with Employees/Fleet admin below — a
+    // dispatcher checking where riders are is part of the same morning
+    // delivery routine, not a Team & Fleet HR/maintenance task.
+    { href: "/tracking", label: "Live Tracking", icon: Navigation, roles: [...OWNER_ROLES, "manager"] },
     { href: "/delivery-corrections", label: "Delivery Corrections", icon: Wrench, roles: [...OWNER_ROLES, "manager"] },
     { href: "/bottle-ledger", label: "Bottle Inventory", icon: Droplet, roles: [...OWNER_ROLES, "manager"] },
     { href: "/production", label: "Production & Filling", icon: Factory, roles: [...OWNER_ROLES, "manager", "accountant"] },
@@ -55,7 +66,6 @@ const NAV = [
   { type: "group", key: "team-fleet", label: "Team & Fleet", icon: BriefcaseBusiness, items: [
     { href: "/employees", label: "Employees", icon: UserCog, roles: [...OWNER_ROLES, "manager"] },
     { href: "/fleet", label: "Fleet", icon: Car, roles: [...OWNER_ROLES, "manager"] },
-    { href: "/tracking", label: "Live Tracking", icon: Navigation, roles: [...OWNER_ROLES, "manager"] },
   ]},
   { type: "group", key: "accounting-finance", label: "Accounting & Finance", icon: Landmark, items: [
     { href: "/accounting/chart-of-accounts", label: "Chart of Accounts", icon: Landmark, roles: [...OWNER_ROLES, "accountant"] },
