@@ -124,7 +124,10 @@ export default async function DashboardPage({ searchParams }) {
     supabase.from("customers").select("id", { count: "exact", head: true }).eq("is_active", true).lt("created_at", `${today}T00:00:00`),
     // AI Business Insights card inputs (Phase 3)
     supabase.from("automation_rules").select("enabled, threshold_value").eq("key", "payment_overdue").maybeSingle(),
-    supabase.from("invoices").select("customer_id, due_date").neq("status", "paid").neq("status", "void").not("due_date", "is", null),
+    // Only already-past-due invoices can ever count as overdue (the cutoff
+    // below is always <= today), so filter server-side instead of pulling
+    // every open invoice.
+    supabase.from("invoices").select("customer_id, due_date").neq("status", "paid").neq("status", "void").lt("due_date", today),
     supabase.from("expenses").select("amount, expense_categories(name)").in("status", ["approved", "paid"]).gte("expense_date", monthStartISO()),
     supabase.from("expenses").select("amount, expense_categories(name)").in("status", ["approved", "paid"]).gte("expense_date", lastMonthRange().from).lte("expense_date", lastMonthRange().to),
     // Bottle alerts card — same "over their bottle_limit" check the Bottle

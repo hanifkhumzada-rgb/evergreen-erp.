@@ -79,12 +79,20 @@ const CUSTOMER_SAMPLE_ROW = {
 
 const CUSTOMER_TYPES_FILTER = ["Home", "Office", "Corporate", "Shop", "Other"];
 
+// Each rendered customer costs ~20 KB of HTML + RSC payload (a mobile card
+// and a desktop row, each with several icons). Measured on production with
+// 18 customers the page was already 384 KB, so ~300 customers would ship
+// ~6 MB. Search, filters, KPIs and Excel export still cover the full set —
+// only the rendered list is paged.
+const PAGE_SIZE = 50;
+
 export default async function CustomersPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const q = (sp.q || "").trim();
   const zoneFilter = sp.zone || "";
   const statusFilter = sp.status || "";
   const typeFilter = sp.type || "";
+  const requestedPage = Math.max(1, Number.parseInt(sp.page, 10) || 1);
 
   const { supabase, profile } = await getCurrentProfile();
   const [branding, { data: customers }, { data: zones }, { data: balances }, { data: products }, { data: vehicles }, { data: riders }, { data: routes }, { data: canDelete }] = await Promise.all([
@@ -126,6 +134,19 @@ export default async function CustomersPage({ searchParams }) {
     }
     return true;
   });
+
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const page = Math.min(requestedPage, pageCount);
+  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageHref = (n) => {
+    const params = new URLSearchParams();
+    if (q) params.set("q", q);
+    if (zoneFilter) params.set("zone", zoneFilter);
+    if (typeFilter) params.set("type", typeFilter);
+    if (statusFilter) params.set("status", statusFilter);
+    if (n > 1) params.set("page", String(n));
+    return `/customers${params.size ? `?${params}` : ""}`;
+  };
 
   const exportRows = rows.map((c) => ({
     "Customer ID": c.code, Name: c.name, Phone: c.mobile, Building: c.building, Address: c.address, Zone: c.zones?.name, Type: c.customer_type, Balance: c.balance, Status: STATUS_BADGE[c.status]?.text || (c.is_active ? "Active" : "Inactive"),
@@ -180,13 +201,17 @@ export default async function CustomersPage({ searchParams }) {
         />
       </div>
       <div className="no-print mb-2 flex items-center justify-between gap-3">
-        <p className="text-xs text-slate">{rows.length} of {allRows.length} customers</p>
+        <p className="text-xs text-slate">
+          {rows.length > PAGE_SIZE
+            ? `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, rows.length)} of ${rows.length} matching · ${allRows.length} total`
+            : `${rows.length} of ${allRows.length} customers`}
+        </p>
         <p className="hidden text-[11px] text-slate sm:block">Tap a customer to open their complete 360° profile.</p>
       </div>
 
       <div className="no-print grid gap-3 md:hidden">
         {rows.length === 0 && <div className="rounded-2xl border border-line bg-card p-8 text-center text-sm text-slate">No customers match your search or filters.</div>}
-        {rows.map((c) => {
+        {pageRows.map((c) => {
           const badge = STATUS_BADGE[c.status] || (c.is_active ? STATUS_BADGE.active : STATUS_BADGE.inactive);
           return (
             <article key={c.id} className="customer-mobile-card rounded-2xl border border-line bg-card p-4">
@@ -222,7 +247,7 @@ export default async function CustomersPage({ searchParams }) {
           <thead><tr className="bg-foam"><Th>Customer ID</Th><Th>Name</Th><Th>Phone</Th><Th>Zone</Th><Th>Type</Th><Th>Balance</Th><Th>Status</Th><Th className="no-print">Quick Actions</Th></tr></thead>
           <tbody>
             {rows.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate">No customers match.</td></tr>}
-            {rows.map((c) => {
+            {pageRows.map((c) => {
               const badge = STATUS_BADGE[c.status] || (c.is_active ? STATUS_BADGE.active : STATUS_BADGE.inactive);
               return (
                 <tr key={c.id} className="hover:bg-foam">
@@ -253,6 +278,17 @@ export default async function CustomersPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      {pageCount > 1 && (
+        <nav className="no-print mt-4 flex items-center justify-between gap-3" aria-label="Customer pages">
+          {page > 1
+            ? <Link href={pageHref(page - 1)} className="inline-flex min-h-[40px] items-center rounded-xl border border-line bg-card px-3.5 text-xs font-semibold text-navy hover:bg-foam">← Previous</Link>
+            : <span />}
+          <span className="text-xs text-slate">Page {page} of {pageCount}</span>
+          {page < pageCount
+            ? <Link href={pageHref(page + 1)} className="inline-flex min-h-[40px] items-center rounded-xl border border-line bg-card px-3.5 text-xs font-semibold text-navy hover:bg-foam">Next →</Link>
+            : <span />}
+        </nav>
+      )}
       <DocumentPrintFooter />
     </div>
   );

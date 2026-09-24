@@ -8,11 +8,16 @@ import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import RecordPreview from "@/components/RecordPreview";
 import { bulkImportSales, voidInvoice } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
+import { fetchAll } from "@/lib/fetchAll";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { Search } from "lucide-react";
 import { INVOICE_STATUS_LABEL as STATUS_LABEL, INVOICE_STATUS_TONE as STATUS_TONE } from "@/lib/invoiceStatus";
 
 export const dynamic = "force-dynamic";
+
+// Rendered rows per page. Each row carries its own preview/void controls,
+// so rendering thousands at once would make this page several MB.
+const PAGE_SIZE = 50;
 
 export default async function InvoicesPage({ searchParams }) {
   const sp = (await searchParams) || {};
@@ -21,9 +26,11 @@ export default async function InvoicesPage({ searchParams }) {
   // Billed) and search/status filters need to reach the full history, not
   // just a recent window. Invoice history for one business stays small
   // enough to fetch in full (RLS already scopes this to one business).
+  // Paged through fetchAll: a single request is capped at 1,000 rows by the
+  // API, which would silently make these all-time KPIs wrong.
   const [branding, { data: invoices }, { data: customers }, { data: products }, { data: canVoid }] = await Promise.all([
     getBrandingLite(supabase),
-    supabase.from("invoices").select("*, customers(name), invoice_items(quantity)").order("created_at", { ascending: false }),
+    fetchAll(() => supabase.from("invoices").select("id, invoice_no, invoice_date, status, net_amount, void_reason, created_at, customers(name), invoice_items(quantity)").order("created_at", { ascending: false }).order("id"), { label: "invoice center" }),
     supabase.from("customers").select("id, name, default_product_id"),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
     supabase.rpc("fn_has_permission", { perm_key: "invoices.delete" }),
@@ -46,6 +53,16 @@ export default async function InvoicesPage({ searchParams }) {
     return true;
   });
   const hasFilters = q || statusFilter;
+  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const page = Math.min(Math.max(1, Number.parseInt(sp.page, 10) || 1), pageCount);
+  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const pageHref = (n) => {
+    const params = new URLSearchParams();
+    if (sp.q) params.set("q", sp.q);
+    if (statusFilter) params.set("status", statusFilter);
+    if (n > 1) params.set("page", String(n));
+    return `/invoices${params.size ? `?${params}` : ""}`;
+  };
   const exportRows = rows.map((s) => ({
     Invoice: s.invoice_no, Date: s.invoice_date, Customer: s.customers?.name, Qty: qtyOf(s), Total: s.net_amount, Status: STATUS_LABEL[s.status] || s.status,
   }));
@@ -91,13 +108,17 @@ export default async function InvoicesPage({ searchParams }) {
         />
         <AddSaleForm customers={customers || []} products={products || []} initialCustomerId={sp.customer || ""} initialOpen={sp.quick === "new"} />
       </div>
-      <p className="no-print text-xs text-slate mb-2">{rows.length} of {allRows.length} invoices</p>
+      <p className="no-print text-xs text-slate mb-2">
+        {rows.length > PAGE_SIZE
+          ? `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, rows.length)} of ${rows.length} matching · ${allRows.length} total`
+          : `${rows.length} of ${allRows.length} invoices`}
+      </p>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>Invoice #</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Total</Th><Th>Status</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
             {rows.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-slate">No invoices match.</td></tr>}
-            {rows.map((s) => {
+            {pageRows.map((s) => {
               const canVoidThis = canVoid && s.status !== "void" && !["paid", "partially_paid"].includes(s.status);
               const statusLabel = STATUS_LABEL[s.status] || s.status;
               const previewFields = [
@@ -130,6 +151,17 @@ export default async function InvoicesPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      {pageCount > 1 && (
+        <nav className="no-print mt-4 flex items-center justify-between gap-3" aria-label="Invoice pages">
+          {page > 1
+            ? <Link href={pageHref(page - 1)} className="inline-flex min-h-[40px] items-center rounded-xl border border-line bg-card px-3.5 text-xs font-semibold text-navy hover:bg-foam">← Previous</Link>
+            : <span />}
+          <span className="text-xs text-slate">Page {page} of {pageCount}</span>
+          {page < pageCount
+            ? <Link href={pageHref(page + 1)} className="inline-flex min-h-[40px] items-center rounded-xl border border-line bg-card px-3.5 text-xs font-semibold text-navy hover:bg-foam">Next →</Link>
+            : <span />}
+        </nav>
+      )}
       <DocumentPrintFooter />
     </div>
   );

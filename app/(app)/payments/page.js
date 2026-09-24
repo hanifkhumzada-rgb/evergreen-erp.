@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { fetchAll } from "@/lib/fetchAll";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
 import { Badge, KPI, DocumentActionBar, Th, Td } from "@/components/ui";
@@ -64,7 +65,9 @@ export default async function PaymentsPage({ searchParams }) {
     paymentQuery,
     supabase.from("v_customer_balance").select("customer_id, name, balance"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").neq("roles.key", "customer").eq("is_active", true).order("full_name"),
-    supabase.from("payments").select("customer_id, payment_date, amount, customers(name)").eq("voided", false).gte("payment_date", paymentLookback).order("payment_date", { ascending: false }),
+    // Paged: the API returns at most 1,000 rows per request, which would drop
+    // older customers' last-payment dates once volume grows.
+    fetchAll(() => supabase.from("payments").select("id, customer_id, payment_date, amount, customers(name)").eq("voided", false).gte("payment_date", paymentLookback).order("payment_date", { ascending: false }).order("id"), { label: "payments lookback" }),
     supabase.from("customers").select("id, payment_frequency, mobile"),
     supabase.rpc("fn_has_permission", { perm_key: "payments.delete" }),
     // Reuses the existing "Outstanding balance recovery" automation rule

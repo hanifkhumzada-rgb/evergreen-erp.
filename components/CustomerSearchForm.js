@@ -2,14 +2,30 @@
 
 import { Search, X } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 
 export default function CustomerSearchForm({ initialQuery = "", zone = "", type = "", status = "", zones = [], types = [] }) {
   const router = useRouter();
   const [query, setQuery] = useState(initialQuery);
   const [pending, startTransition] = useTransition();
 
+  const formRef = useRef(null);
+  const lastSubmitted = useRef(initialQuery);
+
+  // Live search: re-query 350 ms after the user stops typing instead of
+  // waiting for the Search button. Uses the form's current zone/type/status
+  // so filters are kept.
+  useEffect(() => {
+    if (query.trim() === lastSubmitted.current.trim()) return undefined;
+    const timer = setTimeout(() => {
+      if (formRef.current) navigate(new FormData(formRef.current));
+    }, 350);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
   const navigate = (formData) => {
+    lastSubmitted.current = String(formData.get("q") || "");
     const params = new URLSearchParams();
     for (const key of ["q", "zone", "type", "status"]) {
       const value = String(formData.get(key) || "").trim();
@@ -20,6 +36,7 @@ export default function CustomerSearchForm({ initialQuery = "", zone = "", type 
 
   const clearSearch = () => {
     setQuery("");
+    lastSubmitted.current = "";
     const params = new URLSearchParams();
     if (zone) params.set("zone", zone);
     if (type) params.set("type", type);
@@ -28,7 +45,7 @@ export default function CustomerSearchForm({ initialQuery = "", zone = "", type 
   };
 
   return (
-    <form className="no-print flex flex-wrap gap-2.5 mb-4 items-center" action={navigate}>
+    <form ref={formRef} className="no-print flex flex-wrap gap-2.5 mb-4 items-center" action={navigate}>
       <div className="relative w-full sm:w-72">
         <Search size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate pointer-events-none" />
         <input
