@@ -3,7 +3,11 @@ import { NextResponse } from "next/server";
 import { REMEMBER_ME_COOKIE, REMEMBER_ME_MAX_AGE } from "@/lib/rememberMe";
 
 export async function middleware(request) {
-  let response = NextResponse.next({ request: { headers: request.headers } });
+  // Pass the path to server components (app/(app)/layout.js uses it for
+  // the route permission guard in lib/navAccess.js).
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
+  let response = NextResponse.next({ request: { headers: requestHeaders } });
   const remembered = request.cookies.get(REMEMBER_ME_COOKIE)?.value === "1";
 
   const supabase = createServerClient(

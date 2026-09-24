@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { signOut } from "@/app/actions";
 import ThemeToggle from "@/components/ThemeToggle";
+import { PERMISSION_BY_HREF } from "@/lib/navAccess";
 import {
   Home, Users, Truck, Droplet, Package, Wallet, Receipt, ReceiptText,
   BookOpen, UserCog, BarChart3, Settings, LogOut, Landmark, FileText,
@@ -95,28 +96,6 @@ const NAV = [
   ]},
 ];
 
-const PERMISSION_BY_HREF = {
-  "/smart-entry": "smart_entry.view",
-  "/customers": "customers.view",
-  "/deliveries": "deliveries.view",
-  "/delivery-corrections": "deliveries.edit",
-  "/bottle-ledger": "bottles.view",
-  "/inventory": "inventory.view",
-  "/sales": "invoices.view",
-  "/invoices": "invoices.view",
-  "/payments": "payments.view",
-  "/expenses": "expenses.view",
-  "/ledger": "customers.view",
-  "/fleet": "vehicles.view",
-  "/tracking": "gps.view",
-  "/reports": "reports.view",
-  "/ai": "ai.view",
-  "/user-management": "users.manage",
-  "/user-management/permissions": "users.manage",
-  "/audit-logs": "audit.view",
-  "/settings/export": "settings.manage",
-  "/settings": "settings.manage",
-};
 
 function canSee(item, normalizedRole, permissionSet) {
   const permission = PERMISSION_BY_HREF[item.href];
