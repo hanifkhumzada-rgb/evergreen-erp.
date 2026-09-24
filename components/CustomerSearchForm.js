@@ -58,7 +58,7 @@ export default function CustomerSearchForm({ initialQuery = "", zone = "", type 
           className="w-full pl-9 pr-9 py-2 rounded-xl border border-line bg-card text-xs outline-none focus:border-aqua focus:ring-4 focus:ring-aqua/10"
         />
         {query && (
-          <button type="button" onClick={clearSearch} aria-label="Clear customer search" className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate hover:text-ink">
+          <button type="button" onClick={clearSearch} aria-label="Clear customer search" className="absolute right-0.5 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center text-slate hover:text-ink">
             <X size={15} />
           </button>
         )}

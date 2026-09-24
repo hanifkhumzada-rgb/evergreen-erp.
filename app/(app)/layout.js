@@ -1,4 +1,6 @@
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
+import { canAccessPath, homePathFor } from "@/lib/navAccess";
 import Link from "next/link";
 import { getCurrentProfile } from "@/lib/session";
 import Sidebar, { SidebarProvider, SidebarToggleButton } from "@/components/Sidebar";
@@ -31,6 +33,15 @@ export default async function AppLayout({ children }) {
     );
   }
 
+  const pathname = headers().get("x-pathname") || "";
+  const allowed = canAccessPath(pathname, roleKey, effectivePermissions);
+  if (!allowed) {
+    // Landing somewhere you can't use (e.g. a Delivery Boy sent to
+    // /dashboard after login) goes straight to your own home page.
+    const home = homePathFor(roleKey, effectivePermissions);
+    if (home && pathname === "/dashboard") redirect(home);
+  }
+
   const embeddedRole = Array.isArray(profile.roles) ? profile.roles[0] : profile.roles;
   const roleLabel = embeddedRole?.name || (roleKey ? roleKey[0].toUpperCase() + roleKey.slice(1) : "—");
 
@@ -50,9 +61,9 @@ export default async function AppLayout({ children }) {
           <div className="flex items-center gap-4">
             <OfflineIndicator />
             <div className="flex items-center gap-2 rounded-xl border border-line bg-foam/70 px-2 py-1"><Command size={13} className="hidden sm:block text-slate" /><GlobalSearch /></div>
-            <Link href="/notifications" className="relative p-1.5 -m-1.5 rounded-lg hover:bg-foam transition-colors" aria-label="Notifications">
+            <Link href="/notifications" className="relative grid h-10 w-10 place-items-center -m-2 rounded-lg hover:bg-foam transition-colors" aria-label="Notifications">
               <Bell size={17} className="text-slate" />
-              {unreadNotifications > 0 && <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-coral ring-2 ring-card" />}
+              {unreadNotifications > 0 && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-coral ring-2 ring-card" />}
             </Link>
             <div className="flex items-center gap-2.5">
               <div className="w-8 h-8 rounded-full bg-gradient-to-br from-aqua to-navyLight text-white flex items-center justify-center text-xs font-bold shadow-sm ring-2 ring-card flex-shrink-0">
@@ -65,7 +76,13 @@ export default async function AppLayout({ children }) {
             </div>
           </div>
         </header>
-        <main className="page-stage flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto"><div className="mx-auto w-full max-w-[1600px]">{children}</div></main>
+        <main className="page-stage flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto"><div className="mx-auto w-full max-w-[1600px]">{allowed ? children : (
+          <div className="mx-auto mt-10 max-w-md rounded-2xl border border-line bg-card p-8 text-center">
+            <h2 className="font-display text-xl font-semibold mb-2">You don&apos;t have access to this page</h2>
+            <p className="text-slate text-sm mb-5">Your role doesn&apos;t include this module. Ask the Owner if you need it.</p>
+            {homePathFor(roleKey, effectivePermissions) && <Link href={homePathFor(roleKey, effectivePermissions)} className="inline-flex min-h-[40px] items-center rounded-xl bg-navy px-4 text-sm font-semibold text-white">Go to my workspace</Link>}
+          </div>
+        )}</div></main>
         <QuickAdd role={roleKey} permissions={effectivePermissions} />
       </div>
     </div>
