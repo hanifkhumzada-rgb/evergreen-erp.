@@ -13,10 +13,25 @@ import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import { bulkImportDeliveries, voidDelivery } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
+import { fetchAll } from "@/lib/fetchAll";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { Phone, MessageCircle, Search } from "lucide-react";
 
 export const dynamic = "force-dynamic";
+
+const HISTORY_PAGE_SIZE = 100;
+const HISTORY_COLUMNS = "id, delivery_no, customer_id, rider_id, delivery_date, status, amount, amount_collected, rider_remarks, void_reason, customers(name, code, mobile, zone_id), profiles!deliveries_rider_id_fkey(id, full_name), delivery_items(product_id, expected_qty, delivered_qty, returned_qty)";
+
+// The month view used to fetch with .limit(1000), so any month with more
+// than 1,000 deliveries (≈250 customers × 13 visits) would silently drop
+// rows from "Customer Monthly Totals". Fetch the whole month in pages
+// instead so totals and the Excel export always cover every delivery.
+function fetchMonthDeliveries(supabase, from, until) {
+  return fetchAll(() => supabase.from("deliveries")
+    .select(HISTORY_COLUMNS)
+    .gte("delivery_date", from).lt("delivery_date", until)
+    .order("delivery_date", { ascending: false }).order("id", { ascending: true }), { label: "deliveries month history" });
+}
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 const STATUS_TONE = (s) => (s === "delivered" ? "green" : s === "cancelled" || s === "missed" || s === "void" ? "coral" : "amber");
 const CARD_STATUS = { delivered: { text: "Completed", tone: "green" }, missed: { text: "Skipped", tone: "coral" }, cancelled: { text: "Skipped", tone: "coral" }, pending: { text: "Pending", tone: "amber" }, rescheduled: { text: "Pending", tone: "amber" } };
@@ -108,10 +123,7 @@ export default async function DeliveriesPage({ searchParams }) {
     { data: canVoidDeliveries },
   ] = await Promise.all([
     getBrandingLite(supabase),
-    supabase.from("deliveries")
-      .select("*, customers(name, code, mobile, zone_id), profiles!deliveries_rider_id_fkey(id, full_name), delivery_items(product_id, expected_qty, delivered_qty, returned_qty)")
-      .gte("delivery_date", historyFrom).lt("delivery_date", historyUntil)
-      .order("delivery_date", { ascending: false }).limit(1000),
+    fetchMonthDeliveries(supabase, historyFrom, historyUntil),
     supabase.from("deliveries")
       .select("id, customer_id, status, amount, amount_collected, rider_remarks, profiles!deliveries_rider_id_fkey(full_name), delivery_items(delivered_qty)")
       .eq("delivery_date", today),
@@ -254,6 +266,16 @@ export default async function DeliveriesPage({ searchParams }) {
     if (historySort === "latest") return b.latest.localeCompare(a.latest);
     return a.name.localeCompare(b.name);
   });
+  const historyPageCount = Math.max(1, Math.ceil(historyRows.length / HISTORY_PAGE_SIZE));
+  const historyPage = Math.min(Math.max(1, Number.parseInt(sp.hpage, 10) || 1), historyPageCount);
+  const historyOffset = (historyPage - 1) * HISTORY_PAGE_SIZE;
+  const historyPageRows = historyRows.slice(historyOffset, historyOffset + HISTORY_PAGE_SIZE);
+  const historyPageHref = (n) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(sp)) if (key !== "hpage" && typeof value === "string" && value) params.set(key, value);
+    if (n > 1) params.set("hpage", String(n));
+    return `/deliveries${params.size ? `?${params}` : ""}`;
+  };
   const exportRows = historyRows.map((d) => ({ Date: d.delivery_date, Customer: d.customers?.name, Qty: qtyOf(d), DeliveryBoy: d.profiles?.full_name, Status: d.status, CashCollected: d.amount_collected }));
   const hasHistoryFilters = statusFilter || historyRider || fromDate || toDate;
   const hasTodayFilters = zoneFilter || routeFilter || riderFilter || q;
@@ -400,13 +422,13 @@ export default async function DeliveriesPage({ searchParams }) {
               <thead><tr className="bg-foam"><Th>#</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Delivery Boy</Th><Th>Status</Th><Th>Cash Collected</Th><Th>Notes</Th><Th className="no-print">&nbsp;</Th></tr></thead>
               <tbody>
                 {historyRows.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-slate">No deliveries match.</td></tr>}
-                {historyRows.map((d, index) => (
+                {historyPageRows.map((d, index) => (
                   <tr key={d.id} className={`hover:bg-foam ${d.status === "void" ? "opacity-60" : ""}`}>
-                    <Td>{index + 1}</Td><Td>{fmtDate(d.delivery_date)}</Td><Td>{d.customers?.name}</Td><Td>{qtyOf(d)}</Td><Td>{d.profiles?.full_name || "—"}</Td>
+                    <Td>{historyOffset + index + 1}</Td><Td>{fmtDate(d.delivery_date)}</Td><Td>{d.customers?.name}</Td><Td>{qtyOf(d)}</Td><Td>{d.profiles?.full_name || "—"}</Td>
                     <Td><Badge text={d.status} tone={STATUS_TONE(d.status)} />{d.status === "void" && d.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{d.void_reason}</div>}</Td>
                     <Td>{pkr(d.amount_collected)}</Td><Td className="max-w-[220px] truncate">{d.rider_remarks || "—"}</Td>
                     <Td className="no-print">
-                      {profile?.roles?.key === "owner" && ["delivered", "partially_delivered"].includes(d.status) && <DeliveryCorrectionForm delivery={d} products={products || []} />}
+                      {profile?.roles?.key === "owner" && ["delivered", "partially_delivered"].includes(d.status) && <DeliveryCorrectionForm delivery={{ id: d.id, delivery_no: d.delivery_no, delivery_date: d.delivery_date, customers: { name: d.customers?.name }, delivery_items: d.delivery_items }} products={products || []} />}
                       {canVoidDeliveries && d.status !== "void" && (
                         <ReasonConfirmButton action={voidDelivery} id={d.id} label="Void"
                           confirmText={`Void this delivery for ${d.customers?.name}?`}
@@ -419,6 +441,17 @@ export default async function DeliveriesPage({ searchParams }) {
               </tbody>
             </table>
           </div>
+          {historyPageCount > 1 && (
+            <nav className="no-print mt-3 flex items-center justify-between gap-3" aria-label="Delivery history pages">
+              {historyPage > 1
+                ? <Link href={historyPageHref(historyPage - 1)} className="inline-flex min-h-[40px] items-center rounded-xl border border-line bg-card px-3.5 text-xs font-semibold text-navy hover:bg-foam">← Previous</Link>
+                : <span />}
+              <span className="text-xs text-slate">Rows {historyOffset + 1}–{Math.min(historyOffset + HISTORY_PAGE_SIZE, historyRows.length)} of {historyRows.length}</span>
+              {historyPage < historyPageCount
+                ? <Link href={historyPageHref(historyPage + 1)} className="inline-flex min-h-[40px] items-center rounded-xl border border-line bg-card px-3.5 text-xs font-semibold text-navy hover:bg-foam">Next →</Link>
+                : <span />}
+            </nav>
+          )}
         </div>
       </section>
       <DocumentPrintFooter />

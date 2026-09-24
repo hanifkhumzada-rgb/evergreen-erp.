@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { fetchAll } from "@/lib/fetchAll";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
 import { Badge, DocumentActionBar, Th, Td } from "@/components/ui";
@@ -66,9 +67,11 @@ export default async function BottleLedgerPage({ searchParams }) {
   const runningBalance = {};
   if (pairs.length) {
     const customerIds = Array.from(new Set(pairs.map((p) => p.split("|")[0])));
-    const { data: fullHistory } = await supabase.from("bottle_transactions")
+    // Paged: these customers' combined history easily exceeds the API's
+    // 1,000-row cap, which would silently corrupt the running balances.
+    const { data: fullHistory } = await fetchAll(() => supabase.from("bottle_transactions")
       .select("id, customer_id, product_id, quantity, from_state, to_state, created_at")
-      .in("customer_id", customerIds).order("created_at", { ascending: true });
+      .in("customer_id", customerIds).order("created_at", { ascending: true }).order("id"), { label: "bottle running balance" });
     const byPair = {};
     (fullHistory || []).forEach((t) => {
       const key = `${t.customer_id}|${t.product_id}`;
