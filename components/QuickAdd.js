@@ -50,7 +50,7 @@ export default function QuickAdd({ role, permissions = [] }) {
           <div className="mt-1 grid grid-cols-2 gap-1.5">
             {actions.map((action) => {
               const Icon = action.icon;
-              return <Link key={action.href} href={action.href} onClick={() => setOpen(false)} className="flex min-h-20 flex-col justify-between rounded-xl border border-line bg-foam/50 p-3 text-xs font-semibold transition hover:-translate-y-0.5 hover:border-aqua/40 hover:bg-aquaSoft">
+              return <Link key={action.href} href={action.href} onClick={() => { if (action.href.startsWith("/customers?quick=new")) window.dispatchEvent(new CustomEvent("ew:quick-add", { detail: "customer" })); setOpen(false); }} className="flex min-h-20 flex-col justify-between rounded-xl border border-line bg-foam/50 p-3 text-xs font-semibold transition hover:-translate-y-0.5 hover:border-aqua/40 hover:bg-aquaSoft">
                 <Icon size={17} className="text-aqua" /><span>{action.label}</span>
               </Link>;
             })}
@@ -58,7 +58,7 @@ export default function QuickAdd({ role, permissions = [] }) {
         </div>
       )}
       <button type="button" onClick={() => setOpen((value) => !value)} aria-expanded={open}
-        className="flex items-center gap-2 rounded-2xl bg-gradient-to-r from-aqua to-[#087C69] px-4 py-3 text-sm font-bold text-white shadow-xl shadow-aqua/25 transition hover:-translate-y-0.5 hover:shadow-2xl">
+        className="flex items-center gap-2 rounded-2xl bg-aqua px-4 py-3 text-sm font-bold text-white shadow-lg shadow-aqua/20 transition-colors hover:bg-navy">
         <Plus size={19} className={`transition-transform ${open ? "rotate-45" : ""}`} /> Quick Add
       </button>
       <style jsx global>{`.pdf-preview-open .quick-add-root { display: none !important; }`}</style>
