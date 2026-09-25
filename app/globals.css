@@ -43,28 +43,15 @@ body {
 .app-shell-bg {
   position: relative;
   isolation: isolate;
-  background:
-    radial-gradient(circle at 82% -10%, rgba(5,150,105,.13), transparent 30rem),
-    radial-gradient(circle at 8% 58%, rgba(14,165,233,.055), transparent 24rem),
-    var(--foam);
+  background: var(--foam);
 }
 .app-shell-bg::before {
-  content: "";
-  position: fixed;
-  z-index: -1;
-  inset: 0;
-  pointer-events: none;
-  opacity: .42;
-  background-image:
-    radial-gradient(circle at center, rgba(8,124,105,.11) 0 1px, transparent 1.5px),
-    linear-gradient(125deg, transparent 48%, rgba(8,124,105,.035) 49%, transparent 51%);
-  background-size: 26px 26px, 120px 120px;
-  mask-image: linear-gradient(to bottom, black, transparent 72%);
+  content: none;
 }
 .glass-bar {
-  background: color-mix(in srgb, var(--card) 88%, transparent);
-  backdrop-filter: blur(16px) saturate(140%);
-  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  background: color-mix(in srgb, var(--card) 97%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
 /* Keep the route transition opacity-only. A transformed ancestor becomes the
    containing block for position:fixed descendants; on mobile that pushed
@@ -122,11 +109,11 @@ body {
 
 /* Modern card polish — applies to the border+rounded-2xl card pattern used everywhere */
 .rounded-2xl.border {
-  box-shadow: 0 1px 3px rgba(7, 26, 24, 0.06), 0 8px 24px rgba(7, 26, 24, 0.07);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  box-shadow: 0 1px 2px rgba(7, 26, 24, 0.04);
+  transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
 .dark .rounded-2xl.border {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25), 0 10px 28px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.24);
 }
 table tr.hover\:bg-foam:hover {
   transform: none;
@@ -137,11 +124,12 @@ table tr.hover\:bg-foam:hover {
   transition: box-shadow 0.2s ease, transform 0.2s ease;
 }
 .card-lift:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 8px rgba(7, 26, 24, 0.08), 0 14px 32px rgba(7, 26, 24, 0.12);
+  transform: none;
+  border-color: color-mix(in srgb, var(--erp-accent, #059669) 24%, var(--line));
+  box-shadow: 0 4px 14px rgba(7, 26, 24, 0.07);
 }
 .dark .card-lift:hover {
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3), 0 14px 32px rgba(0, 0, 0, 0.38);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
 }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
@@ -252,8 +240,7 @@ table tr.hover\:bg-foam:hover {
   white-space: nowrap;
 }
 .app-shell-bg .page-stage {
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--card) 24%, transparent), transparent 15rem);
+  background: var(--foam);
 }
 .app-shell-bg .page-stage > div > div > h2:first-child,
 .app-shell-bg .page-stage h1 {
@@ -307,10 +294,9 @@ table tr.hover\:bg-foam:hover {
   border-color: color-mix(in srgb, var(--erp-accent, #059669) 38%, var(--line));
 }
 .erp-sidebar-surface {
-  background:
-    radial-gradient(circle at 20% 2%, color-mix(in srgb, var(--erp-accent, #059669) 30%, transparent), transparent 15rem),
-    linear-gradient(180deg, var(--erp-navy, #073B3A) 0%, var(--erp-navy, #052D2C) 100%);
-  box-shadow: 12px 0 36px rgba(5,45,44,.12);
+  background: var(--erp-navy, #073B3A);
+  border-right: 1px solid rgba(255,255,255,.08);
+  box-shadow: 8px 0 24px rgba(5,45,44,.08);
 }
 .erp-sidebar-link {
   position: relative;
@@ -318,10 +304,10 @@ table tr.hover\:bg-foam:hover {
   transition: color .15s ease, background-color .15s ease, transform .15s ease;
 }
 .erp-sidebar-link:hover {
-  transform: translateX(2px);
+  transform: none;
 }
 .erp-sidebar-link-active {
-  box-shadow: 0 8px 22px color-mix(in srgb, var(--erp-accent, #059669) 28%, transparent), inset 0 1px 0 rgba(255,255,255,.15);
+  box-shadow: inset 3px 0 0 rgba(255,255,255,.58);
 }
 .erp-sidebar-group {
   min-height: 38px;
