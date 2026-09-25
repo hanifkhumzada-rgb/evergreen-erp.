@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { Plus, Pencil, X, AlertTriangle } from "lucide-react";
 import { createCustomer, updateCustomer, checkDuplicateCustomer } from "@/app/actions";
@@ -29,6 +29,19 @@ export default function CustomerForm({ mode = "create", customer, zones, product
   const [duplicates, setDuplicates] = useState(null); // { matches, formData } while the Cancel/Use Existing/Create Anyway dialog is open
   const formRef = useRef();
   const c = customer || {};
+
+  useEffect(() => {
+    if (initialOpen) setOpen(true);
+  }, [initialOpen]);
+
+  useEffect(() => {
+    if (mode !== "create") return undefined;
+    const openFromQuickAdd = (event) => {
+      if (event.detail === "customer") setOpen(true);
+    };
+    window.addEventListener("ew:quick-add", openFromQuickAdd);
+    return () => window.removeEventListener("ew:quick-add", openFromQuickAdd);
+  }, [mode]);
 
   // Any server action call here can throw instead of resolving (a dropped
   // connection, or requireUser() rejecting on a momentary session hiccup) —
@@ -82,11 +95,11 @@ export default function CustomerForm({ mode = "create", customer, zones, product
         </button>
       )}
       {open && (
-        <div className="fixed inset-0 bg-navy/40 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
-          <form ref={formRef} action={handleSubmit} onClick={(e) => e.stopPropagation()} className="bg-card rounded-2xl p-6 max-w-2xl w-full max-h-[88vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
+        <div className="fixed inset-0 bg-navy/35 backdrop-blur-[2px] z-50 flex items-center justify-center p-3 sm:p-4" onClick={() => setOpen(false)}>
+          <form ref={formRef} action={handleSubmit} onClick={(e) => e.stopPropagation()} className="customer-form-panel bg-foam border border-line rounded-2xl p-4 sm:p-6 max-w-2xl w-full max-h-[92vh] sm:max-h-[88vh] overflow-y-auto shadow-2xl">
+            <div className="sticky -top-4 sm:-top-6 z-10 -mx-4 sm:-mx-6 -mt-4 sm:-mt-6 mb-5 flex items-center justify-between border-b border-line bg-foam/95 px-4 sm:px-6 py-4 backdrop-blur">
               <h3 className="font-display text-lg font-semibold">{mode === "edit" ? `Edit ${c.name}` : "New Customer"}</h3>
-              <button type="button" onClick={() => setOpen(false)}><X size={18} /></button>
+              <button type="button" onClick={() => setOpen(false)} className="grid h-9 w-9 place-items-center rounded-xl border border-line bg-card text-slate hover:bg-aquaSoft hover:text-aqua" aria-label="Close customer form"><X size={18} /></button>
             </div>
             {error && <p className="text-coral text-xs mb-3">{error}</p>}
 
