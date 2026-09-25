@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { Callout } from "@/components/ui";
 import BusinessSettingsForm from "@/components/BusinessSettingsForm";
+import AppearanceSettings from "@/components/AppearanceSettings";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +27,7 @@ export default async function SettingsPage() {
         ].map(([href, label, hint]) => <Link key={href} href={href} className="rounded-2xl border border-line bg-card p-4 hover:bg-foam"><h3 className="text-sm font-bold text-aqua">{label}</h3><p className="mt-1 text-xs text-slate">{hint}</p></Link>)}
       </nav>}
       <div className="flex flex-col gap-5">
+        <AppearanceSettings />
         {canManage
           ? <BusinessSettingsForm settings={businessSettings} />
           : <p className="text-xs text-slate border border-line rounded-2xl p-5 max-w-3xl">Business branding is managed by the Owner.</p>}

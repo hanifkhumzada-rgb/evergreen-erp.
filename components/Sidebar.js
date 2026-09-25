@@ -5,7 +5,6 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { signOut } from "@/app/actions";
-import ThemeToggle from "@/components/ThemeToggle";
 import { PERMISSION_BY_HREF } from "@/lib/navAccess";
 import {
   Home, Users, Truck, Droplet, Package, Wallet, Receipt, ReceiptText,
@@ -22,6 +21,10 @@ const OWNER_ROLES = ["owner", "admin"];
 export function SidebarProvider({ children }) {
   const [open, setOpen] = useState(false);
   return <SidebarContext.Provider value={{ open, setOpen }}>{children}</SidebarContext.Provider>;
+}
+
+export function useSidebar() {
+  return useContext(SidebarContext);
 }
 
 export function SidebarToggleButton() {
@@ -153,7 +156,7 @@ function NavList({ entries, pathname, unreadNotifications, onNavigate }) {
           if (entry.type === "link") {
             const Icon = entry.icon;
             const active = pathname.startsWith(entry.href);
-            return <Link key={entry.href} href={entry.href} onClick={onNavigate} className={`erp-sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-[12.5px] font-semibold ${active ? "erp-sidebar-link-active bg-gradient-to-r from-aqua to-[#087C69] text-white" : "text-[#C7DEDC] hover:bg-white/5"}`}><Icon size={15} /><span className="flex-1">{entry.label}</span></Link>;
+            return <Link key={entry.href} href={entry.href} onClick={onNavigate} className={`erp-sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-[12.5px] font-semibold ${active ? "erp-sidebar-link-active bg-aqua text-white" : "text-[#C7DEDC] hover:bg-white/5"}`}><Icon size={15} /><span className="flex-1">{entry.label}</span></Link>;
           }
           const active = isEntryActive(entry, pathname);
           const expanded = Boolean(query.trim()) || opened.has(entry.key);
@@ -166,7 +169,7 @@ function NavList({ entries, pathname, unreadNotifications, onNavigate }) {
               {expanded && <div className="flex flex-col gap-0.5 pl-2 mt-1">{entry.items.map((item) => {
                 const Icon = item.icon;
                 const itemActive = pathname.startsWith(item.href);
-                return <Link key={item.href} href={item.href} onClick={onNavigate} className={`erp-sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-[12.5px] font-semibold ${itemActive ? "erp-sidebar-link-active bg-gradient-to-r from-aqua to-[#087C69] text-white" : "text-[#C7DEDC] hover:bg-white/5"}`}><Icon size={15} /><span className="flex-1">{item.label}</span>{item.href === "/notifications" && <NotifBadge count={unreadNotifications} />}</Link>;
+                return <Link key={item.href} href={item.href} onClick={onNavigate} className={`erp-sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-[12.5px] font-semibold ${itemActive ? "erp-sidebar-link-active bg-aqua text-white" : "text-[#C7DEDC] hover:bg-white/5"}`}><Icon size={15} /><span className="flex-1">{item.label}</span>{item.href === "/notifications" && <NotifBadge count={unreadNotifications} />}</Link>;
               })}</div>}
             </div>
           );
@@ -195,7 +198,6 @@ function BrandHeader({ onCollapse }) {
     <div className="flex items-center gap-2 px-1.5 pb-4">
       <Image src="/ew-mark.svg" width={36} height={36} alt="Evergreen Water" className="rounded-xl flex-shrink-0" priority unoptimized />
       <span className="font-display font-semibold text-sm leading-tight flex-1">Evergreen Water</span>
-      <ThemeToggle className="text-[#C7DEDC] hover:bg-white/10" />
       {onCollapse && <button type="button" onClick={onCollapse} title="Collapse sidebar" className="w-7 h-7 flex items-center justify-center rounded-lg text-[#C7DEDC] hover:bg-white/10"><ChevronLeft size={16} /></button>}
     </div>
   );
@@ -241,7 +243,7 @@ export default function Sidebar({ role, permissions = [], unreadNotifications = 
           <Image src="/ew-mark.svg" width={36} height={36} alt="Evergreen Water" className="rounded-xl flex-shrink-0 mb-1.5" priority unoptimized />
           <button type="button" onClick={togglePinned} title="Pin sidebar open" className="w-8 h-8 flex items-center justify-center rounded-lg text-[#C7DEDC] hover:bg-white/10 mb-3"><ChevronRight size={16} /></button>
           <RailNav entries={entries} pathname={pathname} unreadNotifications={unreadNotifications} />
-          <div className="flex flex-col items-center gap-1 mt-2"><ThemeToggle className="text-[#C7DEDC] hover:bg-white/10" /><form action={signOut}><button title="Sign out" className="w-9 h-9 flex items-center justify-center rounded-lg text-[#C7DEDC] hover:bg-white/10"><LogOut size={16} /></button></form></div>
+          <div className="flex flex-col items-center gap-1 mt-2"><form action={signOut}><button title="Sign out" className="w-9 h-9 flex items-center justify-center rounded-lg text-[#C7DEDC] hover:bg-white/10"><LogOut size={16} /></button></form></div>
         </div>
       )}
     </>
