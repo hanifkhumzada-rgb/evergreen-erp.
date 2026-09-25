@@ -23,6 +23,10 @@ export function SidebarProvider({ children }) {
   return <SidebarContext.Provider value={{ open, setOpen }}>{children}</SidebarContext.Provider>;
 }
 
+export function useSidebar() {
+  return useContext(SidebarContext);
+}
+
 export function SidebarToggleButton() {
   const { open, setOpen } = useContext(SidebarContext);
   return (
