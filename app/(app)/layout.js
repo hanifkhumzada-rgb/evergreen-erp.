@@ -12,6 +12,7 @@ import NavigationControls from "@/components/NavigationControls";
 import { Bell, Command } from "lucide-react";
 import WorkspaceIdentity from "@/components/WorkspaceIdentity";
 import ErpAppearance from "@/components/ErpAppearance";
+import MobileBottomNav from "@/components/MobileBottomNav";
 
 export default async function AppLayout({ children }) {
   const { user, profile, roleKey, permissions: effectivePermissions, unreadNotifications } = await getCurrentProfile();
@@ -84,6 +85,7 @@ export default async function AppLayout({ children }) {
           </div>
         )}</div></main>
         <QuickAdd role={roleKey} permissions={effectivePermissions} />
+        <MobileBottomNav role={roleKey} permissions={effectivePermissions} />
       </div>
     </div>
     </SidebarProvider></ErpAppearance>
