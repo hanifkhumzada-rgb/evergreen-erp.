@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Wallet, CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
+import { Wallet, CalendarDays, ChevronLeft, ChevronRight, Search } from "lucide-react";
 import { requirePortalCustomer } from "@/lib/portal/session";
 import { fmtDate, pkr } from "@/lib/format";
 
@@ -8,9 +8,10 @@ export const dynamic = "force-dynamic";
 const PAGE_SIZE = 20;
 const METHOD_LABEL = { cash: "Cash", bank_transfer: "Bank Transfer", cheque: "Cheque", online: "Online", card: "Card" };
 
-function pageHref(month, page) {
+function pageHref(month, q, page) {
   const params = new URLSearchParams();
   if (month) params.set("month", month);
+  if (q) params.set("q", q);
   if (page > 1) params.set("page", String(page));
   return `/portal/payments${params.size ? `?${params}` : ""}`;
 }
@@ -18,6 +19,7 @@ function pageHref(month, page) {
 export default async function PortalPaymentsPage({ searchParams }) {
   const { supabase, customerId } = await requirePortalCustomer();
   const month = /^\d{4}-\d{2}$/.test(String(searchParams?.month || "")) ? String(searchParams.month) : "";
+  const q = String(searchParams?.q || "").trim().slice(0, 50).replace(/[^\p{L}\p{N}+\-\s]/gu, " ").replace(/\s+/g, " ").trim();
   const page = Math.max(1, Number(searchParams?.page) || 1);
   const from = (page - 1) * PAGE_SIZE;
 
@@ -31,6 +33,7 @@ export default async function PortalPaymentsPage({ searchParams }) {
     const next = new Date(Date.UTC(year, monthNumber, 1)).toISOString().slice(0, 10);
     query = query.gte("payment_date", `${month}-01`).lt("payment_date", next);
   }
+  if (q) query = query.or(`receipt_no.ilike.%${q}%,reference.ilike.%${q}%`);
   const { data: payments, count } = await query;
   const totalPages = Math.max(1, Math.ceil((count || 0) / PAGE_SIZE));
   const pageTotal = (payments || []).reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
@@ -38,9 +41,10 @@ export default async function PortalPaymentsPage({ searchParams }) {
   return (
     <div className="flex flex-col gap-4">
       <div><h1 className="font-display text-xl font-semibold">Payments</h1><p className="text-xs text-slate mt-1">Receipts and references for your approved payments.</p></div>
-      <form action="/portal/payments" className="flex items-center gap-2 rounded-2xl border border-line bg-card p-2">
-        <label className="relative flex-1"><CalendarDays size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate"/><input type="month" name="month" defaultValue={month} className="w-full rounded-xl border border-line bg-foam py-2.5 pl-9 pr-3 text-xs"/></label>
+      <form action="/portal/payments" className="grid grid-cols-[1fr_auto] gap-2 rounded-2xl border border-line bg-card p-2">
+        <label className="relative min-w-0"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate"/><input name="q" defaultValue={q} placeholder="Search receipt or reference" className="w-full rounded-xl border border-line bg-foam py-2.5 pl-9 pr-3 text-xs outline-none focus:border-aqua"/></label>
         <button className="rounded-xl bg-navy px-4 py-2.5 text-xs font-bold text-white">Apply</button>
+        <label className="relative col-span-2"><CalendarDays size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate"/><input type="month" name="month" defaultValue={month} className="w-full rounded-xl border border-line bg-card py-2.5 pl-9 pr-3 text-xs"/></label>
       </form>
       <div className="bg-navyLight text-white rounded-2xl p-4">
         <div className="text-[10.5px] font-semibold uppercase tracking-wide text-[#BFE3E0]">{month ? "Visible period total" : "Visible payments total"}</div>
@@ -59,9 +63,9 @@ export default async function PortalPaymentsPage({ searchParams }) {
       </div>
 
       {(count || 0) > PAGE_SIZE && <div className="flex items-center justify-between rounded-2xl border border-line bg-card p-2">
-        <Link aria-disabled={page <= 1} href={pageHref(month, Math.max(1, page - 1))} className={`flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-bold ${page <= 1 ? "pointer-events-none text-slate/40" : "text-aqua hover:bg-aquaSoft"}`}><ChevronLeft size={14}/>Previous</Link>
+        <Link aria-disabled={page <= 1} href={pageHref(month, q, Math.max(1, page - 1))} className={`flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-bold ${page <= 1 ? "pointer-events-none text-slate/40" : "text-aqua hover:bg-aquaSoft"}`}><ChevronLeft size={14}/>Previous</Link>
         <span className="text-[11px] text-slate">Page {Math.min(page, totalPages)} of {totalPages}</span>
-        <Link aria-disabled={page >= totalPages} href={pageHref(month, Math.min(totalPages, page + 1))} className={`flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-bold ${page >= totalPages ? "pointer-events-none text-slate/40" : "text-aqua hover:bg-aquaSoft"}`}>Next<ChevronRight size={14}/></Link>
+        <Link aria-disabled={page >= totalPages} href={pageHref(month, q, Math.min(totalPages, page + 1))} className={`flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-bold ${page >= totalPages ? "pointer-events-none text-slate/40" : "text-aqua hover:bg-aquaSoft"}`}>Next<ChevronRight size={14}/></Link>
       </div>}
     </div>
   );

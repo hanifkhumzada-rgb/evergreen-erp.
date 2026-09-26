@@ -320,9 +320,10 @@ export default async function DashboardPage({ searchParams }) {
     <div>
       <div className="water-orb relative mb-5 overflow-hidden rounded-3xl border border-aqua/20 bg-gradient-to-r from-[#073F3A] via-[#07564D] to-[#087C69] p-5 text-white shadow-lg shadow-aqua/10 sm:p-7">
         <div aria-hidden="true" className="pointer-events-none absolute -right-6 -top-10 h-40 w-28 rotate-12 rounded-[35%_35%_42%_42%] border border-white/15 bg-gradient-to-br from-white/20 to-aqua/10 shadow-2xl"><span className="absolute inset-x-3 top-16 grid h-12 place-items-center rounded-xl bg-navy/45 font-display text-xl font-bold">EW</span></div>
-        <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#A9DDD7]">Evergreen executive workspace</p>
+        <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#A9DDD7]">One ERP Solution · Total Business in Control</p>
         <h2 className="font-display text-2xl font-semibold sm:text-3xl">Owner Control Room</h2>
-        <p className="mt-1 text-sm text-[#D7EFEC]">{greeting()}, {firstName} · {new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</p>
+        <p className="mt-1 text-sm text-[#D7EFEC]">{greeting()}, {firstName} · Operations to profit, smartly managed in your pocket.</p>
+        <p className="mt-1 text-[11px] text-[#A9DDD7]">{new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</p>
         <div className="mt-4 flex flex-wrap gap-2 text-xs">
           <span className="rounded-full bg-white/10 px-3 py-1.5">{completedDeliveries} completed</span>
           <span className="rounded-full bg-white/10 px-3 py-1.5">{pendingDeliveries} pending</span>

@@ -37,9 +37,9 @@ function ResultsDropdown({ query, results, isPending, onSelect }) {
           <ResultSection title="SALES" icon={Receipt} items={results?.invoices} onSelect={onSelect}
             render={(s) => ({ href: `/sales/${s.id}`, label: s.invoice_no, sub: s.customers?.name })} />
           <ResultSection title="DELIVERIES" icon={Truck} items={results?.deliveries} onSelect={onSelect}
-            render={(d) => ({ href: "/deliveries", label: d.delivery_no, sub: d.customers?.name })} />
+            render={(d) => ({ href: `/deliveries?hq=${encodeURIComponent(d.delivery_no || query)}`, label: d.delivery_no, sub: d.customers?.name })} />
           <ResultSection title="PAYMENTS" icon={Wallet} items={results?.payments} onSelect={onSelect}
-            render={(p) => ({ href: "/payments", label: p.receipt_no, sub: p.customers?.name })} />
+            render={(p) => ({ href: `/payments?hq=${encodeURIComponent(p.receipt_no || query)}`, label: p.receipt_no, sub: p.customers?.name })} />
           <ResultSection title="EMPLOYEES" icon={UserCog} items={results?.employees} onSelect={onSelect}
             render={(e) => ({ href: "/employees", label: e.full_name })} />
           <ResultSection title="VEHICLES" icon={Car} items={results?.vehicles} onSelect={onSelect}
@@ -104,7 +104,7 @@ export default function GlobalSearch() {
           setOpen(false);
         }
       });
-    }, 300);
+    }, 220);
   };
 
   const closeAll = () => { setOpen(false); setMobileOpen(false); };
@@ -119,7 +119,7 @@ export default function GlobalSearch() {
           value={query}
           onChange={(e) => handleChange(e.target.value)}
           onFocus={() => results && setOpen(true)}
-          placeholder="Search records… Ctrl K"
+          placeholder="Search name, ID, phone… Ctrl K"
           className="bg-transparent outline-none text-sm flex-1 min-w-0"
         />
       </div>

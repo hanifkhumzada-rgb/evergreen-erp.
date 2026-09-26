@@ -74,14 +74,22 @@ export async function globalSearch(query) {
   const q = (query || "").trim();
   if (q.length < 2) return { customers: [], invoices: [], deliveries: [], payments: [], employees: [], vehicles: [] };
   const { supabase } = await requireUser();
-  const pattern = `%${q}%`;
-  const [{ data: customers }, { data: invoices }, { data: deliveries }, { data: payments }, { data: employees }, { data: vehicles }] = await Promise.all([
+  const safe = q.replace(/[^\p{L}\p{N}+\-\s]/gu, " ").replace(/\s+/g, " ").trim();
+  if (safe.length < 2) return { customers: [], invoices: [], deliveries: [], payments: [], employees: [], vehicles: [] };
+  const pattern = `%${safe}%`;
+  const [{ data: customers }, { data: employees }, { data: vehicles }] = await Promise.all([
     supabase.from("customers").select("id, name, mobile, code").or(`name.ilike.${pattern},mobile.ilike.${pattern},code.ilike.${pattern}`).limit(5),
-    supabase.from("invoices").select("id, invoice_no, customers(name)").ilike("invoice_no", pattern).limit(5),
-    supabase.from("deliveries").select("id, delivery_no, delivery_date, customers(name)").ilike("delivery_no", pattern).limit(5),
-    supabase.from("payments").select("id, receipt_no, customer_id, customers(name)").ilike("receipt_no", pattern).limit(5),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").neq("roles.key", "customer").ilike("full_name", pattern).limit(5),
     supabase.from("vehicles").select("id, registration_no").ilike("registration_no", pattern).limit(5),
+  ]);
+  const customerIds = (customers || []).map((customer) => customer.id);
+  const relatedFilter = (column) => customerIds.length
+    ? `${column}.ilike.${pattern},customer_id.in.(${customerIds.join(",")})`
+    : `${column}.ilike.${pattern}`;
+  const [{ data: invoices }, { data: deliveries }, { data: payments }] = await Promise.all([
+    supabase.from("invoices").select("id, invoice_no, customers(name)").or(relatedFilter("invoice_no")).order("invoice_date", { ascending: false }).limit(5),
+    supabase.from("deliveries").select("id, delivery_no, delivery_date, customers(name)").or(relatedFilter("delivery_no")).order("delivery_date", { ascending: false }).limit(5),
+    supabase.from("payments").select("id, receipt_no, customer_id, customers(name)").or(relatedFilter("receipt_no")).order("payment_date", { ascending: false }).limit(5),
   ]);
   return { customers: customers || [], invoices: invoices || [], deliveries: deliveries || [], payments: payments || [], employees: employees || [], vehicles: vehicles || [] };
 }

@@ -197,7 +197,7 @@ function BrandHeader({ onCollapse }) {
   return (
     <div className="flex items-center gap-2 px-1.5 pb-4">
       <Image src="/ew-mark.svg" width={36} height={36} alt="Evergreen Water" className="rounded-xl flex-shrink-0" priority unoptimized />
-      <span className="font-display font-semibold text-sm leading-tight flex-1">Evergreen Water</span>
+      <span className="min-w-0 flex-1"><span className="block font-display text-sm font-semibold leading-tight">Evergreen Water</span><span className="block truncate text-[9px] font-medium text-[#8FCBC4]">Your business in your pocket</span></span>
       {onCollapse && <button type="button" onClick={onCollapse} title="Collapse sidebar" className="w-7 h-7 flex items-center justify-center rounded-lg text-[#C7DEDC] hover:bg-white/10"><ChevronLeft size={16} /></button>}
     </div>
   );
