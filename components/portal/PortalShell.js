@@ -31,7 +31,7 @@ export default function PortalShell({ customerName, customerCode, unreadCount, c
   return <div className="min-h-screen app-shell-bg flex flex-col">
     <header className="sticky top-0 z-30 glass-bar border-b border-line px-4 py-3 flex items-center justify-between">
       <div className="flex items-center gap-2 min-w-0">
-        {!isHome && <button type="button" onClick={() => router.back()} aria-label="Go back" className="w-9 h-9 grid place-items-center rounded-xl border border-line bg-card hover:bg-foam"><ChevronLeft size={18}/></button>}
+        {!isHome && <div className="flex items-center gap-1"><button type="button" onClick={() => router.back()} aria-label="Previous portal page" title="Back" className="w-9 h-9 grid place-items-center rounded-xl border border-line bg-card hover:bg-foam"><ChevronLeft size={18}/></button><button type="button" onClick={() => router.forward()} aria-label="Next portal page" title="Next" className="w-9 h-9 grid place-items-center rounded-xl border border-line bg-card hover:bg-foam"><ChevronRight size={18}/></button></div>}
         <Image src="/ew-mark.svg" width={38} height={38} alt="Evergreen Water" className="rounded-xl shadow-sm flex-shrink-0" priority />
         <div className="min-w-0"><div className="text-sm font-bold leading-tight truncate">{customerName || "My Evergreen Water"}</div><div className="text-[10.5px] text-slate leading-tight mt-0.5">{customerCode ? `Customer ID · ${customerCode}` : "Customer portal"}</div></div>
       </div>
