@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import InvoiceDocument from "@/lib/pdf/InvoiceDocument";
 import { getBusinessBranding } from "@/lib/pdf/business";
 import { pdfContentDisposition } from "@/lib/pdf/response";
+import QRCode from "qrcode";
+import { portalStatementUrl } from "@/lib/reminders";
 
 export async function GET(request, { params }) {
   const supabase = await createClient();
@@ -26,8 +28,13 @@ export async function GET(request, { params }) {
     - (priorPayments || []).reduce((a, p) => a + Number(p.amount), 0);
   const newBalance = previousBalance + Number(invoice.net_amount) - paid;
 
+  // QR → the customer's Customer Portal statement (login returns them to
+  // it). Optional: a QR failure just omits it, never breaks the invoice.
+  const portalUrl = portalStatementUrl(process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin);
+  const qrDataUri = await QRCode.toDataURL(portalUrl, { margin: 1, width: 240, errorCorrectionLevel: "M", color: { dark: "#073B3AFF", light: "#FFFFFFFF" } }).catch(() => null);
+
   const buffer = await renderToBuffer(
-    <InvoiceDocument invoice={invoice} customer={customer} items={invoice.invoice_items || []} paid={paid} previousBalance={previousBalance} newBalance={newBalance} branding={branding} />
+    <InvoiceDocument invoice={invoice} customer={customer} items={invoice.invoice_items || []} paid={paid} previousBalance={previousBalance} newBalance={newBalance} branding={branding} qrDataUri={qrDataUri} portalUrl={portalUrl} />
   );
 
   return new NextResponse(buffer, {
