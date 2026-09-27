@@ -1,12 +1,15 @@
 import Link from "next/link";
-import { Wallet, CalendarDays, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { Wallet, ChevronLeft, ChevronRight } from "lucide-react";
+import ListFilterBar from "@/components/ListFilterBar";
+import { DocumentActionBar } from "@/components/ui";
+import { portalPaymentFilters, portalPaymentsQuery, PORTAL_METHOD_LABEL as METHOD_LABEL } from "@/lib/portal/listQueries";
+import { exportPortalPayments } from "@/lib/portal/exportActions";
 import { requirePortalCustomer } from "@/lib/portal/session";
 import { fmtDate, pkr } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
 
 const PAGE_SIZE = 20;
-const METHOD_LABEL = { cash: "Cash", bank_transfer: "Bank Transfer", cheque: "Cheque", online: "Online", card: "Card" };
 
 function pageHref(month, q, page) {
   const params = new URLSearchParams();
@@ -18,34 +21,28 @@ function pageHref(month, q, page) {
 
 export default async function PortalPaymentsPage({ searchParams }) {
   const { supabase, customerId } = await requirePortalCustomer();
-  const month = /^\d{4}-\d{2}$/.test(String(searchParams?.month || "")) ? String(searchParams.month) : "";
-  const q = String(searchParams?.q || "").trim().slice(0, 50).replace(/[^\p{L}\p{N}+\-\s]/gu, " ").replace(/\s+/g, " ").trim();
+  const filters = portalPaymentFilters(searchParams || {});
+  const { month, q } = filters;
   const page = Math.max(1, Number(searchParams?.page) || 1);
   const from = (page - 1) * PAGE_SIZE;
-
-  let query = supabase.from("payments")
-    .select("id, receipt_no, amount, payment_date, method, reference, voided", { count: "exact" })
-    .eq("customer_id", customerId).eq("voided", false)
-    .order("payment_date", { ascending: false }).order("created_at", { ascending: false })
-    .range(from, from + PAGE_SIZE - 1);
-  if (month) {
-    const [year, monthNumber] = month.split("-").map(Number);
-    const next = new Date(Date.UTC(year, monthNumber, 1)).toISOString().slice(0, 10);
-    query = query.gte("payment_date", `${month}-01`).lt("payment_date", next);
-  }
-  if (q) query = query.or(`receipt_no.ilike.%${q}%,reference.ilike.%${q}%`);
-  const { data: payments, count } = await query;
+  const { data: payments, count } = await portalPaymentsQuery(supabase, customerId, filters, { count: true }).range(from, from + PAGE_SIZE - 1);
+  const pdfParams = new URLSearchParams({ kind: "payments", ...(q && { q }), ...(month && { month }) });
   const totalPages = Math.max(1, Math.ceil((count || 0) / PAGE_SIZE));
   const pageTotal = (payments || []).reduce((sum, payment) => sum + (Number(payment.amount) || 0), 0);
 
   return (
     <div className="flex flex-col gap-4">
       <div><h1 className="font-display text-xl font-semibold">Payments</h1><p className="text-xs text-slate mt-1">Receipts and references for your approved payments.</p></div>
-      <form action="/portal/payments" className="grid grid-cols-[1fr_auto] gap-2 rounded-2xl border border-line bg-card p-2">
-        <label className="relative min-w-0"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate"/><input name="q" defaultValue={q} placeholder="Search receipt or reference" className="w-full rounded-xl border border-line bg-foam py-2.5 pl-9 pr-3 text-xs outline-none focus:border-aqua"/></label>
-        <button className="rounded-xl bg-navy px-4 py-2.5 text-xs font-bold text-white">Apply</button>
-        <label className="relative col-span-2"><CalendarDays size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate"/><input type="month" name="month" defaultValue={month} className="w-full rounded-xl border border-line bg-card py-2.5 pl-9 pr-3 text-xs"/></label>
-      </form>
+      <ListFilterBar className="!mb-0" placeholder="Search receipt or reference" dateFilters={[{ name: "month", label: "Month", type: "month" }]} />
+      <div className="flex flex-wrap gap-2">
+        <DocumentActionBar
+          print
+          pdfHref={`/api/pdf/portal-list?${pdfParams}`}
+          pdfLabel="PDF"
+          excel={{ loadRows: exportPortalPayments.bind(null, filters), sheetName: "My Payments", reportTitle: "My Payments" }}
+          share={{ title: "My Payments" }}
+        />
+      </div>
       <div className="bg-navyLight text-white rounded-2xl p-4">
         <div className="text-[10.5px] font-semibold uppercase tracking-wide text-[#BFE3E0]">{month ? "Visible period total" : "Visible payments total"}</div>
         <div className="font-mono-num text-2xl font-bold mt-1">{pkr(pageTotal)}</div>
