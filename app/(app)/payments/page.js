@@ -18,6 +18,7 @@ import RecoveryReminderTable from "@/components/RecoveryReminderTable";
 import { buildReminderMessage } from "@/lib/reminders";
 import { isTwilioConfigured } from "@/lib/twilio";
 import { appOrigin } from "@/lib/appOrigin";
+import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
 
 const HISTORY_PAGE_SIZE = 50;
 
@@ -254,13 +255,15 @@ export default async function PaymentsPage({ searchParams }) {
         ]}
         dateFilters={[{ name: "from", label: "From" }, { name: "to", label: "To" }]}
       />
+      <BulkSelectProvider noun="payment" actions={canVoid ? [{ key: "void", label: "Void", icon: "ban", action: voidPayment, busyLabel: "Voiding", doneLabel: "Void", detailText: "Each payment is voided exactly as with the single Void button — the customer ledger credit, cash movement and journal entry are reversed; the original stays for the audit trail." }] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Receipt</Th><Th>Customer</Th><Th>Amount</Th><Th>Method</Th><Th>Collected By</Th><Th>Reference</Th><Th>Status</Th><Th>&nbsp;</Th></tr></thead>
+          <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Date</Th><Th>Receipt</Th><Th>Customer</Th><Th>Amount</Th><Th>Method</Th><Th>Collected By</Th><Th>Reference</Th><Th>Status</Th><Th>&nbsp;</Th></tr></thead>
           <tbody>
-            {paymentRows.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-slate">No payments match.</td></tr>}
+            {paymentRows.length === 0 && <tr><td colSpan={canVoid ? 10 : 9} className="text-center py-8 text-slate">No payments match.</td></tr>}
             {paymentRows.map((p) => (
               <tr key={p.id} className={`hover:bg-foam ${p.voided ? "opacity-60" : ""}`}>
+                {canVoid && <Td className="no-print">{!p.voided ? <RowCheckbox id={p.id} label={p.receipt_no || p.customers?.name} /> : null}</Td>}
                 <Td>{fmtDate(p.payment_date)}</Td><Td className="font-mono-num text-xs text-slate">{p.receipt_no}</Td><Td>{p.customers?.name}</Td><Td>{pkr(p.amount)}</Td><Td>{p.method}</Td><Td>{p.profiles?.full_name || "—"}</Td><Td className="text-slate">{p.reference || "—"}</Td>
                 <Td>{p.voided ? <><Badge text="Voided" tone="coral" />{p.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{p.void_reason}</div>}</> : <Badge text="Active" tone="green" />}</Td>
                 <Td>
@@ -275,6 +278,7 @@ export default async function PaymentsPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      </BulkSelectProvider>
       <Pager basePath="/payments" searchParams={sp} page={historyPage} pageSize={HISTORY_PAGE_SIZE} total={paymentCount || 0} label="Payment history pages" />
       <DocumentPrintFooter />
     </div>

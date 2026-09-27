@@ -17,6 +17,7 @@ import { fetchAll } from "@/lib/fetchAll";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { Phone, MessageCircle } from "lucide-react";
 import ListFilterBar from "@/components/ListFilterBar";
+import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
 
 export const dynamic = "force-dynamic";
 
@@ -398,13 +399,15 @@ export default async function DeliveriesPage({ searchParams }) {
               <tbody>{monthlyCustomerRows.length === 0 ? <tr><td colSpan={9} className="py-7 text-center text-slate">No completed deliveries in this selection.</td></tr> : monthlyCustomerRows.map((row, index) => <tr key={row.id} className="hover:bg-aquaSoft/40"><Td>{index + 1}</Td><Td>{row.code}</Td><Td>{row.name}</Td><Td>{row.visits}</Td><Td><strong>{row.qty}</strong></Td><Td>{row.returned}</Td><Td>{pkr(row.amount)}</Td><Td>{pkr(row.collected)}</Td><Td>{fmtDate(row.first)} · {fmtDate(row.latest)}</Td></tr>)}</tbody>
             </table>
           </div>
+          <BulkSelectProvider noun="delivery" scopeLabel="on this page" actions={canVoidDeliveries ? [{ key: "void", label: "Void", icon: "ban", action: voidDelivery, busyLabel: "Voiding", doneLabel: "Void", detailText: "Each delivery is voided exactly as with the single Void button (bottle movements and the customer ledger are reversed; the original stays for the audit trail)." }] : []}>
           <div className="overflow-x-auto border border-line rounded-2xl">
             <table className="w-full text-[13.5px] border-collapse">
-              <thead><tr className="bg-foam"><Th>#</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Delivery Boy</Th><Th>Status</Th><Th>Cash Collected</Th><Th>Notes</Th><Th className="no-print">&nbsp;</Th></tr></thead>
+              <thead><tr className="bg-foam">{canVoidDeliveries && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>#</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Delivery Boy</Th><Th>Status</Th><Th>Cash Collected</Th><Th>Notes</Th><Th className="no-print">&nbsp;</Th></tr></thead>
               <tbody>
-                {historyRows.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-slate">No deliveries match.</td></tr>}
+                {historyRows.length === 0 && <tr><td colSpan={canVoidDeliveries ? 10 : 9} className="text-center py-8 text-slate">No deliveries match.</td></tr>}
                 {historyPageRows.map((d, index) => (
                   <tr key={d.id} className={`hover:bg-foam ${d.status === "void" ? "opacity-60" : ""}`}>
+                    {canVoidDeliveries && <Td className="no-print">{d.status !== "void" ? <RowCheckbox id={d.id} label={`${d.customers?.name || "Delivery"} (${d.delivery_date})`} /> : null}</Td>}
                     <Td>{historyOffset + index + 1}</Td><Td>{fmtDate(d.delivery_date)}</Td><Td>{d.customers?.name}</Td><Td>{qtyOf(d)}</Td><Td>{d.profiles?.full_name || "—"}</Td>
                     <Td><Badge text={d.status} tone={STATUS_TONE(d.status)} />{d.status === "void" && d.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{d.void_reason}</div>}</Td>
                     <Td>{pkr(d.amount_collected)}</Td><Td className="max-w-[220px] truncate">{d.rider_remarks || "—"}</Td>
@@ -422,6 +425,7 @@ export default async function DeliveriesPage({ searchParams }) {
               </tbody>
             </table>
           </div>
+          </BulkSelectProvider>
           {historyPageCount > 1 && (
             <nav className="no-print mt-3 flex items-center justify-between gap-3" aria-label="Delivery history pages">
               {historyPage > 1

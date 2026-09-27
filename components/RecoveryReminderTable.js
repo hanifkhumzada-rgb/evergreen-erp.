@@ -60,7 +60,7 @@ export default function RecoveryReminderTable({ rows, whatsappConfigured, canAut
         <div className="no-print mb-2.5 flex flex-wrap items-center gap-2.5 rounded-2xl border border-line bg-card px-3 py-2.5">
           <label className="flex min-h-[40px] items-center gap-2 text-xs font-semibold">
             <input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-4 w-4 accent-[#059669]" aria-label="Select all customers with a balance" />
-            {selected.size ? `${selected.size} selected · ${pkr(selectedTotal)}` : "Select customers to remind"}
+            {selected.size ? `${selected.size} selected · ${pkr(selectedTotal)}` : `Select all ${selectable.length} in this list`}
           </label>
           <div className="flex-1" />
           {selected.size > 0 && (
@@ -106,7 +106,7 @@ export default function RecoveryReminderTable({ rows, whatsappConfigured, canAut
       {rows.length > 0 && (
         <div className="overflow-x-auto border border-line rounded-2xl">
           <table className="w-full text-[13.5px] border-collapse">
-            <thead><tr className="bg-foam"><Th className="no-print w-10">&nbsp;</Th><Th>Priority</Th><Th>Customer</Th><Th>Amount Due</Th><Th>Due Date</Th><Th>Frequency</Th><Th>Last Payment</Th><Th>Status</Th><Th className="no-print">&nbsp;</Th></tr></thead>
+            <thead><tr className="bg-foam"><Th className="no-print w-10"><HeaderCheckbox checked={allSelected} partial={selected.size > 0 && !allSelected} onChange={toggleAll} count={selectable.length} /></Th><Th>Priority</Th><Th>Customer</Th><Th>Amount Due</Th><Th>Due Date</Th><Th>Frequency</Th><Th>Last Payment</Th><Th>Status</Th><Th className="no-print">&nbsp;</Th></tr></thead>
             <tbody>
               {rows.map((d) => (
                 <tr key={d.customerId} className={`hover:bg-foam ${selected.has(d.customerId) ? "bg-aquaSoft/50" : ""}`}>
@@ -211,5 +211,15 @@ function ReminderQueue({ queue, setQueue, onFinish }) {
         )}
       </div>
     </div>
+  );
+}
+
+function HeaderCheckbox({ checked, partial, onChange, count }) {
+  const ref = useRef(null);
+  useEffect(() => { if (ref.current) ref.current.indeterminate = partial; }, [partial]);
+  return (
+    <input ref={ref} type="checkbox" checked={checked} onChange={onChange} disabled={!count}
+      aria-label={`Select all ${count} customers in this list`} title={`Select all ${count} in this list`}
+      className="h-4 w-4 cursor-pointer align-middle accent-[#059669] disabled:opacity-40" />
   );
 }

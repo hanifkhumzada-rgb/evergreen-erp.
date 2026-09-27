@@ -7,6 +7,7 @@ import { voidProductionBatch } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import ListFilterBar from "@/components/ListFilterBar";
+import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
 
 export const dynamic = "force-dynamic";
 
@@ -84,13 +85,15 @@ export default async function ProductionPage({ searchParams }) {
         />
         <ProductionBatchForm products={products || []} />
       </div>
+      <BulkSelectProvider noun="batch" actions={canVoid ? [{ key: "void", label: "Void", icon: "ban", action: voidProductionBatch, busyLabel: "Voiding", doneLabel: "Void", detailText: "Each batch is voided exactly as with the single Void button (its stock and cost effect is reversed; the original stays for the audit trail)." }] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Size</Th><Th>Quantity</Th><Th>Cost/Bottle</Th><Th>Filling Cost</Th><Th>Caps</Th><Th>Cap Cost</Th><Th>Other Material</Th><Th>Supplier</Th><Th>Status</Th><Th className="no-print">&nbsp;</Th></tr></thead>
+          <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Date</Th><Th>Size</Th><Th>Quantity</Th><Th>Cost/Bottle</Th><Th>Filling Cost</Th><Th>Caps</Th><Th>Cap Cost</Th><Th>Other Material</Th><Th>Supplier</Th><Th>Status</Th><Th className="no-print">&nbsp;</Th></tr></thead>
           <tbody>
-            {allRows.length === 0 && <tr><td colSpan={11} className="text-center py-8 text-slate">No production batches recorded yet.</td></tr>}
+            {allRows.length === 0 && <tr><td colSpan={canVoid ? 12 : 11} className="text-center py-8 text-slate">No production batches recorded yet.</td></tr>}
             {allRows.map((b) => (
               <tr key={b.id} className={`hover:bg-foam ${b.voided ? "opacity-60" : ""}`}>
+                  {canVoid && <Td className="no-print">{!b.voided ? <RowCheckbox id={b.id} label={`${b.batch_date || b.production_date || ""} ${b.products?.name || ""}`.trim() || "batch"} /> : null}</Td>}
                 <Td>{fmtDate(b.batch_date)}</Td><Td>{b.products?.name || "—"}</Td><Td>{b.quantity_filled}</Td>
                 <Td>{pkr(b.cost_per_bottle)}</Td><Td className="font-semibold">{pkr(b.total_filling_cost)}</Td>
                 <Td>{b.caps_quantity ?? "—"}</Td><Td>{b.cap_cost != null ? pkr(b.cap_cost) : "—"}</Td>
@@ -110,6 +113,7 @@ export default async function ProductionPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      </BulkSelectProvider>
       <DocumentPrintFooter />
     </div>
   );

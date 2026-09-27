@@ -15,6 +15,7 @@ import { exportInvoiceRows } from "@/lib/exportActions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { INVOICE_STATUS_LABEL as STATUS_LABEL, INVOICE_STATUS_TONE as STATUS_TONE } from "@/lib/invoiceStatus";
+import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
 
 export const dynamic = "force-dynamic";
 
@@ -76,11 +77,12 @@ export default async function SalesPage({ searchParams }) {
         <AddSaleForm customers={customers || []} products={products || []} initialOpen={sp.quick === "new"} />
       </div>
       <p className="no-print text-xs text-slate mb-2">{total} sales records</p>
+      <BulkSelectProvider noun="invoice" actions={canVoid ? [{ key: "void", label: "Void", icon: "ban", action: voidInvoice, busyLabel: "Voiding", doneLabel: "Void", detailText: "Each invoice is voided exactly as with the single Void button (reversing its ledger effect; the original stays for the audit trail). Paid or part-paid invoices can't be selected." }] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Invoice #</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Total</Th><Th>Status</Th><Th className="no-print">Actions</Th></tr></thead>
+          <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Invoice #</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Total</Th><Th>Status</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-slate">No sales match.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={canVoid ? 8 : 7} className="text-center py-8 text-slate">No sales match.</td></tr>}
             {rows.map((s) => {
               const statusLabel = STATUS_LABEL[s.status] || s.status;
               const previewFields = [
@@ -94,6 +96,7 @@ export default async function SalesPage({ searchParams }) {
               const previewExcel = [{ Invoice: s.invoice_no, Date: s.invoice_date, Customer: s.customers?.name, Quantity: qtyOf(s), Total: s.net_amount, Status: statusLabel }];
               return (
                 <tr key={s.id} className="hover:bg-foam">
+                  {canVoid && <Td className="no-print">{s.status !== "void" && !["paid", "partially_paid"].includes(s.status) ? <RowCheckbox id={s.id} label={s.invoice_no} /> : null}</Td>}
                   <Td><Link href={`/sales/${s.id}`} className="font-semibold text-navy hover:text-aqua">{s.invoice_no}</Link></Td>
                   <Td>{fmtDate(s.invoice_date)}</Td>
                   <Td>{s.customers?.name}</Td>
@@ -112,6 +115,7 @@ export default async function SalesPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      </BulkSelectProvider>
       <Pager basePath="/sales" searchParams={sp} page={page} pageSize={PAGE_SIZE} total={total} label="Sales pages" />
       <DocumentPrintFooter />
     </div>

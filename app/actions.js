@@ -2696,3 +2696,16 @@ export async function sendBulkPaymentReminders(customerIds) {
   revalidatePath("/communication");
   return { ok: true, sent, failed, skipped, failures: failures.slice(0, 5) };
 }
+
+// Bulk "Deactivate" on the Employees list: same checks as the Active toggle
+// (users.manage, not yourself, never the last active Owner) via
+// toggleUserActive, plus the bulk reason recorded in the audit log.
+export async function deactivateUserWithReason(userId, reason) {
+  const trimmed = (reason || "").toString().trim();
+  if (!trimmed) return { error: "A reason is required." };
+  const res = await toggleUserActive(userId, false);
+  if (!res?.ok) return { error: res?.error || "Could not deactivate this user." };
+  const { supabase, user } = await requireUser();
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "profiles", record_id: userId, new_value: { is_active: false, reason: trimmed } });
+  return { ok: true };
+}

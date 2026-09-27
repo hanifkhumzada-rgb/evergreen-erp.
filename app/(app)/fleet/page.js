@@ -9,6 +9,7 @@ import { bulkImportVehicles, deleteVehicle, deleteVehicleExpenseLog } from "@/ap
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { AlertTriangle } from "lucide-react";
+import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
 
 export const dynamic = "force-dynamic";
 
@@ -124,13 +125,15 @@ export default async function FleetPage({ searchParams }) {
         {vehicles?.length > 0 && <AddVehicleExpenseForm vehicles={vehicles.map((v) => ({ id: v.id, vehicle_no: v.registration_no }))} />}
         <AddVehicleForm employees={(riders || []).map((r) => ({ id: r.id, name: r.full_name }))} />
       </div>
+      <BulkSelectProvider noun="vehicle" scopeLabel="shown" actions={canDelete ? [{ key: "delete", label: "Delete", icon: "trash", action: deleteVehicle, busyLabel: "Deleting", doneLabel: "Delete", detailText: "Each vehicle is deleted exactly as with the single Delete button. Vehicles still assigned to a customer or driver, or with delivery/expense history, are refused automatically and listed as failed." }] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Vehicle #</Th><Th>Type</Th><Th>Driver</Th><Th>Customers</Th><Th>Fuel Cost</Th><Th>Maintenance Cost</Th><Th>Insurance Expiry</Th><Th>Registration Expiry</Th><Th>Service Due</Th><Th>Status</Th><Th className="no-print"></Th></tr></thead>
+          <thead><tr className="bg-foam">{canDelete && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Vehicle #</Th><Th>Type</Th><Th>Driver</Th><Th>Customers</Th><Th>Fuel Cost</Th><Th>Maintenance Cost</Th><Th>Insurance Expiry</Th><Th>Registration Expiry</Th><Th>Service Due</Th><Th>Status</Th><Th className="no-print"></Th></tr></thead>
           <tbody>
-            {visible.length === 0 && <tr><td colSpan={11} className="text-center py-8 text-slate">No vehicles match.</td></tr>}
+            {visible.length === 0 && <tr><td colSpan={canDelete ? 12 : 11} className="text-center py-8 text-slate">No vehicles match.</td></tr>}
             {visible.map((v) => (
               <tr key={v.id} className="hover:bg-foam">
+                {canDelete && <Td className="no-print"><RowCheckbox id={v.id} label={v.registration_no} /></Td>}
                 <Td className="font-semibold">{v.registration_no}</Td><Td>{v.vehicle_type || "—"}</Td><Td>{v.profiles?.full_name || "Unassigned"}</Td>
                 <Td>{v.assignedCustomers}</Td><Td>{pkr(v.fuelCost)}</Td><Td>{pkr(v.maintCost)}</Td>
                 <Td className={isExpiringSoon(v.insurance_expiry) ? (isExpired(v.insurance_expiry) ? "text-coral font-semibold" : "text-amber font-semibold") : ""}>{v.insurance_expiry || "—"}</Td>
@@ -151,16 +154,19 @@ export default async function FleetPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      </BulkSelectProvider>
 
       <h4 className="text-sm font-bold mt-8 mb-2.5">Recent vehicle expenses</h4>
       <ListFilterBar className="!mb-2.5" searchParam="eq" placeholder="Search vehicle #, category, notes…" />
+      <BulkSelectProvider noun="expense log" scopeLabel="shown" actions={canDelete ? [{ key: "delete", label: "Delete", icon: "trash", action: deleteVehicleExpenseLog, busyLabel: "Deleting", doneLabel: "Delete" }] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Vehicle</Th><Th>Category</Th><Th>Amount</Th><Th>Notes</Th><Th className="no-print"></Th></tr></thead>
+          <thead><tr className="bg-foam">{canDelete && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Vehicle</Th><Th>Category</Th><Th>Amount</Th><Th>Notes</Th><Th className="no-print"></Th></tr></thead>
           <tbody>
-            {visibleExpenses.length === 0 && <tr><td colSpan={5} className="text-center py-6 text-slate">{expenseQuery ? "No expenses match." : "No vehicle expenses logged yet."}</td></tr>}
+            {visibleExpenses.length === 0 && <tr><td colSpan={canDelete ? 6 : 5} className="text-center py-6 text-slate">{expenseQuery ? "No expenses match." : "No vehicle expenses logged yet."}</td></tr>}
             {visibleExpenses.map((e) => (
               <tr key={e.id} className="hover:bg-foam">
+                {canDelete && <Td className="no-print"><RowCheckbox id={e.id} label={`${e.vehicles?.registration_no || "Vehicle"} ${e.category}`} /></Td>}
                 <Td>{e.vehicles?.registration_no}</Td><Td>{e.category}</Td><Td>{pkr(e.amount)}</Td><Td>{e.notes}</Td>
                 <Td className="no-print">
                   {canDelete && (
@@ -175,6 +181,7 @@ export default async function FleetPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      </BulkSelectProvider>
       <DocumentPrintFooter />
     </div>
   );

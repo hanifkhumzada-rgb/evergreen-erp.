@@ -4,6 +4,7 @@ import { Th, Td, Badge, DocumentActionBar } from "@/components/ui";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { voidJournalEntry } from "@/app/actions";
 import ListFilterBar from "@/components/ListFilterBar";
+import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
 import Pager from "@/components/Pager";
 import { pageFrom, rangeFor } from "@/lib/listParams";
 import { applyJournalFilters } from "@/lib/listQueries";
@@ -61,6 +62,10 @@ export default async function JournalPage({ searchParams }) {
       </div>
       <p className="no-print text-xs text-slate mb-2">{(count || 0).toLocaleString()} entries</p>
 
+      <BulkSelectProvider noun="journal entry" actions={canVoid ? [{ key: "void", label: "Void", icon: "ban", action: voidJournalEntry, busyLabel: "Voiding", doneLabel: "Void", detailText: "Each entry is voided exactly as with the single Void button (a reversing entry is posted; the original stays). Entries created by sales, payments, expenses or deliveries can't be selected — void the source record instead." }] : []}>
+      {canVoid && (entries || []).some((je) => !SOURCED_MODULES.includes(je.source_module) && !voidedSourceIds.has(je.id)) && (
+        <div className="no-print mb-2 flex items-center gap-2 px-1 text-xs text-slate"><SelectAllCheckbox /> Select all voidable entries on this page</div>
+      )}
       <div className="flex flex-col gap-3">
         {(entries || []).length === 0 && (
           <div className="border border-line rounded-2xl p-6 text-center text-sm text-slate">
@@ -74,7 +79,8 @@ export default async function JournalPage({ searchParams }) {
           return (
             <div key={je.id} className="border border-line rounded-2xl overflow-hidden">
               <div className="flex justify-between items-center px-4 py-3 bg-foam">
-                <div>
+                <div className="flex items-center gap-2">
+                  {canVoidThis && <RowCheckbox id={je.id} label={je.entry_no} />}
                   <span className="font-semibold text-[13.5px]">{je.entry_no}</span>
                   <span className="text-slate text-xs ml-2">{fmtDate(je.entry_date)}</span>
                   {je.reference && <span className="text-slate text-xs ml-2">· {je.reference}</span>}
@@ -109,6 +115,7 @@ export default async function JournalPage({ searchParams }) {
           );
         })}
       </div>
+      </BulkSelectProvider>
       <Pager basePath="/accounting/journal" searchParams={sp} page={page} pageSize={PAGE_SIZE} total={count || 0} label="Journal pages" />
     </div>
   );

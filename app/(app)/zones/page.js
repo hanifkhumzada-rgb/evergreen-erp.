@@ -8,6 +8,7 @@ import RouteEditForm from "@/components/RouteEditForm";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { deleteZone, deleteRoute } from "@/app/actions";
 import ListFilterBar from "@/components/ListFilterBar";
+import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
 
 export const dynamic = "force-dynamic";
 
@@ -87,13 +88,15 @@ export default async function ZonesPage({ searchParams }) {
       </div>
       <div className="no-print flex justify-end mb-4"><AddZoneForm /></div>
 
+      <BulkSelectProvider noun="zone" scopeLabel="shown" actions={canDeleteZone ? [{ key: "delete", label: "Delete", icon: "trash", action: deleteZone, busyLabel: "Deleting", doneLabel: "Delete", detailText: "Each zone is deleted exactly as with the single Delete button. Zones that still have customers, routes or other records are refused automatically and listed as failed." }] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl mb-8">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Zone</Th><Th>Description</Th><Th>Customers</Th><Th>Revenue</Th><Th className="no-print">&nbsp;</Th></tr></thead>
+          <thead><tr className="bg-foam">{canDeleteZone && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Zone</Th><Th>Description</Th><Th>Customers</Th><Th>Revenue</Th><Th className="no-print">&nbsp;</Th></tr></thead>
           <tbody>
-            {visibleZones.length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate">{q ? "No zones match." : "No zones yet — add one to start organizing routes."}</td></tr>}
+            {visibleZones.length === 0 && <tr><td colSpan={canDeleteZone ? 6 : 5} className="text-center py-8 text-slate">{q ? "No zones match." : "No zones yet — add one to start organizing routes."}</td></tr>}
             {visibleZones.map((z) => (
               <tr key={z.id} className="hover:bg-foam">
+                {canDeleteZone && <Td className="no-print"><RowCheckbox id={z.id} label={z.name} /></Td>}
                 <Td className="font-semibold">{z.name}</Td>
                 <Td>{z.description || "—"}</Td>
                 <Td>{custByZone[z.id] || 0}</Td>
@@ -112,18 +115,21 @@ export default async function ZonesPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      </BulkSelectProvider>
 
       <div className="flex items-center justify-between mb-2.5">
         <div><h3 className="font-display text-base font-semibold">Today’s route board</h3><p className="text-xs text-slate">Delivery counts below are for {today}</p></div>
         <div className="no-print"><AddRouteForm zones={zones || []} riders={riders || []} /></div>
       </div>
+      <BulkSelectProvider noun="route" scopeLabel="shown" actions={canDeleteRoute ? [{ key: "delete", label: "Delete", icon: "trash", action: deleteRoute, busyLabel: "Deleting", doneLabel: "Delete", detailText: "Each route is deleted exactly as with the single Delete button. Routes that still have customers assigned are refused automatically and listed as failed." }] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Route</Th><Th>Zone</Th><Th>Delivery Boy</Th><Th>Customers</Th><Th>Deliveries</Th><Th>Status</Th><Th className="no-print">&nbsp;</Th></tr></thead>
+          <thead><tr className="bg-foam">{canDeleteRoute && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Route</Th><Th>Zone</Th><Th>Delivery Boy</Th><Th>Customers</Th><Th>Deliveries</Th><Th>Status</Th><Th className="no-print">&nbsp;</Th></tr></thead>
           <tbody>
-            {visibleRoutes.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-slate">{q ? "No routes match." : "No routes yet — add one, then assign customers to it from Customer Master."}</td></tr>}
+            {visibleRoutes.length === 0 && <tr><td colSpan={canDeleteRoute ? 8 : 7} className="text-center py-8 text-slate">{q ? "No routes match." : "No routes yet — add one, then assign customers to it from Customer Master."}</td></tr>}
             {visibleRoutes.map((r) => (
               <tr key={r.id} className="hover:bg-foam">
+                {canDeleteRoute && <Td className="no-print"><RowCheckbox id={r.id} label={r.name} /></Td>}
                 <Td className="font-semibold">{r.name}</Td>
                 <Td>{r.zones?.name || "—"}</Td>
                 <Td>{r.profiles?.full_name || "—"}</Td>
@@ -144,6 +150,7 @@ export default async function ZonesPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      </BulkSelectProvider>
     </div>
   );
 }

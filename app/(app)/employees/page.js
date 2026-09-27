@@ -6,10 +6,12 @@ import EmployeeAdvanceForm from "@/components/EmployeeAdvanceForm";
 import EmployeeEditForm from "@/components/EmployeeEditForm";
 import UserActiveToggle from "@/components/UserActiveToggle";
 import DeleteUserButton from "@/components/DeleteUserButton";
+import { deactivateUserWithReason, deleteUser } from "@/app/actions";
 import AttendanceButtons from "@/components/AttendanceButtons";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import ListFilterBar from "@/components/ListFilterBar";
+import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
 
 export const dynamic = "force-dynamic";
 
@@ -89,13 +91,18 @@ export default async function EmployeesPage({ searchParams }) {
           share={{ title: "Employees" }}
         />
       </div>
+      <BulkSelectProvider noun="employee" scopeLabel="shown" actions={canManageUsers ? [
+          { key: "deactivate", label: "Deactivate", icon: "user-x", action: deactivateUserWithReason, busyLabel: "Deactivating", doneLabel: "Deactivate", detailText: "Each person is deactivated exactly as with the Active toggle (they can no longer sign in; their records stay). The last active Owner can never be deactivated." },
+          { key: "delete", label: "Delete", icon: "trash", action: deleteUser, busyLabel: "Deleting", doneLabel: "Delete", detailText: "Each login is deleted exactly as with the single Delete button. Anyone with deliveries, payments, attendance or other records is refused automatically — deactivate them instead." },
+        ] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Name</Th><Th>ID</Th><Th>Role</Th><Th>Mobile</Th><Th>Joining Date</Th><Th>Zone</Th><Th>Vehicle</Th><Th>Deliveries</Th><Th>Cash Collected</Th><Th>Advance Due</Th><Th>Today</Th><Th></Th></tr></thead>
+          <thead><tr className="bg-foam">{canManageUsers && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Name</Th><Th>ID</Th><Th>Role</Th><Th>Mobile</Th><Th>Joining Date</Th><Th>Zone</Th><Th>Vehicle</Th><Th>Deliveries</Th><Th>Cash Collected</Th><Th>Advance Due</Th><Th>Today</Th><Th></Th></tr></thead>
           <tbody>
-            {visible.length === 0 && <tr><td colSpan={12} className="text-center py-8 text-slate">No employees match.</td></tr>}
+            {visible.length === 0 && <tr><td colSpan={canManageUsers ? 13 : 12} className="text-center py-8 text-slate">No employees match.</td></tr>}
             {visible.map((e) => (
               <tr key={e.id} className="hover:bg-foam">
+                {canManageUsers && <Td className="no-print">{e.id !== me?.id ? <RowCheckbox id={e.id} label={e.full_name} /> : null}</Td>}
                 <Td><Link href={`/employees/${e.id}`} className="font-semibold text-navy hover:text-aqua">{e.full_name}</Link></Td>
                 <Td className="font-mono-num text-slate">{e.employee_code || "—"}</Td>
                 <Td>{e.role_name}</Td>
@@ -119,6 +126,7 @@ export default async function EmployeesPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      </BulkSelectProvider>
       <DocumentPrintFooter />
     </div>
   );

@@ -16,6 +16,7 @@ import Pager from "@/components/Pager";
 import { pageFrom, rangeFor } from "@/lib/listParams";
 import { expenseFilters, applyExpenseFilters } from "@/lib/listQueries";
 import { exportExpenseRows } from "@/lib/exportActions";
+import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
 
 export const dynamic = "force-dynamic";
 
@@ -118,11 +119,12 @@ export default async function ExpensesPage({ searchParams }) {
         <AddExpenseForm initialOpen={sp.quick === "new"} categories={categories || []} />
       </div>
       <p className="no-print text-xs text-slate mb-2">{matching.toLocaleString()} matching · {(k.total_count ?? 0).toLocaleString()} total</p>
+      <BulkSelectProvider noun="expense" actions={canVoid ? [{ key: "void", label: "Void", icon: "ban", action: voidExpense, busyLabel: "Voiding", doneLabel: "Void", detailText: "Each expense is voided exactly as with the single Void button (its journal entry is reversed; the original stays for the audit trail)." }] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Category</Th><Th>Description</Th><Th>Amount</Th><Th>Method</Th><Th>Entered By</Th><Th>Receipt</Th><Th>Status</Th><Th className="no-print">Actions</Th></tr></thead>
+          <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Date</Th><Th>Category</Th><Th>Description</Th><Th>Amount</Th><Th>Method</Th><Th>Entered By</Th><Th>Receipt</Th><Th>Status</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-slate">No expenses match.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={canVoid ? 10 : 9} className="text-center py-8 text-slate">No expenses match.</td></tr>}
             {rows.map((e) => {
               const badge = STATUS_BADGE[e.status] || STATUS_BADGE.approved;
               const previewFields = [
@@ -139,6 +141,7 @@ export default async function ExpensesPage({ searchParams }) {
               const previewExcel = [{ Date: e.expense_date, Category: e.expense_categories?.name, Description: e.description, Amount: e.amount, Method: e.payment_method, EnteredBy: e.profiles?.full_name, Receipt: e.receipt_reference, Status: badge.text }];
               return (
                 <tr key={e.id} className={`hover:bg-foam ${e.voided ? "opacity-60" : ""}`}>
+                  {canVoid && <Td className="no-print">{!e.voided ? <RowCheckbox id={e.id} label={e.expense_no || e.description} /> : null}</Td>}
                   <Td>{fmtDate(e.expense_date)}</Td><Td>{e.expense_categories?.name}</Td><Td>{e.description}</Td><Td>{pkr(e.amount)}</Td><Td>{e.payment_method}</Td>
                   <Td>{e.profiles?.full_name || "—"}</Td><Td className="text-xs text-slate max-w-[140px] truncate">{e.receipt_reference || "—"}</Td>
                   <Td><Badge text={badge.text} tone={badge.tone} />{e.voided && e.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{e.void_reason}</div>}</Td>
@@ -158,6 +161,7 @@ export default async function ExpensesPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      </BulkSelectProvider>
       <Pager basePath="/expenses" searchParams={sp} page={page} pageSize={PAGE_SIZE} total={matching} label="Expense pages" />
       <DocumentPrintFooter />
     </div>

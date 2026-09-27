@@ -5,6 +5,7 @@ import { Badge, KPI, DocumentActionBar, Th, Td } from "@/components/ui";
 import CustomerForm from "@/components/CustomerForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
+import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
 import { bulkImportCustomers, deleteCustomer } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
@@ -190,6 +191,12 @@ export default async function CustomersPage({ searchParams }) {
         <p className="hidden text-[11px] text-slate sm:block">Tap a customer to open their complete 360° profile.</p>
       </div>
 
+      <BulkSelectProvider noun="customer" actions={canDelete ? [{ key: "delete", label: "Delete", icon: "trash", action: deleteCustomer, confirmLabel: "Delete", busyLabel: "Deleting", doneLabel: "Delete", detailText: "Each customer is deleted exactly as with the single Delete button. Customers with any delivery, invoice, payment or ledger history are refused automatically (archive them instead) and listed as failed." }] : []}>
+      {canDelete && pageRows.length > 0 && (
+        <div className="no-print mb-2 flex items-center gap-2 md:hidden">
+          <SelectAllCheckbox /><span className="text-xs text-slate">Select all {pageRows.length} on this page</span>
+        </div>
+      )}
       <div className="no-print grid gap-3 md:hidden">
         {pageRows.length === 0 && <div className="rounded-2xl border border-line bg-card p-8 text-center text-sm text-slate">No customers match your search or filters.</div>}
         {pageRows.map((c) => {
@@ -197,6 +204,7 @@ export default async function CustomersPage({ searchParams }) {
           return (
             <article key={c.id} className="customer-mobile-card rounded-2xl border border-line bg-card p-4">
               <div className="flex items-start justify-between gap-3">
+                {canDelete && <span className="pt-1"><RowCheckbox id={c.id} label={c.name} /></span>}
                 <Link href={`/customers/${c.id}`} className="min-w-0 flex-1">
                   <span className="block truncate text-base font-bold text-ink">{c.name}</span>
                   <span className="mt-0.5 block font-mono-num text-xs text-slate">{c.code || "No customer ID"}</span>
@@ -225,13 +233,14 @@ export default async function CustomersPage({ searchParams }) {
 
       <div className="hidden overflow-x-auto rounded-2xl border border-line md:block">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Customer ID</Th><Th>Name</Th><Th>Phone</Th><Th>Zone</Th><Th>Type</Th><Th>Balance</Th><Th>Status</Th><Th className="no-print">Quick Actions</Th></tr></thead>
+          <thead><tr className="bg-foam">{canDelete && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Customer ID</Th><Th>Name</Th><Th>Phone</Th><Th>Zone</Th><Th>Type</Th><Th>Balance</Th><Th>Status</Th><Th className="no-print">Quick Actions</Th></tr></thead>
           <tbody>
-            {pageRows.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate">No customers match.</td></tr>}
+            {pageRows.length === 0 && <tr><td colSpan={canDelete ? 9 : 8} className="text-center py-8 text-slate">No customers match.</td></tr>}
             {pageRows.map((c) => {
               const badge = STATUS_BADGE[c.status] || (c.is_active ? STATUS_BADGE.active : STATUS_BADGE.inactive);
               return (
                 <tr key={c.id} className="hover:bg-foam">
+                  {canDelete && <Td className="no-print"><RowCheckbox id={c.id} label={c.name} /></Td>}
                   <Td className="font-mono-num text-slate">{c.code || "—"}</Td>
                   <Td><Link href={`/customers/${c.id}`} className="font-semibold text-navy hover:text-aqua">{c.name}</Link></Td>
                   <Td>{c.mobile}</Td>
@@ -259,6 +268,7 @@ export default async function CustomersPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      </BulkSelectProvider>
       <Pager basePath="/customers" searchParams={sp} page={page} pageSize={PAGE_SIZE} total={matching} label="Customer pages" />
       <DocumentPrintFooter />
     </div>
