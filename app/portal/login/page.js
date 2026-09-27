@@ -6,6 +6,17 @@ import { requestPortalOtp, verifyPortalOtpAndSignIn } from "@/app/portal/actions
 import Image from "next/image";
 import PwaInstallButton from "@/components/PwaInstallButton";
 
+// Only same-app portal paths are allowed as a post-login destination, so a
+// crafted ?next= can't bounce a customer to another site.
+function portalReturnPath() {
+  try {
+    const next = new URLSearchParams(window.location.search).get("next") || "";
+    return /^\/portal\/[A-Za-z0-9/_\-?=&%.]*$/.test(next) && !next.includes("//") && !next.includes("..") && !next.startsWith("/portal/login") ? next : "/portal";
+  } catch {
+    return "/portal";
+  }
+}
+
 export default function PortalLoginPage() {
   const router = useRouter();
   const [step, setStep] = useState("identify"); // "identify" | "otp"
@@ -37,7 +48,7 @@ export default function PortalLoginPage() {
     setLoading(false);
     if (!res.ok) { setError(res.error); return; }
     if (res.testingMode) {
-      router.replace("/portal");
+      router.replace(portalReturnPath());
       router.refresh();
       return;
     }
@@ -62,7 +73,7 @@ export default function PortalLoginPage() {
     const res = await verifyPortalOtpAndSignIn(mobile, code);
     setLoading(false);
     if (!res.ok) { setError(res.error); return; }
-    router.replace("/portal");
+    router.replace(portalReturnPath());
     router.refresh();
   };
 

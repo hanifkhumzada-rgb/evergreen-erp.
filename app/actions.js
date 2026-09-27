@@ -5,6 +5,9 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { REMEMBER_ME_COOKIE } from "@/lib/rememberMe";
 import { sendNotification, retryNotification } from "@/lib/notifications";
+import { isTwilioConfigured } from "@/lib/twilio";
+import { formatAmount, statementLine } from "@/lib/reminders";
+import { appOrigin } from "@/lib/appOrigin";
 import { createHash, randomUUID } from "node:crypto";
 
 async function requireUser() {
@@ -2633,4 +2636,63 @@ export async function updateCustomerIssueStatus(issueId, status, resolutionNote)
 
   revalidatePath("/issues");
   return { ok: true };
+}
+
+// Recovery Center → "Send Reminders to Selected" when WhatsApp sending is
+// actually configured (Twilio credentials + a WhatsApp sender number).
+// One click sends every selected customer the standard `payment_reminder`
+// template through sendNotification(), so each message gets its own
+// notification_logs row exactly like the automated reminder cron, plus a
+// payment_reminders row on success (the cron's same-day / max-count guard
+// sees these too). Balances are re-read here under RLS — the client only
+// sends customer ids, never amounts.
+export async function sendBulkPaymentReminders(customerIds) {
+  const { supabase, user } = await requireUser();
+  const ids = [...new Set((customerIds || []).map(String).filter((id) => /^[0-9a-f-]{36}$/i.test(id)))].slice(0, 200);
+  if (!ids.length) return { error: "Select at least one customer." };
+
+  // notification_logs rows can only be read back/updated with
+  // settings.manage (RLS), which the send path needs to record the result.
+  const [{ data: canRemind }, { data: canLog }] = await Promise.all([
+    supabase.rpc("fn_has_permission", { perm_key: "payments.create" }),
+    supabase.rpc("fn_has_permission", { perm_key: "settings.manage" }),
+  ]);
+  if (!canRemind || !canLog) return { error: "Only the Owner (or an admin with Settings access) can send automated reminders." };
+  if (!isTwilioConfigured() || !process.env.TWILIO_WHATSAPP_NUMBER) {
+    return { error: "WhatsApp sending isn't configured (Settings → Integrations), so reminders can't be sent automatically. Use the tap-through queue instead." };
+  }
+
+  const businessId = await getUserBusinessId(supabase, user.id);
+  const { data: balances, error } = await supabase.from("v_customer_balance").select("customer_id, name, balance").in("customer_id", ids);
+  if (error) return { error: error.message };
+  const link = statementLine(appOrigin());
+
+  let sent = 0, failed = 0, skipped = 0;
+  const failures = [];
+  const due = (balances || []).filter((b) => Number(b.balance) > 0);
+  skipped += ids.length - due.length; // no longer owing (or not visible)
+  // Small batches: fast for a typical selection without flooding Twilio.
+  for (let i = 0; i < due.length; i += 5) {
+    const results = await Promise.all(due.slice(i, i + 5).map(async (b) => {
+      const result = await sendNotification({
+        supabase, businessId, customerId: b.customer_id, templateKey: "payment_reminder",
+        variables: { customer_name: b.name, amount: formatAmount(b.balance) },
+        channel: "whatsapp", appendText: link,
+      });
+      if (result.ok) {
+        await supabase.from("payment_reminders").insert({ business_id: businessId, customer_id: b.customer_id, channel: "whatsapp", sent_at: new Date().toISOString() });
+      }
+      return { b, result };
+    }));
+    for (const { b, result } of results) {
+      if (result.ok) sent++;
+      else if (result.skipped) skipped++;
+      else { failed++; failures.push(`${b.name}: ${result.error}`); }
+    }
+  }
+
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "BULK_REMINDER", module: "payments", new_value: { selected: ids.length, sent, failed, skipped, channel: "whatsapp" } });
+  revalidatePath("/payments");
+  revalidatePath("/communication");
+  return { ok: true, sent, failed, skipped, failures: failures.slice(0, 5) };
 }

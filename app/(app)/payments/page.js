@@ -3,7 +3,6 @@ import { fetchAll } from "@/lib/fetchAll";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
 import { Badge, KPI, DocumentActionBar, Th, Td } from "@/components/ui";
-import WhatsAppButton from "@/components/WhatsAppButton";
 import AddPaymentForm from "@/components/AddPaymentForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
@@ -15,6 +14,10 @@ import Pager from "@/components/Pager";
 import { pageFrom, rangeFor } from "@/lib/listParams";
 import { applyPaymentFilters, matchingCustomerIds, paymentFilters } from "@/lib/listQueries";
 import { exportPaymentRows } from "@/lib/exportActions";
+import RecoveryReminderTable from "@/components/RecoveryReminderTable";
+import { buildReminderMessage } from "@/lib/reminders";
+import { isTwilioConfigured } from "@/lib/twilio";
+import { appOrigin } from "@/lib/appOrigin";
 
 const HISTORY_PAGE_SIZE = 50;
 
@@ -72,7 +75,7 @@ export default async function PaymentsPage({ searchParams }) {
     supabase.from("payments").select("*, customers(name, code), profiles!payments_received_by_fkey(full_name)", { count: "exact" }),
     historyFilters, historyCustomerIds,
   ).order("payment_date", { ascending: false }).order("created_at", { ascending: false }).range(hFrom, hTo);
-  const [branding, { data: payments, count: paymentCount }, { data: balances }, { data: collectors }, { data: allPayments }, { data: customersMeta }, { data: canVoid }, { data: highRule }] = await Promise.all([
+  const [branding, { data: payments, count: paymentCount }, { data: balances }, { data: collectors }, { data: allPayments }, { data: customersMeta }, { data: canVoid }, { data: highRule }, { data: reminderTemplate }, { data: canCreatePayments }, { data: canManageSettings }] = await Promise.all([
     getBrandingLite(supabase),
     paymentQuery,
     supabase.from("v_customer_balance").select("customer_id, name, balance"),
@@ -86,7 +89,15 @@ export default async function PaymentsPage({ searchParams }) {
     // (same one refresh_alerts() already alerts the Owner on) as the High
     // Outstanding cutoff, instead of a second hardcoded threshold.
     supabase.from("automation_rules").select("threshold_value").eq("key", "outstanding_balance").maybeSingle(),
+    // Same template the automated reminder cron sends, so manual and
+    // automatic reminders read identically.
+    supabase.from("notification_templates").select("body_template, enabled").eq("key", "payment_reminder").maybeSingle(),
+    supabase.rpc("fn_has_permission", { perm_key: "payments.create" }),
+    supabase.rpc("fn_has_permission", { perm_key: "settings.manage" }),
   ]);
+  const origin = appOrigin();
+  const reminderBody = reminderTemplate?.enabled ? reminderTemplate.body_template : null;
+  const whatsappConfigured = isTwilioConfigured() && Boolean(process.env.TWILIO_WHATSAPP_NUMBER);
   const paymentRows = payments || [];
   const exportPayments = exportPaymentRows.bind(null, historyFilters);
   const highOutstandingThreshold = Number(highRule?.threshold_value) || 10000;
@@ -197,29 +208,18 @@ export default async function PaymentsPage({ searchParams }) {
             </tbody>
           </table>
         </div>
-      ) : actionable.length > 0 && (
-        <div className="overflow-x-auto border border-line rounded-2xl mb-6">
-          <table className="w-full text-[13.5px] border-collapse">
-            <thead><tr className="bg-foam"><Th>Priority</Th><Th>Customer</Th><Th>Amount Due</Th><Th>Due Date</Th><Th>Frequency</Th><Th>Last Payment</Th><Th>Status</Th><Th className="no-print">&nbsp;</Th></tr></thead>
-            <tbody>
-              {actionable.map((d) => (
-                <tr key={d.customerId} className="hover:bg-foam">
-                  <Td><Badge text={d.priority} tone={PRIORITY_TONE[d.priority]} /></Td>
-                  <Td><Link href={`/customers/${d.customerId}`} className="font-semibold text-navy hover:text-aqua">{d.name}</Link>{d.isHighOutstanding && <div className="text-[10px] text-amber mt-0.5">High outstanding</div>}</Td>
-                  <Td className="text-coral font-semibold">{pkr(d.balance)}</Td>
-                  <Td>{d.dueDate ? fmtDate(d.dueDate.toISOString()) : "—"}</Td>
-                  <Td>{d.freq}</Td>
-                  <Td>{d.lastPayment ? fmtDate(d.lastPayment) : "never"}</Td>
-                  <Td><Badge text={BUCKET_LABEL[d.bucket] || "Upcoming"} tone={BUCKET_TONE[d.bucket] || "slate"} /></Td>
-                  <Td className="no-print">
-                    <WhatsAppButton phone={d.mobile}
-                      message={`Hi ${d.name}, this is a friendly reminder from Evergreen Water — your current outstanding balance is Rs ${Math.round(d.balance).toLocaleString("en-PK")}. Please arrange payment at your earliest convenience. Thank you!`} />
-                  </Td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+      ) : (
+        <RecoveryReminderTable
+          rows={actionable.map((d) => ({
+            customerId: d.customerId, name: d.name, mobile: d.mobile || "", balance: d.balance,
+            dueDate: d.dueDate ? d.dueDate.toISOString() : null, freq: d.freq, lastPayment: d.lastPayment || null,
+            bucket: d.bucket, isHighOutstanding: d.isHighOutstanding, priority: d.priority,
+            message: buildReminderMessage({ template: reminderBody, name: d.name, balance: d.balance, origin }),
+          }))}
+          whatsappConfigured={whatsappConfigured}
+          canAutoSend={Boolean(canCreatePayments && canManageSettings)}
+          bucketLabel={BUCKET_LABEL} bucketTone={BUCKET_TONE} priorityTone={PRIORITY_TONE}
+        />
       )}
       <p className="text-[11px] text-slate mb-6">Due dates are estimated from each customer&apos;s payment frequency and last payment date — not a stored due-date field. Priority is a follow-up sort aid (days overdue + outstanding amount + payment history), not a financial figure.</p>
 

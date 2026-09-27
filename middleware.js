@@ -65,7 +65,11 @@ export async function middleware(request) {
     return NextResponse.redirect(new URL("/login", request.url));
   }
   if (!user && isPortalRoute && !isPortalLogin) {
-    return NextResponse.redirect(new URL("/portal/login", request.url));
+    // Keep where they were going (e.g. the statement link in a WhatsApp
+    // reminder) so the login can send them straight back there.
+    const loginUrl = new URL("/portal/login", request.url);
+    if (pathname !== "/portal") loginUrl.searchParams.set("next", pathname + request.nextUrl.search);
+    return NextResponse.redirect(loginUrl);
   }
   if (user && isAuthRoute) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
