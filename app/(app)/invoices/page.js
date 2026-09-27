@@ -8,86 +8,63 @@ import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import RecordPreview from "@/components/RecordPreview";
 import { bulkImportSales, voidInvoice } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
-import { fetchAll } from "@/lib/fetchAll";
+import ListFilterBar from "@/components/ListFilterBar";
+import Pager from "@/components/Pager";
+import { pageFrom, rangeFor } from "@/lib/listParams";
+import { invoiceFilters, applyInvoiceFilters, matchingCustomerIds } from "@/lib/listQueries";
+import { exportInvoiceRows } from "@/lib/exportActions";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
-import { Search } from "lucide-react";
 import { INVOICE_STATUS_LABEL as STATUS_LABEL, INVOICE_STATUS_TONE as STATUS_TONE } from "@/lib/invoiceStatus";
 
 export const dynamic = "force-dynamic";
 
-// Rendered rows per page. Each row carries its own preview/void controls,
-// so rendering thousands at once would make this page several MB.
+// Rows per page. Paging, search and filters run in the database; the KPIs
+// come from fn_invoice_kpis (aggregated under RLS), so the page no longer
+// downloads the whole invoice history on every load.
 const PAGE_SIZE = 50;
 
 export default async function InvoicesPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const supabase = await createClient();
-  // Unbounded on purpose — the KPIs below are labeled "all-time" (Total
-  // Billed) and search/status filters need to reach the full history, not
-  // just a recent window. Invoice history for one business stays small
-  // enough to fetch in full (RLS already scopes this to one business).
-  // Paged through fetchAll: a single request is capped at 1,000 rows by the
-  // API, which would silently make these all-time KPIs wrong.
-  const [branding, { data: invoices }, { data: customers }, { data: products }, { data: canVoid }] = await Promise.all([
+  const filters = invoiceFilters(sp);
+  const page = pageFrom(sp);
+  const [from, to] = rangeFor(page, PAGE_SIZE);
+  const customerIds = filters.q ? await matchingCustomerIds(supabase, filters.q) : null;
+  const [branding, { data: invoices, count }, { data: kpis }, { data: customers }, { data: products }, { data: canVoid }] = await Promise.all([
     getBrandingLite(supabase),
-    fetchAll(() => supabase.from("invoices").select("id, invoice_no, invoice_date, status, net_amount, void_reason, created_at, customers(name), invoice_items(quantity)").order("created_at", { ascending: false }).order("id"), { label: "invoice center" }),
+    applyInvoiceFilters(
+      supabase.from("invoices").select("id, invoice_no, invoice_date, status, net_amount, void_reason, created_at, customers(name), invoice_items(quantity)", { count: "exact" }),
+      filters, customerIds,
+    ).order("created_at", { ascending: false }).order("id").range(from, to),
+    supabase.rpc("fn_invoice_kpis"),
     supabase.from("customers").select("id, name, default_product_id"),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
     supabase.rpc("fn_has_permission", { perm_key: "invoices.delete" }),
   ]);
 
   const qtyOf = (s) => (s.invoice_items || []).reduce((a, i) => a + Number(i.quantity), 0);
-  const allRows = invoices || [];
+  const k = kpis || {};
+  const pageRows = invoices || [];
+  const matching = count || 0;
   const today = new Date().toISOString().slice(0, 10);
-  const monthStart = today.slice(0, 7) + "-01";
-  const todaysInvoices = allRows.filter((s) => s.invoice_date === today);
-  const monthInvoices = allRows.filter((s) => s.invoice_date >= monthStart);
-  const unpaidInvoices = allRows.filter((s) => ["sent", "partially_paid", "overdue"].includes(s.status));
-  const totalBilled = allRows.filter((s) => s.status !== "void").reduce((a, s) => a + Number(s.net_amount), 0);
-
-  const q = (sp.q || "").trim().toLowerCase();
-  const statusFilter = sp.status || "";
-  const rows = allRows.filter((s) => {
-    if (statusFilter && s.status !== statusFilter) return false;
-    if (q && !`${s.invoice_no} ${s.customers?.name || ""} ${s.invoice_date || ""}`.toLowerCase().includes(q)) return false;
-    return true;
-  });
-  const hasFilters = q || statusFilter;
-  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  const page = Math.min(Math.max(1, Number.parseInt(sp.page, 10) || 1), pageCount);
-  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const pageHref = (n) => {
-    const params = new URLSearchParams();
-    if (sp.q) params.set("q", sp.q);
-    if (statusFilter) params.set("status", statusFilter);
-    if (n > 1) params.set("page", String(n));
-    return `/invoices${params.size ? `?${params}` : ""}`;
-  };
-  const exportRows = rows.map((s) => ({
-    Invoice: s.invoice_no, Date: s.invoice_date, Customer: s.customers?.name, Qty: qtyOf(s), Total: s.net_amount, Status: STATUS_LABEL[s.status] || s.status,
-  }));
 
   return (
     <div>
-      <DocumentPrintHeader branding={branding} title="Invoice Center" meta={`${rows.length} of ${allRows.length} invoices\nGenerated ${fmtDate(today)}`} />
+      <DocumentPrintHeader branding={branding} title="Invoice Center" meta={`${matching} of ${k.total_count ?? 0} invoices\nGenerated ${fmtDate(today)}`} />
       <h2 className="no-print font-display text-2xl font-semibold mb-1">Invoice Center</h2>
       <p className="no-print text-slate text-sm mb-4">Search and preview invoices first; open the full document only when you need to act.</p>
 
-      <form className="no-print flex flex-wrap gap-2.5 mb-4 items-center" action="/invoices">
-        <input type="text" name="q" defaultValue={sp.q || ""} placeholder="Search invoice #, customer, date…" className="px-3 py-2 rounded-xl border border-line bg-card text-xs w-60" />
-        <select name="status" defaultValue={statusFilter} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
-          <option value="">All statuses</option>
-          {Object.entries(STATUS_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-        </select>
-        <button type="submit" className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold"><Search size={14} /> Search</button>
-        {hasFilters && <Link href="/invoices" className="text-xs text-slate hover:text-aqua">Clear</Link>}
-      </form>
+      <ListFilterBar
+        placeholder="Search invoice #, customer name, code or phone…"
+        filters={[{ name: "status", label: "All statuses", options: Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label })) }]}
+        dateFilters={[{ name: "from", label: "From" }, { name: "to", label: "To" }]}
+      />
 
       <div className="no-print flex flex-wrap gap-3.5 mb-5">
-        <KPI label="TODAY'S INVOICES" value={todaysInvoices.length} tone="navy" sub={pkr(todaysInvoices.filter((s) => s.status !== "void").reduce((a, s) => a + Number(s.net_amount), 0))} />
-        <KPI label="THIS MONTH" value={monthInvoices.length} tone="aqua" sub={pkr(monthInvoices.filter((s) => s.status !== "void").reduce((a, s) => a + Number(s.net_amount), 0))} />
-        <KPI label="UNPAID" value={unpaidInvoices.length} tone="coral" sub={pkr(unpaidInvoices.reduce((a, s) => a + Number(s.net_amount), 0))} />
-        <KPI label="TOTAL BILLED" value={pkr(totalBilled)} tone="slate" sub={`${allRows.length} invoices all-time`} />
+        <KPI label="TODAY'S INVOICES" value={k.today_count ?? 0} tone="navy" sub={pkr(k.today_amount ?? 0)} />
+        <KPI label="THIS MONTH" value={k.month_count ?? 0} tone="aqua" sub={pkr(k.month_amount ?? 0)} />
+        <KPI label="UNPAID" value={k.unpaid_count ?? 0} tone="coral" sub={pkr(k.unpaid_amount ?? 0)} />
+        <KPI label="TOTAL BILLED" value={pkr(k.billed_amount ?? 0)} tone="slate" sub={`${k.total_count ?? 0} invoices all-time`} />
       </div>
 
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
@@ -103,21 +80,17 @@ export default async function InvoicesPage({ searchParams }) {
           print
           pdfHref={`/api/pdf/daily-sales?date=${today}`}
           pdfLabel="Today's Report"
-          excel={{ rows: exportRows, sheetName: "Invoices", reportTitle: "Invoice Center", branding }}
+          excel={{ loadRows: exportInvoiceRows.bind(null, filters), sheetName: "Invoices", reportTitle: "Invoice Center", branding }}
           share={{ title: "Invoice Center" }}
         />
         <AddSaleForm customers={customers || []} products={products || []} initialCustomerId={sp.customer || ""} initialOpen={sp.quick === "new"} />
       </div>
-      <p className="no-print text-xs text-slate mb-2">
-        {rows.length > PAGE_SIZE
-          ? `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, rows.length)} of ${rows.length} matching · ${allRows.length} total`
-          : `${rows.length} of ${allRows.length} invoices`}
-      </p>
+      <p className="no-print text-xs text-slate mb-2">{matching.toLocaleString()} matching · {(k.total_count ?? 0).toLocaleString()} total</p>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>Invoice #</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Total</Th><Th>Status</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-slate">No invoices match.</td></tr>}
+            {pageRows.length === 0 && <tr><td colSpan={7} className="text-center py-8 text-slate">No invoices match.</td></tr>}
             {pageRows.map((s) => {
               const canVoidThis = canVoid && s.status !== "void" && !["paid", "partially_paid"].includes(s.status);
               const statusLabel = STATUS_LABEL[s.status] || s.status;
@@ -151,17 +124,7 @@ export default async function InvoicesPage({ searchParams }) {
           </tbody>
         </table>
       </div>
-      {pageCount > 1 && (
-        <nav className="no-print mt-4 flex items-center justify-between gap-3" aria-label="Invoice pages">
-          {page > 1
-            ? <Link href={pageHref(page - 1)} className="inline-flex min-h-[40px] items-center rounded-xl border border-line bg-card px-3.5 text-xs font-semibold text-navy hover:bg-foam">← Previous</Link>
-            : <span />}
-          <span className="text-xs text-slate">Page {page} of {pageCount}</span>
-          {page < pageCount
-            ? <Link href={pageHref(page + 1)} className="inline-flex min-h-[40px] items-center rounded-xl border border-line bg-card px-3.5 text-xs font-semibold text-navy hover:bg-foam">Next →</Link>
-            : <span />}
-        </nav>
-      )}
+      <Pager basePath="/invoices" searchParams={sp} page={page} pageSize={PAGE_SIZE} total={matching} label="Invoice pages" />
       <DocumentPrintFooter />
     </div>
   );

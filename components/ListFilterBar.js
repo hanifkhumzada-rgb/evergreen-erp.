@@ -17,7 +17,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 //   searchParam   URL param for the search box (default "q"); null hides it
 //   placeholder   search placeholder
 //   filters       [{ name, label, options: [{ value, label }] }] dropdowns
-//   dateFilters   [{ name, label }] date inputs
+//   dateFilters   [{ name, label, type? }] date inputs (type "month" for a month picker)
 //   pageParam     URL param holding the page number (default "page")
 export default function ListFilterBar({
   searchParam = "q", placeholder = "Search…", filters = [], dateFilters = [], pageParam = "page", className = "",
@@ -93,7 +93,7 @@ export default function ListFilterBar({
       {dateFilters.map((f) => (
         <label key={f.name} className="flex items-center gap-1.5 text-xs text-slate">
           {f.label}
-          <input type="date" value={searchParams.get(f.name) || ""} onChange={(e) => apply({ [f.name]: e.target.value })}
+          <input type={f.type || "date"} value={searchParams.get(f.name) || ""} onChange={(e) => apply({ [f.name]: e.target.value })}
             className="min-h-[38px] rounded-xl border border-line bg-card px-3 py-2 text-xs text-ink" />
         </label>
       ))}
