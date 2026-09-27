@@ -10,7 +10,13 @@ import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { bulkImportPayments, voidPayment } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
-import { Search } from "lucide-react";
+import ListFilterBar from "@/components/ListFilterBar";
+import Pager from "@/components/Pager";
+import { pageFrom, rangeFor } from "@/lib/listParams";
+import { applyPaymentFilters, matchingCustomerIds, paymentFilters } from "@/lib/listQueries";
+import { exportPaymentRows } from "@/lib/exportActions";
+
+const HISTORY_PAGE_SIZE = 50;
 
 export const dynamic = "force-dynamic";
 
@@ -55,12 +61,18 @@ export default async function PaymentsPage({ searchParams }) {
   // be bucketed. Bounding the lookback keeps this query flat instead of
   // growing with the business's entire payment history forever.
   const paymentLookback = new Date(Date.now() - 400 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
-  const historyQuery = (sp.hq || "").trim().toLowerCase();
-  // A search needs to reach the full history, not just the default
-  // recent-200 feed — only cap when there's no search term to narrow it.
-  let paymentQuery = supabase.from("payments").select("*, customers(name), profiles!payments_received_by_fkey(full_name)").order("created_at", { ascending: false });
-  if (!historyQuery) paymentQuery = paymentQuery.limit(200);
-  const [branding, { data: payments }, { data: balances }, { data: collectors }, { data: allPayments }, { data: customersMeta }, { data: canVoid }, { data: highRule }] = await Promise.all([
+  // Payment history: searched, filtered and paged in the database (50 per
+  // page) so it stays fast however many payments accumulate. A search term
+  // also matches customer name/code/phone via a customer-id lookup.
+  const historyFilters = paymentFilters(sp);
+  const historyPage = pageFrom(sp);
+  const [hFrom, hTo] = rangeFor(historyPage, HISTORY_PAGE_SIZE);
+  const historyCustomerIds = historyFilters.q ? await matchingCustomerIds(supabase, historyFilters.q) : null;
+  const paymentQuery = applyPaymentFilters(
+    supabase.from("payments").select("*, customers(name, code), profiles!payments_received_by_fkey(full_name)", { count: "exact" }),
+    historyFilters, historyCustomerIds,
+  ).order("payment_date", { ascending: false }).order("created_at", { ascending: false }).range(hFrom, hTo);
+  const [branding, { data: payments, count: paymentCount }, { data: balances }, { data: collectors }, { data: allPayments }, { data: customersMeta }, { data: canVoid }, { data: highRule }] = await Promise.all([
     getBrandingLite(supabase),
     paymentQuery,
     supabase.from("v_customer_balance").select("customer_id, name, balance"),
@@ -75,8 +87,8 @@ export default async function PaymentsPage({ searchParams }) {
     // Outstanding cutoff, instead of a second hardcoded threshold.
     supabase.from("automation_rules").select("threshold_value").eq("key", "outstanding_balance").maybeSingle(),
   ]);
-  const paymentRows = (payments || []).filter((p) => !historyQuery || `${p.customers?.name || ""} ${p.payment_date || ""} ${p.method || ""} ${p.reference || ""} ${p.profiles?.full_name || ""}`.toLowerCase().includes(historyQuery));
-  const exportRows = paymentRows.map((p) => ({ Date: p.payment_date, Customer: p.customers?.name, Amount: p.amount, Method: p.method, Collector: p.profiles?.full_name, Reference: p.reference }));
+  const paymentRows = payments || [];
+  const exportPayments = exportPaymentRows.bind(null, historyFilters);
   const highOutstandingThreshold = Number(highRule?.threshold_value) || 10000;
 
   const lastPaymentMap = {};
@@ -140,7 +152,7 @@ export default async function PaymentsPage({ searchParams }) {
 
   return (
     <div>
-      <DocumentPrintHeader branding={branding} title="Payments" meta={`${(payments || []).length} payments\nGenerated ${fmtDate(todayISO)}`} />
+      <DocumentPrintHeader branding={branding} title="Payments" meta={`${paymentCount || 0} payments\nGenerated ${fmtDate(todayISO)}`} />
       <h2 className="no-print font-display text-2xl font-semibold mb-1">Payment Collection</h2>
       <p className="no-print text-slate text-sm mb-4">Due today, collected today, and every overdue customer that needs a follow-up.</p>
 
@@ -212,11 +224,6 @@ export default async function PaymentsPage({ searchParams }) {
       <p className="text-[11px] text-slate mb-6">Due dates are estimated from each customer&apos;s payment frequency and last payment date — not a stored due-date field. Priority is a follow-up sort aid (days overdue + outstanding amount + payment history), not a financial figure.</p>
 
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
-        <form action="/payments" className="flex items-center gap-2">
-          <input type="search" name="hq" defaultValue={sp.hq || ""} placeholder="Search payment history…" className="px-3 py-2 rounded-xl border border-line bg-card text-xs w-52" />
-          <button type="submit" className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold"><Search size={14} /> Search</button>
-          {historyQuery ? <Link href="/payments" className="text-xs text-slate">Clear</Link> : null}
-        </form>
         <div className="flex-1" />
         <BulkImportButton
           label="Bulk Import"
@@ -227,7 +234,7 @@ export default async function PaymentsPage({ searchParams }) {
         />
         <DocumentActionBar
           print
-          excel={{ rows: exportRows, sheetName: "Payments", reportTitle: "Payments", branding }}
+          excel={{ loadRows: exportPayments, sheetName: "Payments", reportTitle: "Payments", branding }}
           share={{ title: "Payments" }}
         />
         <AddPaymentForm
@@ -237,14 +244,24 @@ export default async function PaymentsPage({ searchParams }) {
           initialOpen={sp.quick === "new"}
         />
       </div>
+      <h3 className="no-print font-display text-base font-semibold mb-2.5">Payment History</h3>
+      <ListFilterBar
+        searchParam="hq"
+        placeholder="Search receipt, reference, customer name / ID / phone…"
+        filters={[
+          { name: "method", label: "All methods", options: ["cash", "bank", "easypaisa", "jazzcash", "online_transfer", "other"].map((m) => ({ value: m, label: m.replace("_", " ") })) },
+          { name: "pstatus", label: "All statuses", options: [{ value: "active", label: "Active" }, { value: "voided", label: "Voided" }] },
+        ]}
+        dateFilters={[{ name: "from", label: "From" }, { name: "to", label: "To" }]}
+      />
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Customer</Th><Th>Amount</Th><Th>Method</Th><Th>Collected By</Th><Th>Reference</Th><Th>Status</Th><Th>&nbsp;</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Receipt</Th><Th>Customer</Th><Th>Amount</Th><Th>Method</Th><Th>Collected By</Th><Th>Reference</Th><Th>Status</Th><Th>&nbsp;</Th></tr></thead>
           <tbody>
-            {paymentRows.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate">No payments match.</td></tr>}
+            {paymentRows.length === 0 && <tr><td colSpan={9} className="text-center py-8 text-slate">No payments match.</td></tr>}
             {paymentRows.map((p) => (
               <tr key={p.id} className={`hover:bg-foam ${p.voided ? "opacity-60" : ""}`}>
-                <Td>{fmtDate(p.payment_date)}</Td><Td>{p.customers?.name}</Td><Td>{pkr(p.amount)}</Td><Td>{p.method}</Td><Td>{p.profiles?.full_name || "—"}</Td><Td className="text-slate">{p.reference || "—"}</Td>
+                <Td>{fmtDate(p.payment_date)}</Td><Td className="font-mono-num text-xs text-slate">{p.receipt_no}</Td><Td>{p.customers?.name}</Td><Td>{pkr(p.amount)}</Td><Td>{p.method}</Td><Td>{p.profiles?.full_name || "—"}</Td><Td className="text-slate">{p.reference || "—"}</Td>
                 <Td>{p.voided ? <><Badge text="Voided" tone="coral" />{p.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{p.void_reason}</div>}</> : <Badge text="Active" tone="green" />}</Td>
                 <Td>
                   <div className="flex items-center gap-1.5">
@@ -258,6 +275,7 @@ export default async function PaymentsPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      <Pager basePath="/payments" searchParams={sp} page={historyPage} pageSize={HISTORY_PAGE_SIZE} total={paymentCount || 0} label="Payment history pages" />
       <DocumentPrintFooter />
     </div>
   );
