@@ -9,6 +9,7 @@ import { bulkImportBottleOpeningBalances } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { AlertTriangle } from "lucide-react";
+import ListFilterBar from "@/components/ListFilterBar";
 
 export const dynamic = "force-dynamic";
 const BOTTLE_COST = 800; // avg. replacement cost per bottle across sizes — a labeled approximation, not a per-size cost (products has no per-size cost field yet)
@@ -219,17 +220,15 @@ export default async function BottleLedgerPage({ searchParams }) {
       </div>
 
       <h4 className="text-sm font-bold mb-2.5">Activity timeline</h4>
-      <form className="no-print flex flex-wrap gap-2.5 mb-3 items-center" action="/bottle-ledger">
-        <input type="text" name="q" defaultValue={sp.q || ""} placeholder="Search ID, name, phone, size, type…" className="in w-64" />
-        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
-        {q && <Link href="/bottle-ledger" className="text-xs text-slate hover:text-aqua">Clear</Link>}
+      <div className="no-print flex flex-wrap gap-2.5 mb-3 items-start">
+        <ListFilterBar className="!mb-0" placeholder="Search ID, name, phone, size, type…" />
         <div className="flex-1" />
         <DocumentActionBar
           print
           excel={{ rows: exportRows, sheetName: "Bottle Ledger", reportTitle: "Bottle Ledger", branding }}
           share={{ title: "Bottle Ledger" }}
         />
-      </form>
+            </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>Date</Th><Th>Type</Th><Th>Customer ID</Th><Th>Customer</Th><Th>Size</Th><Th>Qty</Th><Th>Before</Th><Th>After</Th><Th>Who</Th><Th>Reason</Th></tr></thead>

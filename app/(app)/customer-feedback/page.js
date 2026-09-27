@@ -1,6 +1,7 @@
 import { Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { KPI, Badge } from "@/components/ui";
+import { KPI, Badge, DocumentActionBar } from "@/components/ui";
+import ListFilterBar from "@/components/ListFilterBar";
 import { RatingTrendChart } from "@/components/LazyCharts";
 import { fmtDate } from "@/lib/format";
 
@@ -14,7 +15,8 @@ function Stars({ n }) {
   );
 }
 
-export default async function CustomerFeedbackPage() {
+export default async function CustomerFeedbackPage({ searchParams }) {
+  const sp = (await searchParams) || {};
   const supabase = await createClient();
   const { data: allowed } = await supabase.rpc("fn_has_permission", { perm_key: "deliveries.edit" });
 
@@ -28,7 +30,12 @@ export default async function CustomerFeedbackPage() {
   const rows = feedback || [];
   const avgOverall = rows.length ? rows.reduce((s, f) => s + f.overall_rating, 0) / rows.length : 0;
   const lowRatings = rows.filter((f) => f.overall_rating <= 2);
-  const recent = rows.slice(0, 10);
+  const fq = String(sp.q || "").trim().toLowerCase();
+  const fRating = Number(sp.rating) || 0;
+  const matching = rows.filter((f) => (!fRating || f.overall_rating === fRating)
+    && (!fq || `${f.customers?.name || ""} ${f.customers?.code || ""} ${f.profiles?.full_name || ""} ${f.comment || ""}`.toLowerCase().includes(fq)));
+  // Latest 10 by default; a search/filter shows every match (up to the 300 loaded).
+  const recent = fq || fRating ? matching : matching.slice(0, 10);
 
   // Delivery-boy ratings — average delivery_rating per rider, riders with
   // at least one rated delivery only.
@@ -100,7 +107,15 @@ export default async function CustomerFeedbackPage() {
       </div>
 
       <div className="bg-card border border-line rounded-2xl p-5">
-        <h3 className="text-sm font-bold mb-3">Recent Feedback</h3>
+        <div className="flex flex-wrap items-start justify-between gap-2.5 mb-3">
+          <h3 className="text-sm font-bold">Recent Feedback</h3>
+          <DocumentActionBar
+            print
+            excel={{ rows: matching.map((f) => ({ Date: f.created_at?.slice(0, 10), Customer: f.customers?.name, "Customer ID": f.customers?.code, Rider: f.profiles?.full_name || "", Rating: f.overall_rating, Comment: f.comment || "" })), sheetName: "Feedback", reportTitle: "Customer Feedback" }}
+            share={{ title: "Customer Feedback" }}
+          />
+        </div>
+        <ListFilterBar placeholder="Search customer, ID, rider or comment…" filters={[{ name: "rating", label: "All ratings", options: [5, 4, 3, 2, 1].map((n) => ({ value: String(n), label: `${n} star${n > 1 ? "s" : ""}` })) }]} />
         <div className="flex flex-col gap-2.5">
           {recent.map((f) => (
             <div key={f.id} className="flex items-center justify-between border-b border-line last:border-0 pb-2.5 last:pb-0">

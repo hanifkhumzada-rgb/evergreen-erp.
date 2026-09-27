@@ -1,10 +1,11 @@
 import Link from "next/link";
-import { Search, PencilLine } from "lucide-react";
+import { PencilLine } from "lucide-react";
 import { getCurrentProfile } from "@/lib/session";
 import { fmtDate, pkr } from "@/lib/format";
-import { Badge, Th, Td } from "@/components/ui";
+import { Badge, Th, Td, DocumentActionBar } from "@/components/ui";
 import DeliveryCorrectionForm from "@/components/DeliveryCorrectionForm";
 import RecordPreview from "@/components/RecordPreview";
+import ListFilterBar from "@/components/ListFilterBar";
 
 export const dynamic = "force-dynamic";
 
@@ -36,12 +37,15 @@ export default async function DeliveryCorrectionsPage({ searchParams }) {
       <Link href="/deliveries" className="no-print px-3 py-2 rounded-xl border border-line bg-card text-xs font-bold hover:bg-foam">Back to Deliveries</Link>
     </div>
 
-    <form action="/delivery-corrections" className="no-print mb-5 flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-card p-3">
-      <div className="relative min-w-[240px] flex-1"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate"/><input name="q" defaultValue={q} placeholder="Search customer, ID, phone, delivery no…" className="w-full rounded-xl border border-line bg-foam/40 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-aqua"/></div>
-      <input type="month" name="month" defaultValue={month} className="rounded-xl border border-line bg-card px-3 py-2.5 text-sm"/>
-      <button type="submit" className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-card px-4 py-2.5 text-xs font-semibold"><Search size={14}/> Search</button>
-      {(q || sp.month) && <Link href="/delivery-corrections" className="text-xs font-semibold text-slate hover:text-aqua">Clear</Link>}
-    </form>
+    <div className="no-print flex flex-wrap gap-2.5 mb-4 items-start">
+      <ListFilterBar className="!mb-0" placeholder="Search customer, ID, phone, delivery no…" dateFilters={[{ name: "month", label: "Month", type: "month" }]} />
+      <div className="flex-1" />
+      <DocumentActionBar
+        print
+        excel={{ rows: rows.map((d) => ({ Delivery: d.delivery_no, Date: d.delivery_date, Customer: d.customers?.name, "Customer ID": d.customers?.code, Rider: d.profiles?.full_name || "", Delivered: (d.delivery_items || []).reduce((a, i) => a + Number(i.delivered_qty || 0), 0), Returned: (d.delivery_items || []).reduce((a, i) => a + Number(i.returned_qty || 0), 0), Amount: Number(d.amount || 0), Collected: Number(d.amount_collected || 0), Status: d.status })), sheetName: "Deliveries", reportTitle: `Delivery Corrections ${month}` }}
+        share={{ title: "Delivery Corrections" }}
+      />
+    </div>
 
     {!canEdit && <div className="mb-4 rounded-xl border border-amber/20 bg-amberSoft p-3 text-xs text-amber">Your role can view this workspace but cannot correct deliveries.</div>}
 

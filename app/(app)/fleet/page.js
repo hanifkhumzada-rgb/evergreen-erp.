@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
 import { Badge, KPI, DocumentActionBar, Th, Td } from "@/components/ui";
-import { AddVehicleForm, AddVehicleExpenseForm, EditVehicleDatesForm } from "@/components/FleetForms";
+import { AddVehicleForm, AddVehicleExpenseForm, EditVehicleForm } from "@/components/FleetForms";
+import ListFilterBar from "@/components/ListFilterBar";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { bulkImportVehicles, deleteVehicle, deleteVehicleExpenseLog } from "@/app/actions";
@@ -106,11 +106,7 @@ export default async function FleetPage({ searchParams }) {
       {/* Kept as a sibling form, not nested with the toolbar below — a button
           without an explicit type inside another form submits/reloads instead
           of doing its own action. */}
-      <form className="no-print flex flex-wrap gap-2.5 mb-2.5 items-center" action="/fleet">
-        <input type="text" name="q" defaultValue={sp.q || ""} placeholder="Search vehicle #, type, driver…" className="in w-64" />
-        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
-        {q && <Link href="/fleet" className="text-xs text-slate hover:text-aqua">Clear</Link>}
-      </form>
+      <ListFilterBar className="!mb-2.5" placeholder="Search vehicle #, type, driver…" />
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <BulkImportButton
@@ -142,7 +138,7 @@ export default async function FleetPage({ searchParams }) {
                 <Td className={isExpiringSoon(v.service_due_date) ? (isExpired(v.service_due_date) ? "text-coral font-semibold" : "text-amber font-semibold") : ""}>{v.service_due_date || "—"}</Td>
                 <Td><Badge text={v.is_active ? "Active" : "Inactive"} tone={v.is_active ? "green" : "slate"} /></Td>
                 <Td className="no-print flex items-center gap-1.5">
-                  <EditVehicleDatesForm vehicle={v} />
+                  <EditVehicleForm vehicle={v} employees={(riders || []).map((r) => ({ id: r.id, name: r.full_name }))} />
                   {canDelete && (
                     <ReasonConfirmButton action={deleteVehicle} id={v.id} label="Delete" icon="trash"
                       confirmText={`Permanently delete vehicle ${v.registration_no}?`}
@@ -157,11 +153,7 @@ export default async function FleetPage({ searchParams }) {
       </div>
 
       <h4 className="text-sm font-bold mt-8 mb-2.5">Recent vehicle expenses</h4>
-      <form className="no-print flex flex-wrap gap-2.5 mb-2.5 items-center" action="/fleet">
-        <input type="text" name="eq" defaultValue={sp.eq || ""} placeholder="Search vehicle #, category, notes…" className="in w-64" />
-        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
-        {expenseQuery && <Link href="/fleet" className="text-xs text-slate hover:text-aqua">Clear</Link>}
-      </form>
+      <ListFilterBar className="!mb-2.5" searchParam="eq" placeholder="Search vehicle #, category, notes…" />
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>Vehicle</Th><Th>Category</Th><Th>Amount</Th><Th>Notes</Th><Th className="no-print"></Th></tr></thead>

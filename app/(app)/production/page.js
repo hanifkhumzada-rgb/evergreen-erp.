@@ -6,7 +6,7 @@ import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { voidProductionBatch } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
-import Link from "next/link";
+import ListFilterBar from "@/components/ListFilterBar";
 
 export const dynamic = "force-dynamic";
 
@@ -70,12 +70,7 @@ export default async function ProductionPage({ searchParams }) {
         <KPI label="TOTAL COST" value={pkr(totalCost)} tone="coral" sub={totalBottles ? `${pkr(totalCost / totalBottles)}/bottle avg` : undefined} />
       </div>
 
-      <form className="no-print flex flex-wrap gap-2.5 mb-2 items-center" action="/production">
-        <input type="text" name="q" defaultValue={sp.q || ""} placeholder="Search size, supplier…" className="in w-52" />
-        <input type="month" name="month" defaultValue={monthFilter} className="in w-40" />
-        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Filter</button>
-        {(q || monthFilter) && <Link href="/production" className="text-xs text-slate hover:text-aqua">Clear</Link>}
-      </form>
+      <ListFilterBar className="!mb-2" placeholder="Search size, supplier…" dateFilters={[{ name: "month", label: "Month", type: "month" }]} />
       {/* Sibling <div>, not inside the search <form> above — a button
           without type="button" inside a nested form submits/reloads the
           page instead of opening its modal (the same class of bug fixed

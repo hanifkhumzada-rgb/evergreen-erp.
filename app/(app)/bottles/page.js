@@ -1,10 +1,10 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { Search } from "lucide-react";
 import { fmtDate } from "@/lib/format";
 import { DocumentActionBar, Th, Td } from "@/components/ui";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
+import ListFilterBar from "@/components/ListFilterBar";
 
 export const dynamic = "force-dynamic";
 
@@ -60,17 +60,15 @@ export default async function BottlesPage({ searchParams }) {
       </div>
 
       <h4 className="text-sm font-bold mb-2.5">Customer bottle balances, by size</h4>
-      <form className="no-print flex flex-wrap gap-2.5 mb-3 items-center" action="/bottles">
-        <input type="text" name="q" defaultValue={sp.q || ""} placeholder="Search customer ID, name or phone…" className="in w-52" />
-        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold"><Search size={14} className="inline mr-1.5" />Search</button>
-        {q && <Link href="/bottles" className="text-xs text-slate hover:text-aqua">Clear</Link>}
+      <div className="no-print flex flex-wrap gap-2.5 mb-3 items-start">
+        <ListFilterBar className="!mb-0" placeholder="Search customer ID, name or phone…" />
         <div className="flex-1" />
         <DocumentActionBar
           print
           excel={{ rows: exportRows, sheetName: "Bottles", reportTitle: "Bottle Balances", branding }}
           share={{ title: "Bottle Balances" }}
         />
-      </form>
+            </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
           <thead>

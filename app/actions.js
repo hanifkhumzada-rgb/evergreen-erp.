@@ -60,8 +60,10 @@ async function resolveProductId(supabase, requested, fallbackProductId) {
       const { data } = await supabase.from("products").select("id").eq("id", val).maybeSingle();
       if (data) return data.id;
     } else {
+      // Commas/parentheses would change the meaning of the .or() filter.
+      const safe = val.replace(/[,()*"\\]/g, " ").trim();
       const { data } = await supabase.from("products").select("id")
-        .or(`sku.ilike.${val},size_label.ilike.${val},name.ilike.%${val}%`)
+        .or(`sku.ilike.${safe},size_label.ilike.${safe},name.ilike.%${safe}%`)
         .limit(1).maybeSingle();
       if (data) return data.id;
     }
@@ -1130,6 +1132,33 @@ export async function updateVehicleExpiry(vehicleId, formData) {
   }).eq("id", vehicleId);
   if (error) return { error: error.message };
   await supabase.from("audit_logs").insert({ user_id: user.id, action: "UPDATE", module: "vehicles", record_id: vehicleId });
+  revalidatePath("/fleet");
+  return { ok: true };
+}
+
+// Full vehicle edit (number, type, driver, active flag and expiry dates).
+// RLS on vehicles gates who may update; old/new values go to the audit log.
+export async function updateVehicle(vehicleId, formData) {
+  const { supabase, user } = await requireUser();
+  const registrationNo = String(formData.get("vehicle_no") || "").trim();
+  if (!registrationNo) return { error: "Vehicle number is required." };
+  const changes = {
+    registration_no: registrationNo,
+    vehicle_type: String(formData.get("vehicle_type") || "").trim() || null,
+    assigned_rider_id: formData.get("driver_employee_id") || null,
+    is_active: formData.get("is_active") === "on",
+    insurance_expiry: formData.get("insurance_expiry") || null,
+    registration_expiry: formData.get("registration_expiry") || null,
+    service_due_date: formData.get("service_due_date") || null,
+  };
+  const { data: before } = await supabase.from("vehicles").select("registration_no, vehicle_type, assigned_rider_id, is_active, insurance_expiry, registration_expiry, service_due_date").eq("id", vehicleId).single();
+  const { data: updated, error } = await supabase.from("vehicles").update(changes).eq("id", vehicleId).select("id");
+  if (error) {
+    if (error.code === "23505") return { error: "Another vehicle already has this number." };
+    return { error: error.message };
+  }
+  if (!updated?.length) return { error: "You don't have permission to edit vehicles." };
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "UPDATE", module: "vehicles", record_id: vehicleId, old_value: before || null, new_value: changes });
   revalidatePath("/fleet");
   return { ok: true };
 }
@@ -2427,11 +2456,18 @@ export async function deleteUser(userId, reason) {
   const businessId = actorProfile?.business_id;
 
   const admin = createAdminClient();
-  const { error: authError } = await admin.auth.admin.deleteUser(userId);
-  if (authError) return { error: authError.message };
-
+  // Profile first: if this person has deliveries/payments/other history the
+  // foreign keys refuse the delete, and we stop before touching their login
+  // (the old order could remove the login and then fail, leaving a broken
+  // half-deleted account). Deactivate is the right action for such staff.
   const { error: profileError } = await admin.from("profiles").delete().eq("id", userId);
-  if (profileError) return { error: profileError.message };
+  if (profileError) {
+    if (profileError.code === "23503") return { error: "Can't delete — this person has records (deliveries, payments, attendance…) that must stay for the audit trail. Deactivate them instead." };
+    return { error: profileError.message };
+  }
+
+  const { error: authError } = await admin.auth.admin.deleteUser(userId);
+  if (authError) return { error: `Profile removed, but the login could not be deleted: ${authError.message}` };
 
   await admin.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "profiles", new_value: { action: "deleted", target_user_id: userId, reason: trimmed }, business_id: businessId });
   revalidatePath("/user-management");
