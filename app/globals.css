@@ -218,6 +218,31 @@ table tr.hover\:bg-foam:hover {
   background: color-mix(in srgb, var(--card) 92%, transparent);
   box-shadow: 0 1px 0 rgba(7,59,58,.04), 0 10px 30px rgba(7,59,58,.045);
 }
+/* Branded top bar — the same deep teal as the Owner Control Room card, and
+   it follows the owner's chosen accent (ErpAppearance sets --erp-navy*).
+   Same in light and dark mode: light text on dark teal reads well in both. */
+.app-shell-bg .workspace-topbar.topbar-branded {
+  color: #fff;
+  background: linear-gradient(100deg, var(--erp-navy, #073F3A) 0%, var(--erp-navy-light, #07564D) 62%, color-mix(in srgb, var(--erp-accent, #087C69) 78%, #073F3A) 100%);
+  border-bottom: 1px solid rgba(255,255,255,.08);
+  box-shadow: 0 8px 26px rgba(7,59,58,.22);
+}
+.topbar-branded .topbar-muted { color: #A9DDD7; }
+.topbar-branded .workspace-context-label { color: #A9DDD7; }
+.topbar-branded .workspace-context-title { color: #fff; }
+.topbar-branded .topbar-icon-btn { color: #E6F6F3; }
+.topbar-branded .topbar-icon-btn:hover,
+.topbar-branded .topbar-icon-btn:focus-visible { background: rgba(255,255,255,.12); color: #fff; }
+.topbar-branded .erp-nav-controls { border-color: rgba(255,255,255,.14); background: rgba(255,255,255,.08); box-shadow: none; }
+.topbar-branded .erp-nav-button { color: #D7EFEC; }
+.topbar-branded .erp-nav-button:not(:disabled):hover { background: rgba(255,255,255,.14); color: #fff; }
+.topbar-branded .topbar-search { border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.08); }
+/* Desktop search field stays a light pill on the dark bar (its dropdown and
+   the full-screen mobile search keep the normal card styling). */
+.topbar-branded .topbar-search input { color: var(--ink); }
+/* Popovers rendered inside the bar (search results, mobile search sheet)
+   keep normal card text instead of inheriting the bar's white. */
+.topbar-branded .bg-card { color: var(--ink); }
 .app-shell-bg .workspace-context {
   min-width: 0;
   padding-left: 2px;
@@ -347,10 +372,6 @@ table tr.hover\:bg-foam:hover {
     padding-left: 11px;
     padding-right: 11px;
   }
-  .quick-add-root {
-    right: 12px !important;
-    bottom: 14px !important;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -366,6 +387,20 @@ table tr.hover\:bg-foam:hover {
   }
 }
 
+
+/* Quick Add must sit ABOVE the mobile bottom nav (which is fixed to the
+   bottom on < md screens). They used to share the same spot and z-index,
+   so the nav silently covered the Quick Add button on phones. */
+@media (max-width: 767px) {
+  .quick-add-root {
+    right: 12px !important;
+    bottom: calc(84px + env(safe-area-inset-bottom, 0px)) !important;
+    z-index: 45;
+  }
+  .quick-add-root > button { min-height: 48px; padding: 0 14px; border-radius: 16px; }
+  .quick-add-root > div { max-height: calc(100vh - 170px); overflow-y: auto; }
+  .app-shell-bg .page-stage { padding-bottom: 150px; }
+}
 
 /* Dashboard and Customer workspace v3 — staff-only responsive structure. */
 .app-shell-bg .dashboard-section-tabs {

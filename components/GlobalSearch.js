@@ -124,8 +124,8 @@ export default function GlobalSearch() {
         />
       </div>
 
-      <button type="button" onClick={() => setMobileOpen((v) => !v)} className="md:hidden grid h-10 w-10 place-items-center -m-1.5 rounded-lg hover:bg-foam" aria-label="Search">
-        <Search size={18} className="text-slate" />
+      <button type="button" onClick={() => setMobileOpen((v) => !v)} className="topbar-icon-btn md:hidden grid h-10 w-10 place-items-center -m-1.5 rounded-lg" aria-label="Search">
+        <Search size={18} />
       </button>
 
       {mobileOpen && (

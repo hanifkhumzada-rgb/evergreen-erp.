@@ -51,28 +51,28 @@ export default async function AppLayout({ children }) {
     <div className="min-h-screen app-shell-bg flex">
       <Sidebar role={roleKey} permissions={effectivePermissions} unreadNotifications={unreadNotifications} />
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="workspace-topbar no-print sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 py-3 border-b border-line glass-bar">
+        <header className="workspace-topbar topbar-branded no-print sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 py-3">
           <div className="flex items-center gap-3">
             <SidebarToggleButton />
             <NavigationControls />
             <WorkspaceIdentity />
-            <div className="hidden xl:flex items-center gap-2 text-xs text-slate"><span className="w-2 h-2 rounded-full bg-green animate-pulse" /> Live workspace</div>
+            <div className="topbar-muted hidden xl:flex items-center gap-2 text-xs"><span className="w-2 h-2 rounded-full bg-[#5EEAD4] animate-pulse" /> Live workspace</div>
             <StaffLocationTracker />
           </div>
           <div className="flex items-center gap-4">
             <OfflineIndicator />
-            <div className="flex items-center gap-2 rounded-xl border border-line bg-foam/70 px-2 py-1"><Command size={13} className="hidden sm:block text-slate" /><GlobalSearch /></div>
-            <Link href="/notifications" className="relative grid h-10 w-10 place-items-center -m-2 rounded-lg hover:bg-foam transition-colors" aria-label="Notifications">
-              <Bell size={17} className="text-slate" />
-              {unreadNotifications > 0 && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-coral ring-2 ring-card" />}
+            <div className="topbar-search flex items-center gap-2 rounded-xl px-2 py-1"><Command size={13} className="topbar-muted hidden md:block" /><GlobalSearch /></div>
+            <Link href="/notifications" className="topbar-icon-btn relative grid h-10 w-10 place-items-center -m-2 rounded-lg transition-colors" aria-label="Notifications">
+              <Bell size={17} />
+              {unreadNotifications > 0 && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-coral ring-2 ring-[#073F3A]" />}
             </Link>
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-aqua to-navyLight text-white flex items-center justify-center text-xs font-bold shadow-sm ring-2 ring-card flex-shrink-0">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#5EEAD4] to-[#0F9F85] text-[#053B36] flex items-center justify-center text-xs font-bold shadow-sm ring-2 ring-white/25 flex-shrink-0">
                 {profile.full_name?.[0]?.toUpperCase()}
               </div>
               <div className="text-xs hidden sm:block">
-                <div className="font-semibold leading-tight">{profile.full_name}</div>
-                <div className="text-slate leading-tight">{roleLabel}</div>
+                <div className="font-semibold leading-tight text-white">{profile.full_name}</div>
+                <div className="topbar-muted leading-tight">{roleLabel}</div>
               </div>
             </div>
           </div>

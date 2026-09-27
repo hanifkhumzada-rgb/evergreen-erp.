@@ -30,7 +30,7 @@ export function useSidebar() {
 export function SidebarToggleButton() {
   const { open, setOpen } = useContext(SidebarContext);
   return (
-    <button type="button" onClick={() => setOpen(!open)} className="no-print md:hidden p-1.5 -ml-1.5 rounded-lg hover:bg-foam" aria-label="Toggle menu">
+    <button type="button" onClick={() => setOpen(!open)} className="topbar-icon-btn no-print md:hidden grid h-10 w-10 place-items-center -ml-2 rounded-lg" aria-label="Toggle menu">
       {open ? <X size={20} /> : <Menu size={20} />}
     </button>
   );

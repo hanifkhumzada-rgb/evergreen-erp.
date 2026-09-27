@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { useSidebar } from "@/components/Sidebar";
 import { Plus, UserPlus, Truck, Receipt, Wallet, FilePlus2, ClipboardCheck, X, PencilLine } from "lucide-react";
 
 const ACTIONS = [
@@ -16,6 +17,7 @@ const ACTIONS = [
 
 export default function QuickAdd({ role, permissions = [] }) {
   const [open, setOpen] = useState(false);
+  const { open: menuOpen } = useSidebar() || {};
   const rootRef = useRef(null);
   const permissionSet = new Set(permissions || []);
 
@@ -38,7 +40,8 @@ export default function QuickAdd({ role, permissions = [] }) {
     };
   }, []);
 
-  if (!actions.length) return null;
+  // Hidden while the mobile menu drawer is open so it never floats over it.
+  if (!actions.length || menuOpen) return null;
   return (
     <div ref={rootRef} className="quick-add-root no-print fixed bottom-5 right-5 z-40 sm:bottom-7 sm:right-7">
       {open && (
