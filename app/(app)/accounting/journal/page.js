@@ -1,11 +1,18 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
 import { Th, Td, Badge, DocumentActionBar } from "@/components/ui";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { voidJournalEntry } from "@/app/actions";
+import ListFilterBar from "@/components/ListFilterBar";
+import Pager from "@/components/Pager";
+import { pageFrom, rangeFor } from "@/lib/listParams";
+import { applyJournalFilters } from "@/lib/listQueries";
+import { exportJournalRows } from "@/lib/exportActions";
+import { getBrandingLite } from "@/lib/pdf/business";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 50;
 
 // Only a genuinely standalone/orphaned entry can be voided directly —
 // anything tied to an expense/payment/invoice/delivery (or that's already
@@ -20,26 +27,22 @@ export default async function JournalPage({ searchParams }) {
   const dateTo = sp.to || "";
   const supabase = await createClient();
 
-  let entryQuery = supabase
-    .from("journal_entries")
-    .select("*, journal_lines(*, chart_of_accounts(code, name))")
-    .order("entry_date", { ascending: false })
-    .order("created_at", { ascending: false });
-  if (q) entryQuery = entryQuery.or(`entry_no.ilike.%${q}%,reference.ilike.%${q}%,description.ilike.%${q}%`);
-  if (dateFrom) entryQuery = entryQuery.gte("entry_date", dateFrom);
-  if (dateTo) entryQuery = entryQuery.lte("entry_date", dateTo);
-  // A search or date filter needs to reach the full history, not just the
-  // default recent-100 feed — only cap when the list would otherwise be unbounded.
-  if (!q && !dateFrom && !dateTo) entryQuery = entryQuery.limit(100);
+  const filters = { q, from: dateFrom, to: dateTo };
+  const page = pageFrom(sp);
+  const [from, to] = rangeFor(page, PAGE_SIZE);
 
-  const [{ data: entries }, { data: canVoid }, { data: voidReversals }] = await Promise.all([
-    entryQuery,
+  const [{ data: entries, count }, { data: canVoid }, branding] = await Promise.all([
+    applyJournalFilters(supabase.from("journal_entries").select("*, journal_lines(*, chart_of_accounts(code, name))", { count: "exact" }), filters)
+      .order("entry_date", { ascending: false }).order("created_at", { ascending: false }).order("id").range(from, to),
     supabase.rpc("fn_has_permission", { perm_key: "journal.delete" }),
-    // Queried unbounded and independent of the filters above — a voided
-    // entry must stay marked "Voided" even when its reversal falls outside
-    // the current search/date filter or page.
-    supabase.from("journal_entries").select("source_id").eq("source_module", "journal_void"),
+    getBrandingLite(supabase),
   ]);
+  // Only this page's entries need their "Voided" flag: look up reversals
+  // pointing at them (independent of the search/date filter).
+  const pageIds = (entries || []).map((e) => e.id);
+  const { data: voidReversals } = pageIds.length
+    ? await supabase.from("journal_entries").select("source_id").eq("source_module", "journal_void").in("source_id", pageIds)
+    : { data: [] };
   const voidedSourceIds = new Set((voidReversals || []).map((r) => r.source_id));
 
   return (
@@ -47,14 +50,16 @@ export default async function JournalPage({ searchParams }) {
       <h2 className="font-display text-2xl font-semibold mb-1">Journal Entries</h2>
       <p className="text-slate text-sm mb-5">Double-entry postings generated automatically from sales, payments and expenses.</p>
 
-      <form action="/accounting/journal" className="flex flex-wrap gap-2.5 mb-4 items-center">
-        <input type="text" name="q" defaultValue={sp.q || ""} placeholder="Search entry #, reference, description…" className="in w-64" />
-        <input type="date" name="from" defaultValue={dateFrom} className="in w-36" />
-        <span className="text-xs text-slate">to</span>
-        <input type="date" name="to" defaultValue={dateTo} className="in w-36" />
-        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
-        {(q || dateFrom || dateTo) && <Link href="/accounting/journal" className="text-xs text-slate hover:text-aqua">Clear</Link>}
-      </form>
+      <div className="no-print flex flex-wrap gap-2.5 mb-4 items-start">
+        <ListFilterBar className="!mb-0" placeholder="Search entry #, reference, description…" dateFilters={[{ name: "from", label: "From" }, { name: "to", label: "To" }]} />
+        <div className="flex-1" />
+        <DocumentActionBar
+          print
+          excel={{ loadRows: exportJournalRows.bind(null, filters), sheetName: "Journal", reportTitle: "Journal Entries", branding }}
+          share={{ title: "Journal Entries" }}
+        />
+      </div>
+      <p className="no-print text-xs text-slate mb-2">{(count || 0).toLocaleString()} entries</p>
 
       <div className="flex flex-col gap-3">
         {(entries || []).length === 0 && (
@@ -104,6 +109,7 @@ export default async function JournalPage({ searchParams }) {
           );
         })}
       </div>
+      <Pager basePath="/accounting/journal" searchParams={sp} page={page} pageSize={PAGE_SIZE} total={count || 0} label="Journal pages" />
     </div>
   );
 }

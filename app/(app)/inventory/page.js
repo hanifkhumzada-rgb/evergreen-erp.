@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
 import { Badge, DocumentActionBar, Th, Td } from "@/components/ui";
@@ -6,6 +5,7 @@ import BulkImportButton from "@/components/BulkImportButton";
 import { bulkImportPurchases } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
+import ListFilterBar from "@/components/ListFilterBar";
 
 export const dynamic = "force-dynamic";
 
@@ -37,11 +37,7 @@ export default async function InventoryPage({ searchParams }) {
       {/* Kept as a sibling form, not nested with the toolbar below — a button
           without an explicit type inside another form submits/reloads instead
           of doing its own action. */}
-      <form className="no-print flex flex-wrap gap-2.5 mb-2.5 items-center" action="/inventory">
-        <input type="text" name="q" defaultValue={sp.q || ""} placeholder="Search product, unit…" className="in w-60" />
-        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
-        {q && <Link href="/inventory" className="text-xs text-slate hover:text-aqua">Clear</Link>}
-      </form>
+      <ListFilterBar className="!mb-2.5" placeholder="Search product, unit…" />
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <DocumentActionBar

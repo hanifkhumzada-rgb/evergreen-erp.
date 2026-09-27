@@ -4,9 +4,12 @@ import { pkr, fmtDate } from "@/lib/format";
 import { DocumentActionBar, Th, Td, KPI } from "@/components/ui";
 import EmployeeAdvanceForm from "@/components/EmployeeAdvanceForm";
 import EmployeeEditForm from "@/components/EmployeeEditForm";
+import UserActiveToggle from "@/components/UserActiveToggle";
+import DeleteUserButton from "@/components/DeleteUserButton";
 import AttendanceButtons from "@/components/AttendanceButtons";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
+import ListFilterBar from "@/components/ListFilterBar";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +20,7 @@ export default async function EmployeesPage({ searchParams }) {
   const q = (sp.q || "").trim().toLowerCase();
   const supabase = await createClient();
   const today = todayISO();
-  const [branding, { data: employees }, { data: deliveries }, { data: zones }, { data: vehicles }, { data: advances }, { data: attendanceToday }] = await Promise.all([
+  const [branding, { data: employees }, { data: deliveries }, { data: zones }, { data: vehicles }, { data: advances }, { data: attendanceToday }, { data: canManageUsers }, { data: { user: me } }] = await Promise.all([
     getBrandingLite(supabase),
     supabase.from("profiles").select("*, roles!inner(name, key), zones(name), vehicles(registration_no)").neq("roles.key", "customer"),
     supabase.from("deliveries").select("rider_id, status, amount_collected").eq("delivery_date", today),
@@ -25,6 +28,8 @@ export default async function EmployeesPage({ searchParams }) {
     supabase.from("vehicles").select("id, registration_no").eq("is_active", true).order("registration_no"),
     supabase.from("employee_advances").select("employee_id, amount, repaid"),
     supabase.from("employee_attendance").select("employee_id, status").eq("attendance_date", today),
+    supabase.rpc("fn_has_permission", { perm_key: "users.manage" }),
+    supabase.auth.getUser(),
   ]);
 
   const advanceMap = {};
@@ -32,8 +37,11 @@ export default async function EmployeesPage({ searchParams }) {
   const attendanceMap = {};
   (attendanceToday || []).forEach((a) => { attendanceMap[a.employee_id] = a.status; });
 
+  // Group today's deliveries once instead of re-scanning them per employee.
+  const deliveriesByRider = {};
+  (deliveries || []).forEach((x) => { (deliveriesByRider[x.rider_id] ||= []).push(x); });
   const perf = (employees || []).map((e) => {
-    const d = (deliveries || []).filter((x) => x.rider_id === e.id);
+    const d = deliveriesByRider[e.id] || [];
     return {
       ...e, role_name: e.roles?.name, assigned: d.length, done: d.filter((x) => x.status === "delivered").length,
       cash: d.reduce((a, x) => a + Number(x.amount_collected), 0),
@@ -71,11 +79,7 @@ export default async function EmployeesPage({ searchParams }) {
       {/* Kept as a sibling form, not nested with the toolbar below — a button
           without an explicit type inside another form submits/reloads instead
           of doing its own action. */}
-      <form className="no-print flex flex-wrap gap-2.5 mb-2.5 items-center" action="/employees">
-        <input type="text" name="q" defaultValue={sp.q || ""} placeholder="Search name, ID, phone, role, zone, vehicle…" className="in w-72" />
-        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
-        {q && <Link href="/employees" className="text-xs text-slate hover:text-aqua">Clear</Link>}
-      </form>
+      <ListFilterBar className="!mb-2.5" placeholder="Search name, ID, phone, role, zone, vehicle…" />
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
         <EmployeeAdvanceForm employees={perf} />
@@ -103,7 +107,13 @@ export default async function EmployeesPage({ searchParams }) {
                 <Td>{pkr(e.cash)}</Td>
                 <Td className={e.outstandingAdvance > 0 ? "text-amber font-semibold" : ""}>{e.outstandingAdvance > 0 ? pkr(e.outstandingAdvance) : "—"}</Td>
                 <Td><AttendanceButtons employeeId={e.id} today={today} initialStatus={e.attendanceToday} /></Td>
-                <Td><EmployeeEditForm employee={e} zones={zones || []} vehicles={vehicles || []} /></Td>
+                <Td className="no-print">
+                  <div className="flex items-center gap-1.5">
+                    <EmployeeEditForm employee={e} zones={zones || []} vehicles={vehicles || []} />
+                    {canManageUsers && e.id !== me?.id && <UserActiveToggle userId={e.id} isActive={e.is_active !== false} />}
+                    {canManageUsers && <DeleteUserButton userId={e.id} userName={e.full_name} isSelf={e.id === me?.id} />}
+                  </div>
+                </Td>
               </tr>
             ))}
           </tbody>

@@ -5,48 +5,57 @@ import { Badge, DocumentActionBar, Th, Td } from "@/components/ui";
 import AddSaleForm from "@/components/AddSaleForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import RecordPreview from "@/components/RecordPreview";
-import { bulkImportSales } from "@/app/actions";
+import ReasonConfirmButton from "@/components/ReasonConfirmButton";
+import ListFilterBar from "@/components/ListFilterBar";
+import Pager from "@/components/Pager";
+import { bulkImportSales, voidInvoice } from "@/app/actions";
+import { pageFrom, rangeFor } from "@/lib/listParams";
+import { applyInvoiceFilters, invoiceFilters, matchingCustomerIds } from "@/lib/listQueries";
+import { exportInvoiceRows } from "@/lib/exportActions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
-import { Search } from "lucide-react";
 import { INVOICE_STATUS_LABEL as STATUS_LABEL, INVOICE_STATUS_TONE as STATUS_TONE } from "@/lib/invoiceStatus";
 
 export const dynamic = "force-dynamic";
 
+const PAGE_SIZE = 50;
+
 export default async function SalesPage({ searchParams }) {
   const sp = (await searchParams) || {};
-  const q = (sp.q || "").trim().toLowerCase();
   const supabase = await createClient();
-  // A search needs to reach the full history, not just the default
-  // recent-200 feed — only cap when there's no search term to narrow it.
-  let invoiceQuery = supabase.from("invoices").select("*, customers(name), invoice_items(quantity)").order("created_at", { ascending: false });
-  if (!q) invoiceQuery = invoiceQuery.limit(200);
-  const [branding, { data: invoices }, { data: customers }, { data: products }] = await Promise.all([
+  // Search / status / dates / paging all run in the database; a search
+  // term also matches customer name, ID and phone.
+  const filters = invoiceFilters(sp);
+  const page = pageFrom(sp);
+  const [from, to] = rangeFor(page, PAGE_SIZE);
+  const customerIds = filters.q ? await matchingCustomerIds(supabase, filters.q) : null;
+  const [branding, { data: invoices, count }, { data: customers }, { data: products }, { data: canVoid }] = await Promise.all([
     getBrandingLite(supabase),
-    invoiceQuery,
-    supabase.from("customers").select("id, name, default_product_id"),
+    applyInvoiceFilters(supabase.from("invoices").select("id, invoice_no, invoice_date, net_amount, status, customers(name), invoice_items(quantity)", { count: "exact" }), filters, customerIds)
+      .order("created_at", { ascending: false }).order("id").range(from, to),
+    supabase.from("customers").select("id, name, default_product_id").order("name"),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
+    supabase.rpc("fn_has_permission", { perm_key: "invoices.delete" }),
   ]);
 
   const qtyOf = (s) => (s.invoice_items || []).reduce((a, i) => a + Number(i.quantity), 0);
-  const rows = (invoices || []).filter((s) => !q || `${s.invoice_no || ""} ${s.customers?.name || ""} ${s.invoice_date || ""}`.toLowerCase().includes(q));
-  const exportRows = rows.map((s) => ({
-    Invoice: s.invoice_no, Date: s.invoice_date, Customer: s.customers?.name, Qty: qtyOf(s), Total: s.net_amount, Status: STATUS_LABEL[s.status] || s.status,
-  }));
+  const rows = invoices || [];
+  const total = count || 0;
+  const exportAction = exportInvoiceRows.bind(null, filters);
 
   const today = new Date().toISOString().slice(0, 10);
 
   return (
     <div>
-      <DocumentPrintHeader branding={branding} title="Sales" meta={`${(invoices || []).length} invoices\nGenerated ${fmtDate(today)}`} />
+      <DocumentPrintHeader branding={branding} title="Sales" meta={`${total} invoices\nGenerated ${fmtDate(today)}`} />
       <h2 className="no-print font-display text-2xl font-semibold mb-1">Sales</h2>
       <p className="no-print text-sm text-slate mb-4">Search first, preview any record safely, then open the full invoice only when you need to edit or act.</p>
 
-      <form className="no-print flex flex-wrap gap-2.5 mb-4" action="/sales">
-        <input type="search" name="q" defaultValue={sp.q || ""} placeholder="Search invoice, customer or date…" className="px-3 py-2 rounded-xl border border-line bg-card text-xs w-64" />
-        <button type="submit" className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold"><Search size={14} /> Search</button>
-        {q ? <Link href="/sales" className="self-center text-xs text-slate">Clear</Link> : null}
-      </form>
+      <ListFilterBar
+        placeholder="Search invoice #, customer name / ID / phone…"
+        filters={[{ name: "status", label: "All statuses", options: Object.entries(STATUS_LABEL).map(([value, label]) => ({ value, label })) }]}
+        dateFilters={[{ name: "from", label: "From" }, { name: "to", label: "To" }]}
+      />
 
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-center">
         <div className="flex-1" />
@@ -61,12 +70,12 @@ export default async function SalesPage({ searchParams }) {
           print
           pdfHref={`/api/pdf/daily-sales?date=${today}`}
           pdfLabel="Today's Report"
-          excel={{ rows: exportRows, sheetName: "Sales", reportTitle: "Sales", branding }}
+          excel={{ loadRows: exportAction, sheetName: "Sales", reportTitle: "Sales", branding }}
           share={{ title: "Sales" }}
         />
         <AddSaleForm customers={customers || []} products={products || []} initialOpen={sp.quick === "new"} />
       </div>
-      <p className="no-print text-xs text-slate mb-2">{rows.length} sales records</p>
+      <p className="no-print text-xs text-slate mb-2">{total} sales records</p>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>Invoice #</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Total</Th><Th>Status</Th><Th className="no-print">Actions</Th></tr></thead>
@@ -92,7 +101,10 @@ export default async function SalesPage({ searchParams }) {
                   <Td>{pkr(s.net_amount)}</Td>
                   <Td><Badge text={statusLabel} tone={STATUS_TONE[s.status] || "slate"} /></Td>
                   <Td className="no-print">
-                    <RecordPreview iconOnly title={`${s.invoice_no} · ${s.customers?.name || "Sale"}`} subtitle="Read-only sale preview" fields={previewFields} excelRows={previewExcel} excelTitle={s.invoice_no || "Sale"} openHref={`/sales/${s.id}`} openLabel="Open Invoice" />
+                    <div className="flex items-center gap-1.5">
+                      <RecordPreview iconOnly title={`${s.invoice_no} · ${s.customers?.name || "Sale"}`} subtitle="Read-only sale preview" fields={previewFields} excelRows={previewExcel} excelTitle={s.invoice_no || "Sale"} openHref={`/sales/${s.id}`} openLabel="Open Invoice" />
+                      {canVoid && s.status !== "void" && !["paid", "partially_paid"].includes(s.status) && <ReasonConfirmButton action={voidInvoice} id={s.id} confirmText={`Void invoice ${s.invoice_no}?`} />}
+                    </div>
                   </Td>
                 </tr>
               );
@@ -100,6 +112,7 @@ export default async function SalesPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      <Pager basePath="/sales" searchParams={sp} page={page} pageSize={PAGE_SIZE} total={total} label="Sales pages" />
       <DocumentPrintFooter />
     </div>
   );

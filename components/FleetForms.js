@@ -1,7 +1,7 @@
 "use client";
 import { useState, useRef } from "react";
-import { Plus, X, CalendarClock } from "lucide-react";
-import { addVehicle, addVehicleExpense, updateVehicleExpiry } from "@/app/actions";
+import { Plus, X, CalendarClock, Pencil } from "lucide-react";
+import { addVehicle, addVehicleExpense, updateVehicleExpiry, updateVehicle } from "@/app/actions";
 
 export function AddVehicleForm({ employees }) {
   const [open, setOpen] = useState(false);
@@ -125,6 +125,55 @@ export function EditVehicleDatesForm({ vehicle }) {
         <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Registration expiry</span><input name="registration_expiry" type="date" defaultValue={vehicle.registration_expiry || ""} className="in" /></label>
         <label className="block mb-4"><span className="text-xs font-semibold text-slate block mb-1">Service due</span><input name="service_due_date" type="date" defaultValue={vehicle.service_due_date || ""} className="in" /></label>
         <button type="submit" disabled={busy} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">{busy ? "Saving…" : "Save"}</button>
+      </form>
+      <style jsx global>{`.in { width:100%; padding:9px 11px; border-radius:9px; border:1px solid var(--line); background: var(--card); color: var(--ink); font-size:13.5px; outline:none; }`}</style>
+    </div>
+  );
+}
+
+// Full edit for an existing vehicle (number, type, driver, active, dates).
+export function EditVehicleForm({ vehicle, employees }) {
+  const [open, setOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const submit = async (fd) => {
+    setBusy(true);
+    try {
+      const res = await updateVehicle(vehicle.id, fd);
+      setBusy(false);
+      if (res?.error) { setError(res.error); return; }
+      setError(""); setOpen(false);
+    } catch {
+      setBusy(false);
+      setError("Network error — please check your connection and try again.");
+    }
+  };
+
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} aria-label={`Edit ${vehicle.registration_no}`} title="Edit vehicle"
+        className="grid h-10 w-10 place-items-center rounded-xl border border-line bg-card text-navy hover:bg-foam">
+        <Pencil size={14} />
+      </button>
+    );
+  }
+  return (
+    <div className="fixed inset-0 bg-navy/40 z-50 flex items-center justify-center p-4" onClick={() => setOpen(false)}>
+      <form action={submit} onClick={(e) => e.stopPropagation()} className="bg-card rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-4"><h3 className="font-display text-lg font-semibold">Edit {vehicle.registration_no}</h3><button type="button" onClick={() => setOpen(false)} aria-label="Close"><X size={18} /></button></div>
+        {error && <p className="text-coral text-xs mb-3">{error}</p>}
+        <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Vehicle number</span><input name="vehicle_no" required defaultValue={vehicle.registration_no || ""} className="in" /></label>
+        <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Vehicle type</span><input name="vehicle_type" defaultValue={vehicle.vehicle_type || ""} className="in" /></label>
+        <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Driver</span>
+          <select name="driver_employee_id" defaultValue={vehicle.assigned_rider_id || ""} className="in"><option value="">— Unassigned —</option>{employees.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}</select>
+        </label>
+        <label className="flex items-center gap-2 mb-3 text-xs font-semibold text-slate"><input type="checkbox" name="is_active" defaultChecked={vehicle.is_active !== false} /> Active</label>
+        <div className="grid grid-cols-3 gap-2 mb-4">
+          <label className="block"><span className="text-[11px] font-semibold text-slate block mb-1">Insurance expiry</span><input name="insurance_expiry" type="date" defaultValue={vehicle.insurance_expiry || ""} className="in" /></label>
+          <label className="block"><span className="text-[11px] font-semibold text-slate block mb-1">Registration expiry</span><input name="registration_expiry" type="date" defaultValue={vehicle.registration_expiry || ""} className="in" /></label>
+          <label className="block"><span className="text-[11px] font-semibold text-slate block mb-1">Service due</span><input name="service_due_date" type="date" defaultValue={vehicle.service_due_date || ""} className="in" /></label>
+        </div>
+        <button type="submit" disabled={busy} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">{busy ? "Saving…" : "Save changes"}</button>
       </form>
       <style jsx global>{`.in { width:100%; padding:9px 11px; border-radius:9px; border:1px solid var(--line); background: var(--card); color: var(--ink); font-size:13.5px; outline:none; }`}</style>
     </div>

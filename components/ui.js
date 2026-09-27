@@ -76,13 +76,17 @@ const TOOLBAR_BTN_ICON = "no-print flex items-center justify-center w-8 h-8 roun
 // when the Export Excel button is never clicked (confirmed: it measurably
 // did, before this fix). This way it's its own on-demand chunk, loaded
 // only when someone actually exports.
-export function ExportExcelButton({ rows, sheetName = "Sheet1", reportTitle, branding, period, compact = false }) {
+// `rows` exports what the page already has; `loadRows` (a server action)
+// fetches every matching row on click instead — used by server-paginated
+// lists so the export is never limited to the rows on the current page.
+export function ExportExcelButton({ rows: givenRows, loadRows, sheetName = "Sheet1", reportTitle, branding, period, compact = false }) {
   const [loading, setLoading] = useState(false);
 
   const handleExport = async () => {
-    if (!rows?.length) { alert("No data to export."); return; }
     setLoading(true);
     try {
+      const rows = loadRows ? await loadRows() : givenRows;
+      if (!rows?.length) { alert("No data to export."); return; }
       const { buildBrandedWorkbook, brandedFilename } = await import("@/lib/excel");
       const title = reportTitle || sheetName;
       const wb = await buildBrandedWorkbook({ rows, sheetName, reportTitle: title, branding, period });

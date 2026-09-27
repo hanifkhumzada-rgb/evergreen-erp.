@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { Badge, KPI, Th, Td } from "@/components/ui";
+import { Badge, KPI, Th, Td, DocumentActionBar } from "@/components/ui";
 import RetryNotificationButton from "@/components/RetryNotificationButton";
 import DocumentPrintHeader from "@/components/DocumentPrintHeader";
 import { getBrandingLite } from "@/lib/pdf/business";
 import { isTwilioConfigured } from "@/lib/twilio";
+import ListFilterBar from "@/components/ListFilterBar";
 
 export const dynamic = "force-dynamic";
 
@@ -60,6 +61,7 @@ export default async function CommunicationCenterPage({ searchParams }) {
     return true;
   });
   const configured = isTwilioConfigured();
+  const exportRows = rows.map((r) => ({ When: r.created_at, Customer: r.customers?.name || "", "Customer ID": r.customers?.code || "", To: r.to_number, Channel: r.channel, Template: r.template_key, Status: r.status }));
 
   return (
     <div>
@@ -79,23 +81,8 @@ export default async function CommunicationCenterPage({ searchParams }) {
         <KPI label="FAILED" value={counts.failed} tone="coral" />
       </div>
 
-      <form className="no-print flex flex-wrap gap-2.5 mb-4 items-center" action="/communication">
-        <input type="text" name="q" defaultValue={sp.q || ""} placeholder="Search customer, phone, template…" className="px-3 py-2 rounded-xl border border-line bg-card text-xs w-56" />
-        <select name="status" defaultValue={statusFilter} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
-          <option value="">All statuses</option>
-          <option value="pending">Pending</option>
-          <option value="sent">Sent</option>
-          <option value="delivered">Delivered</option>
-          <option value="failed">Failed</option>
-        </select>
-        <select name="channel" defaultValue={channelFilter} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
-          <option value="">All channels</option>
-          <option value="whatsapp">WhatsApp</option>
-          <option value="sms">SMS</option>
-        </select>
-        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
-        {hasFilters && <Link href="/communication" className="text-xs text-slate hover:text-aqua">Clear</Link>}
-      </form>
+      <div className="no-print flex justify-end mb-2"><DocumentActionBar print excel={{ rows: exportRows, sheetName: "Messages", reportTitle: "Communication Log", branding }} share={{ title: "Communication Log" }} /></div>
+      <ListFilterBar placeholder="Search customer, phone, template…" filters={[{ name: "status", label: "All statuses", options: [["pending", "Pending"], ["sent", "Sent"], ["delivered", "Delivered"], ["failed", "Failed"]].map(([value, label]) => ({ value, label })) }, { name: "channel", label: "All channels", options: [{ value: "whatsapp", label: "WhatsApp" }, { value: "sms", label: "SMS" }] }]} />
 
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13px] border-collapse">

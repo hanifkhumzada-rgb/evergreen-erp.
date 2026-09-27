@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { KPI, Badge, Th, Td } from "@/components/ui";
+import { KPI, Badge, Th, Td, DocumentActionBar } from "@/components/ui";
+import ListFilterBar from "@/components/ListFilterBar";
+import { orIlike } from "@/lib/listParams";
 import IssueStatusForm from "@/components/IssueStatusForm";
 import { fmtDate } from "@/lib/format";
 
@@ -28,7 +30,8 @@ export default async function IssuesPage({ searchParams }) {
   const q = (sp.q || "").trim();
   let query = supabase.from("customer_issues").select("*, customers(name, code, mobile), deliveries(delivery_no)").order("created_at", { ascending: false });
   if (status !== "all") query = query.eq("status", status);
-  if (q) query = query.or(`issue_type.ilike.%${q}%,description.ilike.%${q}%`);
+  const or = orIlike(["issue_type", "description"], q);
+  if (or) query = query.or(or);
   // A search needs to reach the full history, not just the default recent-200 feed.
   if (!q) query = query.limit(200);
 
@@ -39,6 +42,10 @@ export default async function IssuesPage({ searchParams }) {
     supabase.from("customer_issues").select("id", { count: "exact", head: true }).eq("status", "resolved"),
     supabase.from("customer_issues").select("id", { count: "exact", head: true }).eq("status", "rejected"),
   ]);
+  const exportRows = (issues || []).map((i) => ({
+    Customer: i.customers?.name, "Customer ID": i.customers?.code, Phone: i.customers?.mobile, Type: i.issue_type,
+    Description: i.description, Delivery: i.deliveries?.delivery_no || "", Reported: i.created_at?.slice(0, 10), Status: STATUS_LABEL[i.status] || i.status,
+  }));
   const counts = { open: openCount.count || 0, under_review: reviewCount.count || 0, resolved: resolvedCount.count || 0, rejected: rejectedCount.count || 0 };
 
   return (
@@ -61,12 +68,12 @@ export default async function IssuesPage({ searchParams }) {
             </Link>
           ))}
         </div>
-        <form action="/issues" className="flex gap-2 items-center">
-          {status !== "all" && <input type="hidden" name="status" value={status} />}
-          <input type="text" name="q" defaultValue={q} placeholder="Search type or description…" className="in w-56" />
-          <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Search</button>
-          {q && <Link href={buildIssuesHref(status, "")} className="text-xs text-slate hover:text-aqua">Clear</Link>}
-        </form>
+        <ListFilterBar className="!mb-0" placeholder="Search type or description…" />
+        <DocumentActionBar
+          print
+          excel={{ rows: exportRows, sheetName: "Customer Issues", reportTitle: "Customer Issues" }}
+          share={{ title: "Customer Issues" }}
+        />
       </div>
 
       <div className="bg-card border border-line rounded-2xl overflow-x-auto">

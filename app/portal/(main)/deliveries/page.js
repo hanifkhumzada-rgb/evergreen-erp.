@@ -1,5 +1,9 @@
 import Link from "next/link";
-import { Search, Truck, ChevronRight, ChevronLeft, CalendarDays } from "lucide-react";
+import { Truck, ChevronRight, ChevronLeft } from "lucide-react";
+import ListFilterBar from "@/components/ListFilterBar";
+import { DocumentActionBar } from "@/components/ui";
+import { portalDeliveryFilters, portalDeliveriesQuery, deliveryItemsText } from "@/lib/portal/listQueries";
+import { exportPortalDeliveries } from "@/lib/portal/exportActions";
 import { requirePortalCustomer } from "@/lib/portal/session";
 import { fmtDate, pkr } from "@/lib/format";
 
@@ -20,40 +24,28 @@ function hrefFor({ status, q, month, page }) {
 
 export default async function PortalDeliveriesPage({ searchParams }) {
   const { supabase, customerId } = await requirePortalCustomer();
-  const status = String(searchParams?.status || "all");
-  const q = String(searchParams?.q || "").trim().slice(0, 50);
-  const month = /^\d{4}-\d{2}$/.test(String(searchParams?.month || "")) ? String(searchParams.month) : "";
+  const filters = portalDeliveryFilters(searchParams || {});
+  const { status, q, month } = filters;
   const page = Math.max(1, Number(searchParams?.page) || 1);
   const from = (page - 1) * PAGE_SIZE;
-
-  let query = supabase.from("deliveries")
-    .select("id, delivery_no, delivery_date, status, amount, delivery_items(delivered_qty, returned_qty, products(name))", { count: "exact" })
-    .eq("customer_id", customerId)
-    .order("delivery_date", { ascending: false })
-    .order("created_at", { ascending: false })
-    .range(from, from + PAGE_SIZE - 1);
-
-  if (status !== "all") query = query.eq("status", status);
-  if (q) query = query.ilike("delivery_no", `%${q.replace(/[%_,()]/g, "")}%`);
-  if (month) {
-    const [year, monthNumber] = month.split("-").map(Number);
-    const next = new Date(Date.UTC(year, monthNumber, 1)).toISOString().slice(0, 10);
-    query = query.gte("delivery_date", `${month}-01`).lt("delivery_date", next);
-  }
-
-  const { data: deliveries, count } = await query;
+  const { data: deliveries, count } = await portalDeliveriesQuery(supabase, customerId, filters, { count: true }).range(from, from + PAGE_SIZE - 1);
+  const pdfParams = new URLSearchParams({ kind: "deliveries", ...(status !== "all" && { status }), ...(q && { q }), ...(month && { month }) });
   const totalPages = Math.max(1, Math.ceil((count || 0) / PAGE_SIZE));
 
   return (
     <div className="flex flex-col gap-4">
       <div><h1 className="font-display text-xl font-semibold">My Deliveries</h1><p className="text-xs text-slate mt-1">Every delivery stays saved by date, quantity and reference.</p></div>
 
-      <form className="grid grid-cols-[1fr_auto] gap-2 rounded-2xl border border-line bg-card p-2" action="/portal/deliveries">
-        {status !== "all" && <input type="hidden" name="status" value={status} />}
-        <label className="relative min-w-0"><Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate"/><input name="q" defaultValue={q} placeholder="Search delivery reference" className="w-full rounded-xl border border-line bg-foam py-2.5 pl-9 pr-3 text-xs outline-none focus:border-aqua"/></label>
-        <button className="rounded-xl bg-navy px-4 text-xs font-bold text-white">Search</button>
-        <label className="relative col-span-2"><CalendarDays size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate"/><input type="month" name="month" defaultValue={month} className="w-full rounded-xl border border-line bg-card py-2.5 pl-9 pr-3 text-xs"/></label>
-      </form>
+      <ListFilterBar className="!mb-0" placeholder="Search delivery reference" dateFilters={[{ name: "month", label: "Month", type: "month" }]} />
+      <div className="flex flex-wrap gap-2">
+        <DocumentActionBar
+          print
+          pdfHref={`/api/pdf/portal-list?${pdfParams}`}
+          pdfLabel="PDF"
+          excel={{ loadRows: exportPortalDeliveries.bind(null, filters), sheetName: "My Deliveries", reportTitle: "My Deliveries" }}
+          share={{ title: "My Deliveries" }}
+        />
+      </div>
 
       <div className="flex gap-2 overflow-x-auto no-scrollbar">
         {["all", "delivered", "pending", "cancelled"].map((s) => (
@@ -74,7 +66,7 @@ export default async function PortalDeliveriesPage({ searchParams }) {
                 <span className="text-sm font-bold truncate">{d.delivery_no}</span>
                 <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full capitalize flex-shrink-0 ${STATUS_TONE[d.status] || "bg-foam text-slate"}`}>{String(d.status).replaceAll("_", " ")}</span>
               </div>
-              <div className="text-[11px] text-slate mt-1">{fmtDate(d.delivery_date)} · {(d.delivery_items || []).map((i) => `${i.products?.name || "Item"} ×${i.delivered_qty}`).join(", ") || "—"}</div>
+              <div className="text-[11px] text-slate mt-1">{fmtDate(d.delivery_date)} · {deliveryItemsText(d) || "—"}</div>
             </div>
             <div className="flex items-center gap-2 flex-shrink-0">
               <span className="text-sm font-mono-num font-bold">{pkr(d.amount)}</span>

@@ -6,6 +6,7 @@ import { KPI, Badge, DocumentActionBar, Th, Td } from "@/components/ui";
 import WhatsAppButton from "@/components/WhatsAppButton";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { getBrandingLite } from "@/lib/pdf/business";
+import ListFilterBar from "@/components/ListFilterBar";
 
 export const dynamic = "force-dynamic";
 
@@ -59,17 +60,8 @@ export default async function LedgerPage({ searchParams }) {
         <KPI label="TOTAL CUSTOMERS" value={allRows.length} tone="navy" />
       </div>
 
-      <form className="no-print flex flex-wrap gap-2.5 mb-4 items-center" action="/ledger">
-        <input type="text" name="q" defaultValue={sp.q || ""} placeholder="Search name, ID, phone…" className="px-3 py-2 rounded-xl border border-line bg-card text-xs w-56" />
-        <select name="zone" defaultValue={zoneFilter} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
-          <option value="">All zones</option>
-          {(zones || []).map((z) => <option key={z.id} value={z.id}>{z.name}</option>)}
-        </select>
-        <label className="flex items-center gap-1.5 text-xs text-slate px-1">
-          <input type="checkbox" name="outstanding" value="1" defaultChecked={outstandingOnly} /> Outstanding only
-        </label>
-        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Filter</button>
-        {(q || zoneFilter || outstandingOnly) && <Link href="/ledger" className="text-xs text-slate hover:text-aqua">Clear</Link>}
+      <div className="no-print flex flex-wrap gap-2.5 mb-3 items-start">
+        <ListFilterBar className="!mb-0" placeholder="Search name, ID, phone…" filters={[{ name: "zone", label: "All zones", options: (zones || []).map((z) => ({ value: z.id, label: z.name })) }, { name: "outstanding", label: "All balances", options: [{ value: "1", label: "Outstanding only" }] }]} />
         <div className="flex-1" />
         <DocumentActionBar
           print
@@ -78,7 +70,7 @@ export default async function LedgerPage({ searchParams }) {
           excel={{ rows: exportRows, sheetName: "Ledger", reportTitle: "Customer Ledger", branding }}
           share={{ title: "Customer Ledger" }}
         />
-      </form>
+            </div>
 
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">

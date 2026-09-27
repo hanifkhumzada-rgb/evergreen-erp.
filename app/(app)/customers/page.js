@@ -8,7 +8,12 @@ import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { bulkImportCustomers, deleteCustomer } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
-import CustomerSearchForm from "@/components/CustomerSearchForm";
+import ListFilterBar from "@/components/ListFilterBar";
+import Pager from "@/components/Pager";
+import { fetchAll } from "@/lib/fetchAll";
+import { pageFrom, rangeFor } from "@/lib/listParams";
+import { CUSTOMER_LIST_COLUMNS, applyCustomerFilters, customerFilters } from "@/lib/listQueries";
+import { exportCustomerRows } from "@/lib/exportActions";
 import { Truck, Wallet, FilePlus, UserCircle2, Phone, MapPin, ChevronRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -88,18 +93,25 @@ const PAGE_SIZE = 50;
 
 export default async function CustomersPage({ searchParams }) {
   const sp = (await searchParams) || {};
-  const q = (sp.q || "").trim();
-  const zoneFilter = sp.zone || "";
-  const statusFilter = sp.status || "";
-  const typeFilter = sp.type || "";
-  const requestedPage = Math.max(1, Number.parseInt(sp.page, 10) || 1);
+  const filters = customerFilters(sp);
+  const { q, zone: zoneFilter, status: statusFilter, type: typeFilter } = filters;
+  const requestedPage = pageFrom(sp);
+  const [from, to] = rangeFor(requestedPage, PAGE_SIZE);
 
   const { supabase, profile } = await getCurrentProfile();
-  const [branding, { data: customers }, { data: zones }, { data: balances }, { data: products }, { data: vehicles }, { data: riders }, { data: routes }, { data: canDelete }] = await Promise.all([
+  const monthStartISO = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
+  // Search, filters and paging run in the database: only the visible page
+  // of customers is loaded. KPIs describe the whole book via count queries
+  // and the (small, numeric) balance view.
+  const [branding, { data: customers, count: matchingCount }, { count: totalCount }, { count: newThisMonth }, { data: zones }, { data: balances }, { data: mobiles }, { data: products }, { data: vehicles }, { data: riders }, { data: routes }, { data: canDelete }] = await Promise.all([
     getBrandingLite(supabase),
-    supabase.from("customers").select("id, code, name, business_name, contact_person, mobile, alternate_phone, whatsapp_number, email, building, address, area, route, zone_id, customer_type, status, is_active, created_at, zones(name)").order("created_at", { ascending: false }),
-    supabase.from("zones").select("id, name"),
-    supabase.from("v_customer_balance").select("customer_id, balance"),
+    applyCustomerFilters(supabase.from("customers").select(CUSTOMER_LIST_COLUMNS, { count: "exact" }), filters)
+      .order("created_at", { ascending: false }).order("id").range(from, to),
+    supabase.from("customers").select("id", { count: "exact", head: true }),
+    supabase.from("customers").select("id", { count: "exact", head: true }).gte("created_at", monthStartISO),
+    supabase.from("zones").select("id, name").order("name"),
+    fetchAll(() => supabase.from("v_customer_balance").select("customer_id, balance").order("customer_id"), { label: "customer balances" }),
+    fetchAll(() => supabase.from("customers").select("mobile").not("mobile", "is", null).order("mobile"), { label: "customer mobiles" }),
     supabase.from("products").select("id, name").eq("is_active", true).order("name"),
     supabase.from("vehicles").select("id, registration_no").eq("is_active", true).order("registration_no"),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").eq("roles.key", "rider").eq("is_active", true).order("full_name"),
@@ -109,55 +121,20 @@ export default async function CustomersPage({ searchParams }) {
 
   const balanceMap = {};
   (balances || []).forEach((b) => { balanceMap[b.customer_id] = Number(b.balance); });
-  const allRows = (customers || []).map((c) => ({ ...c, balance: balanceMap[c.id] || 0 }));
   const canManageFinancial = ["owner", "admin"].includes(profile?.roles?.key);
-
-  // KPI SUMMARY — computed over the full customer set, independent of the
-  // table's active filters (same convention as the Delivery/Payment
-  // workspaces: KPIs describe the whole book, the table below is scoped).
-  const monthStartISO = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
-  const newThisMonth = allRows.filter((c) => c.created_at >= monthStartISO).length;
-  const totalOutstanding = allRows.reduce((a, c) => a + Math.max(c.balance, 0), 0);
-  const customersDue = allRows.filter((c) => c.balance > 0).length;
-
-  const rows = allRows.filter((c) => {
-    if (zoneFilter && c.zone_id !== zoneFilter) return false;
-    if (statusFilter && c.status !== statusFilter) return false;
-    if (typeFilter && c.customer_type !== typeFilter) return false;
-    if (q) {
-      const normalize = (value) => String(value || "").normalize("NFKD").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-      const compact = (value) => normalize(value).replace(/\s+/g, "");
-      const haystack = [c.code, c.name, c.business_name, c.contact_person, c.mobile, c.alternate_phone, c.whatsapp_number, c.email, c.building, c.address, c.area, c.route, c.zones?.name]
-        .filter(Boolean).join(" ");
-      const words = normalize(q).split(/\s+/).filter(Boolean);
-      if (!words.every((word) => normalize(haystack).includes(word)) && !compact(haystack).includes(compact(q))) return false;
-    }
-    return true;
-  });
-
-  const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
-  const page = Math.min(requestedPage, pageCount);
-  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
-  const pageHref = (n) => {
-    const params = new URLSearchParams();
-    if (q) params.set("q", q);
-    if (zoneFilter) params.set("zone", zoneFilter);
-    if (typeFilter) params.set("type", typeFilter);
-    if (statusFilter) params.set("status", statusFilter);
-    if (n > 1) params.set("page", String(n));
-    return `/customers${params.size ? `?${params}` : ""}`;
-  };
-
-  const exportRows = rows.map((c) => ({
-    "Customer ID": c.code, Name: c.name, Phone: c.mobile, Building: c.building, Address: c.address, Zone: c.zones?.name, Type: c.customer_type, Balance: c.balance, Status: STATUS_BADGE[c.status]?.text || (c.is_active ? "Active" : "Inactive"),
-  }));
+  const totalOutstanding = (balances || []).reduce((a, b) => a + Math.max(Number(b.balance), 0), 0);
+  const customersDue = (balances || []).filter((b) => Number(b.balance) > 0).length;
+  const allCount = totalCount || 0;
+  const matching = matchingCount || 0;
+  const page = requestedPage;
+  const pageRows = (customers || []).map((c) => ({ ...c, balance: balanceMap[c.id] || 0 }));
+  const exportAction = exportCustomerRows.bind(null, filters);
 
   const formProps = { zones: zones || [], products: products || [], vehicles: vehicles || [], riders: riders || [], routes: routes || [], canManageFinancial };
-  const hasFilters = q || zoneFilter || statusFilter || typeFilter;
 
   return (
     <div>
-      <DocumentPrintHeader branding={branding} title="Customers" meta={`${rows.length} of ${allRows.length} customers\nGenerated ${fmtDate(new Date().toISOString())}`} />
+      <DocumentPrintHeader branding={branding} title="Customers" meta={`${matching} of ${allCount} customers\nGenerated ${fmtDate(new Date().toISOString())}`} />
       <div className="no-print flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
         <div>
           <h2 className="font-display text-2xl font-semibold mb-1">Customers</h2>
@@ -167,14 +144,20 @@ export default async function CustomersPage({ searchParams }) {
       </div>
 
       <div className="no-print dashboard-kpi-grid mb-5">
-        <KPI label="TOTAL CUSTOMERS" value={allRows.length} tone="navy" />
+        <KPI label="TOTAL CUSTOMERS" value={allCount} tone="navy" />
         <KPI label="NEW THIS MONTH" value={newThisMonth} tone="aqua" />
         <KPI label="OUTSTANDING" value={pkr(totalOutstanding)} tone="coral" sub="total receivable across all customers" />
         <KPI label="CUSTOMERS DUE" value={customersDue} tone="amber" sub="with an outstanding balance" />
       </div>
 
-      <CustomerSearchForm initialQuery={q} zone={zoneFilter} type={typeFilter} status={statusFilter} zones={zones || []} types={CUSTOMER_TYPES_FILTER} />
-      {hasFilters && <Link href="/customers" className="no-print inline-block text-xs text-slate hover:text-aqua -mt-2 mb-3">Clear all filters</Link>}
+      <ListFilterBar
+        placeholder="Search name, ID, phone, area, address, route…"
+        filters={[
+          { name: "zone", label: "All zones", options: (zones || []).map((z) => ({ value: z.id, label: z.name })) },
+          { name: "type", label: "All types", options: CUSTOMER_TYPES_FILTER.map((t) => ({ value: t, label: t })) },
+          { name: "status", label: "All statuses", options: Object.entries(STATUS_BADGE).map(([value, b]) => ({ value, label: b.text })) },
+        ]}
+      />
       {/* Deliberately a sibling <div>, not inside the filter <form> above —
           every trigger button here (BulkImportButton/DocumentActionBar/
           CustomerForm's "New Customer") is a plain <button>
@@ -183,7 +166,7 @@ export default async function CustomersPage({ searchParams }) {
           navigation to /customers), racing and killing the just-opened
           modal. That was the cause of "New Customer opens then crashes". */}
       <div className="erp-toolbar no-print flex flex-wrap gap-2.5 mb-4 items-center">
-        <div className="mr-auto min-w-[150px]"><p className="text-xs font-bold text-ink">Customer directory</p><p className="text-[11px] text-slate">{rows.length} visible · {allRows.length} total</p></div>
+        <div className="mr-auto min-w-[150px]"><p className="text-xs font-bold text-ink">Customer directory</p><p className="text-[11px] text-slate">{matching} matching · {allCount} total</p></div>
         <BulkImportButton
           label="Bulk Import"
           columnsHint="Customer Code, Name*, Company, Contact Person, Mobile, Alternate Phone, WhatsApp, Email, Customer Type, Building, Address*, Area*, Zone*, Route*, Delivery Days, Driver, Vehicle, Product, Quantity, Rate*, Discount, Payment Terms, Payment Frequency*, Credit Limit, Opening Balance, Opening Bottle Balance, Status, Notes"
@@ -192,25 +175,23 @@ export default async function CustomersPage({ searchParams }) {
           previewType="customers"
           expectedFields={CUSTOMER_IMPORT_FIELDS}
           duplicateKey="Mobile"
-          existingValues={(customers || []).map((c) => c.mobile).filter(Boolean)}
+          existingValues={(mobiles || []).map((c) => c.mobile).filter(Boolean)}
         />
         <DocumentActionBar
           print
-          excel={{ rows: exportRows, sheetName: "Customers", reportTitle: "Customers", branding }}
+          excel={{ loadRows: exportAction, sheetName: "Customers", reportTitle: "Customers", branding }}
           share={{ title: "Customers" }}
         />
       </div>
       <div className="no-print mb-2 flex items-center justify-between gap-3">
         <p className="text-xs text-slate">
-          {rows.length > PAGE_SIZE
-            ? `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, rows.length)} of ${rows.length} matching · ${allRows.length} total`
-            : `${rows.length} of ${allRows.length} customers`}
+          {`${matching} of ${allCount} customers`}
         </p>
         <p className="hidden text-[11px] text-slate sm:block">Tap a customer to open their complete 360° profile.</p>
       </div>
 
       <div className="no-print grid gap-3 md:hidden">
-        {rows.length === 0 && <div className="rounded-2xl border border-line bg-card p-8 text-center text-sm text-slate">No customers match your search or filters.</div>}
+        {pageRows.length === 0 && <div className="rounded-2xl border border-line bg-card p-8 text-center text-sm text-slate">No customers match your search or filters.</div>}
         {pageRows.map((c) => {
           const badge = STATUS_BADGE[c.status] || (c.is_active ? STATUS_BADGE.active : STATUS_BADGE.inactive);
           return (
@@ -246,7 +227,7 @@ export default async function CustomersPage({ searchParams }) {
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>Customer ID</Th><Th>Name</Th><Th>Phone</Th><Th>Zone</Th><Th>Type</Th><Th>Balance</Th><Th>Status</Th><Th className="no-print">Quick Actions</Th></tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate">No customers match.</td></tr>}
+            {pageRows.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate">No customers match.</td></tr>}
             {pageRows.map((c) => {
               const badge = STATUS_BADGE[c.status] || (c.is_active ? STATUS_BADGE.active : STATUS_BADGE.inactive);
               return (
@@ -278,17 +259,7 @@ export default async function CustomersPage({ searchParams }) {
           </tbody>
         </table>
       </div>
-      {pageCount > 1 && (
-        <nav className="no-print mt-4 flex items-center justify-between gap-3" aria-label="Customer pages">
-          {page > 1
-            ? <Link href={pageHref(page - 1)} className="inline-flex min-h-[40px] items-center rounded-xl border border-line bg-card px-3.5 text-xs font-semibold text-navy hover:bg-foam">← Previous</Link>
-            : <span />}
-          <span className="text-xs text-slate">Page {page} of {pageCount}</span>
-          {page < pageCount
-            ? <Link href={pageHref(page + 1)} className="inline-flex min-h-[40px] items-center rounded-xl border border-line bg-card px-3.5 text-xs font-semibold text-navy hover:bg-foam">Next →</Link>
-            : <span />}
-        </nav>
-      )}
+      <Pager basePath="/customers" searchParams={sp} page={page} pageSize={PAGE_SIZE} total={matching} label="Customer pages" />
       <DocumentPrintFooter />
     </div>
   );

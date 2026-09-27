@@ -10,7 +10,12 @@ import RecordPreview from "@/components/RecordPreview";
 import { bulkImportExpenses, voidExpense } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
-import { Search, Tag } from "lucide-react";
+import { Tag } from "lucide-react";
+import ListFilterBar from "@/components/ListFilterBar";
+import Pager from "@/components/Pager";
+import { pageFrom, rangeFor } from "@/lib/listParams";
+import { expenseFilters, applyExpenseFilters } from "@/lib/listQueries";
+import { exportExpenseRows } from "@/lib/exportActions";
 
 export const dynamic = "force-dynamic";
 
@@ -23,83 +28,60 @@ const STATUS_BADGE = {
   void: { text: "Voided", tone: "coral" },
 };
 
+const PAGE_SIZE = 50;
+
 export default async function ExpensesPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const { supabase, profile } = await getCurrentProfile();
-  // Unbounded on purpose — allTimeCategoryTotals below is labeled "all
-  // time" and search/filters need to reach the full history, not just a
-  // recent window (RLS already scopes this to one business's own expenses).
-  const [branding, { data: expenses }, { data: categories }, { data: canVoid }] = await Promise.all([
+  const filters = expenseFilters(sp);
+  const page = pageFrom(sp);
+  const [from, to] = rangeFor(page, PAGE_SIZE);
+  // The list is paged/filtered in the database; KPIs and category cards come
+  // from SECURITY INVOKER aggregate functions (RLS applies), so the page
+  // never downloads the full expense history.
+  const [branding, { data: expenses, count }, { data: kpis }, { data: catTotals }, { data: pending }, { data: categories }, { data: canVoid }] = await Promise.all([
     getBrandingLite(supabase),
-    supabase.from("expenses").select("*, expense_categories(name), profiles!expenses_submitted_by_fkey(full_name)").order("created_at", { ascending: false }),
+    applyExpenseFilters(
+      supabase.from("expenses").select("*, expense_categories(name), profiles!expenses_submitted_by_fkey(full_name)", { count: "exact" }), filters,
+    ).order("created_at", { ascending: false }).order("id").range(from, to),
+    supabase.rpc("fn_expense_kpis"),
+    supabase.rpc("fn_expense_category_totals"),
+    supabase.from("expenses").select("*, expense_categories(name), profiles!expenses_submitted_by_fkey(full_name)").eq("status", "submitted").order("created_at", { ascending: false }).limit(200),
     supabase.from("expense_categories").select("id, name").order("name"),
     supabase.rpc("fn_has_permission", { perm_key: "expenses.delete" }),
   ]);
   const isOwner = profile?.roles?.key === "owner";
-  const pendingExpenses = (expenses || []).filter((e) => e.status === "submitted");
+  const pendingExpenses = pending || [];
+  const k = kpis || {};
 
   const today = new Date().toISOString().slice(0, 10);
-  const monthStart = today.slice(0, 7) + "-01";
-  const spendRows = (expenses || []).filter((e) => ["approved", "paid"].includes(e.status));
-  const todayTotal = spendRows.filter((e) => e.expense_date === today).reduce((a, e) => a + Number(e.amount), 0);
-  const monthRows = spendRows.filter((e) => e.expense_date >= monthStart);
-  const monthTotal = monthRows.reduce((a, e) => a + Number(e.amount), 0);
-  const categoryTotals = {};
-  monthRows.forEach((e) => {
-    const name = e.expense_categories?.name || "Uncategorized";
-    categoryTotals[name] = (categoryTotals[name] || 0) + Number(e.amount);
-  });
-  const topCategory = Object.entries(categoryTotals).sort(([, a], [, b]) => b - a)[0];
-  const allTimeCategoryTotals = {};
-  const allTimeCategoryCounts = {};
-  spendRows.forEach((e) => {
-    const name = e.expense_categories?.name || "Uncategorized";
-    allTimeCategoryTotals[name] = (allTimeCategoryTotals[name] || 0) + Number(e.amount);
-    allTimeCategoryCounts[name] = (allTimeCategoryCounts[name] || 0) + 1;
-  });
+  const catById = Object.fromEntries((catTotals || []).map((c) => [c.category_id, c]));
+  const catName = Object.fromEntries((categories || []).map((c) => [c.id, c.name]));
+  const top = (catTotals || []).filter((c) => Number(c.month_total) > 0).sort((a, b) => Number(b.month_total) - Number(a.month_total))[0];
+  const topCategory = top ? [catName[top.category_id] || "Uncategorized", Number(top.month_total)] : null;
 
-  const categoryFilter = sp.category || "";
-  const statusFilter = sp.status || "";
-  const fromDate = sp.from || "";
-  const toDate = sp.to || "";
-  const q = (sp.q || "").trim().toLowerCase();
-  const allRows = expenses || [];
-  const rows = allRows.filter((e) => {
-    if (q && !`${e.description || ""} ${e.expense_categories?.name || ""} ${e.payment_method || ""} ${e.profiles?.full_name || ""} ${e.receipt_reference || ""}`.toLowerCase().includes(q)) return false;
-    if (categoryFilter && e.expense_categories?.name !== categoryFilter) return false;
-    if (statusFilter && e.status !== statusFilter) return false;
-    if (fromDate && e.expense_date < fromDate) return false;
-    if (toDate && e.expense_date > toDate) return false;
-    return true;
-  });
-  const hasFilters = q || categoryFilter || statusFilter || fromDate || toDate;
-  const exportRows = rows.map((e) => ({ Date: e.expense_date, Category: e.expense_categories?.name, Description: e.description, Amount: e.amount, Method: e.payment_method, Status: e.status, EnteredBy: e.profiles?.full_name, Receipt: e.receipt_reference }));
+  const categoryFilter = filters.category;
+  const rows = expenses || [];
+  const matching = count || 0;
 
   return (
     <div>
-      <DocumentPrintHeader branding={branding} title="Expenses" meta={`${rows.length} of ${allRows.length} expenses\nGenerated ${fmtDate(today)}`} />
+      <DocumentPrintHeader branding={branding} title="Expenses" meta={`${matching} of ${k.total_count ?? 0} expenses\nGenerated ${fmtDate(today)}`} />
       <h2 className="no-print font-display text-2xl font-semibold mb-1">Expenses</h2>
       <p className="no-print text-slate text-sm mb-4">Operating costs by category — search, preview and verify before changing anything.</p>
 
-      <form className="no-print flex flex-wrap gap-2.5 mb-4 items-center" action="/expenses">
-        <input type="search" name="q" defaultValue={sp.q || ""} placeholder="Search expense, category, receipt…" className="px-3 py-2 rounded-xl border border-line bg-card text-xs w-60" />
-        <select name="category" defaultValue={categoryFilter} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
-          <option value="">All categories</option>
-          {(categories || []).map((c) => <option key={c.id} value={c.name}>{c.name}</option>)}
-        </select>
-        <select name="status" defaultValue={statusFilter} className="px-3 py-2 rounded-xl border border-line bg-card text-xs">
-          <option value="">All statuses</option>
-          {Object.entries(STATUS_BADGE).map(([v, b]) => <option key={v} value={v}>{b.text}</option>)}
-        </select>
-        <input type="date" name="from" defaultValue={fromDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
-        <input type="date" name="to" defaultValue={toDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
-        <button type="submit" className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold"><Search size={14} /> Search</button>
-        {hasFilters && <Link href="/expenses" className="text-xs text-slate hover:text-aqua">Clear</Link>}
-      </form>
+      <ListFilterBar
+        placeholder="Search expense #, description, receipt…"
+        filters={[
+          { name: "category", label: "All categories", options: (categories || []).map((c) => ({ value: c.id, label: c.name })) },
+          { name: "status", label: "All statuses", options: Object.entries(STATUS_BADGE).map(([value, b]) => ({ value, label: b.text })) },
+        ]}
+        dateFilters={[{ name: "from", label: "From" }, { name: "to", label: "To" }]}
+      />
 
       <div className="no-print flex flex-wrap gap-3.5 mb-5">
-        <KPI label="TODAY" value={pkr(todayTotal)} tone="navy" />
-        <KPI label="THIS MONTH" value={pkr(monthTotal)} tone="aqua" />
+        <KPI label="TODAY" value={pkr(k.today_amount ?? 0)} tone="navy" />
+        <KPI label="THIS MONTH" value={pkr(k.month_amount ?? 0)} tone="aqua" />
         <KPI label="PENDING APPROVAL" value={pendingExpenses.length} tone={pendingExpenses.length > 0 ? "amber" : "slate"} />
         <KPI label="TOP CATEGORY" value={topCategory ? topCategory[0] : "—"} tone="coral" sub={topCategory ? `${pkr(topCategory[1])} this month` : "no spend yet this month"} />
       </div>
@@ -107,13 +89,13 @@ export default async function ExpensesPage({ searchParams }) {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2.5 mb-6">
         {(categories || []).map((c) => (
           <Link
-            key={c.id} href={`/expenses?category=${encodeURIComponent(c.name)}`}
-            className={`card-lift flex flex-col gap-1.5 p-3.5 rounded-2xl border ${categoryFilter === c.name ? "border-aqua bg-aquaSoft" : "border-line bg-card"}`}
+            key={c.id} href={`/expenses?category=${c.id}`}
+            className={`card-lift flex flex-col gap-1.5 p-3.5 rounded-2xl border ${categoryFilter === c.id ? "border-aqua bg-aquaSoft" : "border-line bg-card"}`}
           >
             <Tag size={15} className="text-aqua" />
             <span className="text-[12.5px] font-semibold truncate">{c.name}</span>
-            <span className="font-mono-num text-sm font-semibold">{pkr(allTimeCategoryTotals[c.name] || 0)}</span>
-            <span className="text-[10.5px] text-slate">{allTimeCategoryCounts[c.name] || 0} entries</span>
+            <span className="font-mono-num text-sm font-semibold">{pkr(catById[c.id]?.all_total || 0)}</span>
+            <span className="text-[10.5px] text-slate">{catById[c.id]?.all_count || 0} entries</span>
           </Link>
         ))}
       </div>
@@ -130,12 +112,12 @@ export default async function ExpensesPage({ searchParams }) {
         />
         <DocumentActionBar
           print
-          excel={{ rows: exportRows, sheetName: "Expenses", reportTitle: "Expenses", branding }}
+          excel={{ loadRows: exportExpenseRows.bind(null, filters), sheetName: "Expenses", reportTitle: "Expenses", branding }}
           share={{ title: "Expenses" }}
         />
         <AddExpenseForm initialOpen={sp.quick === "new"} categories={categories || []} />
       </div>
-      <p className="no-print text-xs text-slate mb-2">{rows.length} of {allRows.length} expenses</p>
+      <p className="no-print text-xs text-slate mb-2">{matching.toLocaleString()} matching · {(k.total_count ?? 0).toLocaleString()} total</p>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>Date</Th><Th>Category</Th><Th>Description</Th><Th>Amount</Th><Th>Method</Th><Th>Entered By</Th><Th>Receipt</Th><Th>Status</Th><Th className="no-print">Actions</Th></tr></thead>
@@ -176,6 +158,7 @@ export default async function ExpensesPage({ searchParams }) {
           </tbody>
         </table>
       </div>
+      <Pager basePath="/expenses" searchParams={sp} page={page} pageSize={PAGE_SIZE} total={matching} label="Expense pages" />
       <DocumentPrintFooter />
     </div>
   );

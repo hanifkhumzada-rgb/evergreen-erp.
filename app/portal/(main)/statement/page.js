@@ -3,6 +3,7 @@ import { requirePortalCustomer } from "@/lib/portal/session";
 import { fmtDate, pkr } from "@/lib/format";
 import StatementPeriodPicker from "@/components/portal/StatementPeriodPicker";
 import { DocumentActionBar } from "@/components/ui";
+import ListFilterBar from "@/components/ListFilterBar";
 
 export const dynamic = "force-dynamic";
 
@@ -64,6 +65,16 @@ export default async function PortalStatementPage({ searchParams }) {
     return { ...e, debit, credit, balance: running };
   });
 
+  // Search narrows the visible lines only; running balances stay the true
+  // ledger balances (computed over every entry above) so nothing is misstated.
+  const q = String(searchParams?.q || "").trim().toLowerCase().slice(0, 50);
+  const visibleRows = q ? rows.filter((r) => `${r.description || ""} ${r.reference_type || ""} ${r.entry_date}`.toLowerCase().includes(q)) : rows;
+  const excelRows = [
+    { Date: "", Description: "Opening Balance", Debit: "", Credit: "", Balance: openingBalance },
+    ...rows.map((r) => ({ Date: r.entry_date, Description: r.description, Debit: r.debit || "", Credit: r.credit || "", Balance: r.balance })),
+    { Date: "", Description: "Closing Outstanding", Debit: totalDebit, Credit: totalCredit, Balance: running },
+  ];
+
   const pdfHref = `/api/pdf/customer-statement/${customerId}?month=${month}&year=${year}`;
 
   return (
@@ -76,9 +87,12 @@ export default async function PortalStatementPage({ searchParams }) {
           print
           pdfHref={pdfHref}
           pdfLabel="Statement"
+          excel={{ rows: excelRows, sheetName: "Statement", reportTitle: `Monthly Statement ${month}/${year}`, period: `${month}/${year}` }}
           share={{ title: "Monthly Statement", text: `My statement for ${month}/${year}` }}
         />
       </div>
+
+      <ListFilterBar className="!mb-0" placeholder="Search this month's entries" pageParam="_" />
 
       <div className="bg-card border border-line rounded-2xl p-4">
         <div className="flex items-center justify-between text-sm font-bold pb-3 border-b border-line">
@@ -86,8 +100,8 @@ export default async function PortalStatementPage({ searchParams }) {
           <span className="font-mono-num">{pkr(openingBalance)}</span>
         </div>
         <div className="flex flex-col divide-y divide-line">
-          {rows.length === 0 && <div className="py-4 text-xs text-slate text-center">No activity this month.</div>}
-          {rows.map((r, i) => (
+          {visibleRows.length === 0 && <div className="py-4 text-xs text-slate text-center">{q ? "No entries match your search." : "No activity this month."}</div>}
+          {visibleRows.map((r, i) => (
             <div key={i} className="py-2.5 flex items-center justify-between text-xs">
               <div className="min-w-0">
                 <div className="font-semibold truncate">{r.description}</div>
