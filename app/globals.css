@@ -147,7 +147,28 @@ table tr.hover\:bg-foam:hover {
      doesn't print as a tinted rectangle behind the content. */
   @page { size: A4; margin: 12mm; }
   body { background: #fff !important; }
+
+  /* Report Preview prints the complete filtered dataset—not only the
+     currently paginated screen rows—and removes all ERP chrome/actions. */
+  body.report-preview-print * { visibility: hidden !important; }
+  body.report-preview-print .report-preview-print-area,
+  body.report-preview-print .report-preview-print-area * { visibility: visible !important; }
+  body.report-preview-print .report-preview-print-area {
+    position: absolute !important; inset: 0 auto auto 0 !important;
+    display: block !important; width: 100% !important; height: auto !important;
+    max-width: none !important; overflow: visible !important;
+    border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+  }
+  body.report-preview-print .report-preview-print-heading { display: block !important; }
+  body.report-preview-print .report-preview-overlay { position: static !important; padding: 0 !important; background: #fff !important; }
+  body.report-preview-print .report-preview-screen-row { display: none !important; }
+  body.report-preview-print .report-preview-print-row { display: table-row !important; }
+  body.report-preview-print table { font-size: 9px !important; }
+  body.report-preview-print thead { position: static !important; background: #073b3a !important; color: #fff !important; }
+  body.report-preview-print tfoot { position: static !important; }
 }
+
+.report-preview-print-row { display: none; }
 
 /* Route loading.js shimmer skeletons — a moving highlight sweep (not just
    opacity pulsing) across the app's own line/aquaSoft colors, so a slow
