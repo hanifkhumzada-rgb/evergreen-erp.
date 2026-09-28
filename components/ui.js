@@ -1,7 +1,8 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, FileDown, Loader2, Eye, Share2, FileText } from "lucide-react";
+import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, Loader2, Share2, FileText } from "lucide-react";
+import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 
 export function Badge({ text, tone = "slate" }) {
   const map = {
@@ -141,28 +142,8 @@ export function ExportCsvButton({ rows, reportTitle = "Report" }) {
   return <button type="button" onClick={handleExport} className={TOOLBAR_BTN}><FileText size={14} /> Export CSV</button>;
 }
 
-// Server-generated branded PDF (Invoice, Customer Statement, Daily Sales,
-// Outstanding, Bank Payment Voucher, Journal Voucher, Payment Receipt) —
-// a plain link to a route handler that streams back a real PDF. The
-// primary action opens it inline in a new tab so the browser's own native
-// PDF viewer (thumbnails, zoom, print icon, download icon) handles it —
-// superseding an earlier in-app canvas preview modal, since the Owner
-// asked specifically for the browser's own viewer chrome rather than a
-// custom in-ERP one. The small icon-only link next to it forces an
-// explicit save-to-disk via `?download=1` for anyone who wants that
-// directly instead.
 function PdfAction({ href, label, compact }) {
-  const downloadHref = `${href}${href.includes("?") ? "&" : "?"}download=1`;
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <a href={href} target="_blank" rel="noopener noreferrer" className={compact ? TOOLBAR_BTN_ICON : TOOLBAR_BTN} title="Opens in your browser's PDF viewer">
-        <Eye size={14} /> {!compact && label}
-      </a>
-      <a href={downloadHref} className={TOOLBAR_BTN_ICON} title="Download to device">
-        <FileDown size={14} />
-      </a>
-    </span>
-  );
+  return <PdfPreviewDialog href={href} label={label} compact={compact} triggerClassName={compact ? TOOLBAR_BTN_ICON : TOOLBAR_BTN} />;
 }
 
 function PrintAction({ compact }) {
