@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import CloseDayForm from "@/components/CloseDayForm";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, Th, Td, KPI } from "@/components/ui";
+import { Badge, Th, Td, KPI, DocumentActionBar } from "@/components/ui";
+import { getBrandingLite } from "@/lib/pdf/business";
+import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 
 export const dynamic = "force-dynamic";
 function todayISO() { return new Date().toISOString().slice(0, 10); }
@@ -24,7 +26,8 @@ function parseClosing(txn) {
 export default async function DailyClosingPage() {
   const supabase = await createClient();
   const today = todayISO();
-  const [{ data: txns }, { data: todayPayments }, { data: todayExpenses }] = await Promise.all([
+  const [branding, { data: txns }, { data: todayPayments }, { data: todayExpenses }] = await Promise.all([
+    getBrandingLite(supabase),
     supabase.from("cash_transactions").select("*").eq("reference_type", "daily_closing").order("txn_date", { ascending: false }).limit(30),
     supabase.from("payments").select("amount").eq("payment_date", today).eq("voided", false),
     supabase.from("expenses").select("amount").eq("expense_date", today).in("status", ["approved", "paid"]),
@@ -39,8 +42,14 @@ export default async function DailyClosingPage() {
 
   return (
     <div>
-      <h2 className="font-display text-2xl font-semibold mb-1">Daily Closing</h2>
-      <p className="text-slate text-sm mb-5">Reconcile cash in hand against sales, collections and expenses for the day.</p>
+      <DocumentPrintHeader branding={branding} title="Daily Closing" meta={`Cash reconciliation\n${fmtDate(today)}`} />
+      <div className="no-print mb-5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="font-display text-2xl font-semibold mb-1">Daily Closing</h2>
+          <p className="text-slate text-sm">Reconcile cash in hand against sales, collections and expenses for the day.</p>
+        </div>
+        <DocumentActionBar print share={{ title: "Daily Closing" }} />
+      </div>
 
       <div className="mb-5 flex flex-wrap gap-3.5">
         <KPI label="OPENING CASH" value={pkr(defaultOpening)} tone="navy" />
@@ -78,6 +87,7 @@ export default async function DailyClosingPage() {
           </tbody>
         </table>
       </div>
+      <DocumentPrintFooter />
     </div>
   );
 }

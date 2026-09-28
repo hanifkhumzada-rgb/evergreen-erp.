@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import CustomerStatementDocument from "@/lib/pdf/CustomerStatementDocument";
 import { getBusinessBranding } from "@/lib/pdf/business";
 import { pdfContentDisposition } from "@/lib/pdf/response";
+import { portalQr } from "@/lib/pdf/qr";
 
 export async function GET(request, { params }) {
   const supabase = await createClient();
@@ -92,8 +93,12 @@ export async function GET(request, { params }) {
 
   const period = isScoped ? `Period: ${periodStart.toLocaleString("en-US", { month: "long", timeZone: "UTC" })} ${year}` : undefined;
 
+  // QR → this statement in the Customer Portal (same month when scoped).
+  const qr = await portalQr(request, `/portal/statement${isScoped ? `?month=${month}&year=${year}` : ""}`, {
+    title: "View your statement online", text: "Scan to see your latest balance, deliveries and payments in My Evergreen Water.",
+  });
   const buffer = await renderToBuffer(
-    <CustomerStatementDocument customer={customer} rows={rows} openingBalance={openingBalance} totalDebit={totalDebit} totalCredit={totalCredit} closingBalance={running} branding={branding} period={period} bottleBalance={bottleBalance} />
+    <CustomerStatementDocument qr={qr} customer={customer} rows={rows} openingBalance={openingBalance} totalDebit={totalDebit} totalCredit={totalCredit} closingBalance={running} branding={branding} period={period} bottleBalance={bottleBalance} />
   );
 
   return new NextResponse(buffer, {

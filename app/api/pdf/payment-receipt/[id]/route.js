@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import PaymentReceiptDocument from "@/lib/pdf/PaymentReceiptDocument";
 import { getBusinessBranding } from "@/lib/pdf/business";
 import { pdfContentDisposition } from "@/lib/pdf/response";
+import { portalQr } from "@/lib/pdf/qr";
 
 export async function GET(request, { params }) {
   const supabase = await createClient();
@@ -14,8 +15,9 @@ export async function GET(request, { params }) {
   const { data: payment } = await supabase.from("payments").select("*, customers(name), profiles!payments_received_by_fkey(full_name)").eq("id", params.id).single();
   if (!payment) return new NextResponse("Payment not found", { status: 404 });
 
+  const qr = await portalQr(request, "/portal/payments", { title: "Your payment history", text: "Scan to see all your receipts and current balance in My Evergreen Water." });
   const buffer = await renderToBuffer(
-    <PaymentReceiptDocument payment={payment} customer={payment.customers} receivedBy={payment.profiles?.full_name} branding={branding} />
+    <PaymentReceiptDocument qr={qr} payment={payment} customer={payment.customers} receivedBy={payment.profiles?.full_name} branding={branding} />
   );
 
   return new NextResponse(buffer, {

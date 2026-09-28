@@ -5,6 +5,7 @@ import { getBusinessBranding } from "@/lib/pdf/business";
 import { pdfContentDisposition } from "@/lib/pdf/response";
 import { getPortalSession } from "@/lib/portal/session";
 import { fetchAll } from "@/lib/fetchAll";
+import { portalQr } from "@/lib/pdf/qr";
 import { pkr, fmtDate } from "@/lib/format";
 import {
   portalDeliveryFilters, portalDeliveriesQuery, portalPaymentFilters, portalPaymentsQuery, deliveryItemsText, PORTAL_METHOD_LABEL,
@@ -25,6 +26,7 @@ export async function GET(request) {
   ]);
   const who = customer ? `${customer.name}${customer.code ? ` (${customer.code})` : ""}` : "";
 
+  const qr = await portalQr(request, `/portal/${kind}`, { title: "Open in My Evergreen Water", text: "Scan to see this list, always up to date, in your Customer Portal." });
   let doc;
   if (kind === "deliveries") {
     const f = portalDeliveryFilters(sp);
@@ -33,7 +35,7 @@ export async function GET(request) {
     const amount = data.filter((d) => d.status === "delivered").reduce((a, d) => a + Number(d.amount || 0), 0);
     doc = (
       <SimpleListDocument
-        title="My Deliveries" branding={branding}
+        title="My Deliveries" branding={branding} qr={qr}
         meta={`${who}\n${f.month || "All months"}${f.status !== "all" ? ` · ${f.status}` : ""}`}
         stats={[{ label: "DELIVERIES", value: data.length }, { label: "BOTTLES DELIVERED", value: qty, tone: "aqua" }, { label: "DELIVERED AMOUNT", value: pkr(amount), tone: "green" }]}
         columns={[
@@ -51,7 +53,7 @@ export async function GET(request) {
     const total = data.reduce((a, p) => a + Number(p.amount || 0), 0);
     doc = (
       <SimpleListDocument
-        title="My Payments" branding={branding} meta={`${who}\n${f.month || "All months"}`}
+        title="My Payments" branding={branding} qr={qr} meta={`${who}\n${f.month || "All months"}`}
         stats={[{ label: "PAYMENTS", value: data.length }, { label: "TOTAL PAID", value: pkr(total), tone: "green" }]}
         columns={[
           { key: "receipt", label: "Receipt", width: "22%", bold: true }, { key: "date", label: "Date", width: "18%" },
