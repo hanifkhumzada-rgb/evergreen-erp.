@@ -1,17 +1,16 @@
 <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
-  <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#a)"/>
-  <rect x="3" y="3" width="58" height="58" rx="17" stroke="url(#b)" stroke-width="2"/>
-  <circle cx="17" cy="12" r="15" fill="url(#c)" opacity=".42"/>
-  <path d="M14 23h17v5H20v4h10v5H20v5h11v5H14V23Z" fill="white"/>
-  <path d="m31 23 5 24h6l3-13 3 13h6l5-24h-6l-2.4 14.4L48 23h-5l-3 14.4L37.5 23H31Z" fill="white"/>
-  <path d="M46 8c-4.7 5.8-7 9.3-7 12.7a7 7 0 1 0 14 0C53 17.3 50.7 13.8 46 8Z" fill="url(#d)"/>
-  <path d="M42 20.5c.8 2.8 2.4 4.2 5 4.2" stroke="white" stroke-width="1.8" stroke-linecap="round" opacity=".65"/>
-  <path d="M8 51c8.5-4.6 15.5 4.3 24 0s14-2.2 24 0" stroke="#A9F6DB" stroke-width="2.6" stroke-linecap="round"/>
-  <path d="M9 56c8-3.4 14 3.2 22 0s15-2 24 0" stroke="#4CD8B2" stroke-width="1.5" stroke-linecap="round" opacity=".72"/>
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#tile)"/>
+  <rect x="3" y="3" width="58" height="58" rx="15" stroke="url(#edge)" stroke-width="2"/>
+  <path d="M10.5 18.8C14.8 10.1 23.2 7.7 31.5 8.1C29.7 15.3 24.6 21.1 16.4 22.4C13.8 22.8 11.8 21.5 10.5 18.8Z" fill="url(#leaf)"/>
+  <path d="M12.6 19.5C18.8 16.4 23.7 13.3 29.7 9.5C25.7 14.8 20.3 18.9 13.4 21.1" stroke="#E8F8FF" stroke-width="1.45" stroke-linecap="round" opacity=".92"/>
+  <path d="M10.5 24.2H29.8V29H16.3V33H28.5V37.6H16.3V41.7H30.2V46.7H10.5V24.2Z" fill="white"/>
+  <path d="M29.1 24.2H35.5L39.1 38.2L43.1 27H48.1L51.7 38.2L55.4 24.2H61.1L54.5 46.7H48.8L45.4 36.4L41.7 46.7H35.8L29.1 24.2Z" fill="white"/>
+  <path d="M48.6 7.2C44.1 12.7 41.9 16.2 41.9 19.6A6.7 6.7 0 1 0 55.3 19.6C55.3 16.2 53.1 12.7 48.6 7.2Z" fill="url(#drop)" stroke="#BCEEFF" stroke-width="1.1"/>
+  <path d="M45.4 18.9C46.1 21.5 47.5 22.8 50 22.9" stroke="white" stroke-width="1.65" stroke-linecap="round" opacity=".82"/>
   <defs>
-    <linearGradient id="a" x1="8" y1="5" x2="59" y2="61" gradientUnits="userSpaceOnUse"><stop stop-color="#032F2E"/><stop offset=".55" stop-color="#06685C"/><stop offset="1" stop-color="#08A078"/></linearGradient>
-    <linearGradient id="b" x1="12" y1="4" x2="55" y2="61" gradientUnits="userSpaceOnUse"><stop stop-color="#73F1CC" stop-opacity=".7"/><stop offset="1" stop-color="#032F2E" stop-opacity=".1"/></linearGradient>
-    <radialGradient id="c"><stop stop-color="white" stop-opacity=".55"/><stop offset="1" stop-color="white" stop-opacity="0"/></radialGradient>
-    <linearGradient id="d" x1="41" y1="11" x2="52" y2="27" gradientUnits="userSpaceOnUse"><stop stop-color="#B8FFE5"/><stop offset="1" stop-color="#2BD2B2"/></linearGradient>
+    <linearGradient id="tile" x1="7" y1="5" x2="58" y2="61" gradientUnits="userSpaceOnUse"><stop stop-color="#063E3B"/><stop offset=".55" stop-color="#07594F"/><stop offset="1" stop-color="#043C39"/></linearGradient>
+    <linearGradient id="edge" x1="9" y1="4" x2="57" y2="61" gradientUnits="userSpaceOnUse"><stop stop-color="#38B77C" stop-opacity=".75"/><stop offset="1" stop-color="#062F2D" stop-opacity=".2"/></linearGradient>
+    <linearGradient id="leaf" x1="12" y1="9" x2="30" y2="21" gradientUnits="userSpaceOnUse"><stop stop-color="#10A648"/><stop offset="1" stop-color="#087237"/></linearGradient>
+    <linearGradient id="drop" x1="44" y1="10" x2="54" y2="25" gradientUnits="userSpaceOnUse"><stop stop-color="#19B8F2"/><stop offset="1" stop-color="#078DD7"/></linearGradient>
   </defs>
 </svg>
