@@ -3,6 +3,7 @@ import { ExportExcelButton, ExportCsvButton } from "@/components/ui";
 import { getBrandingLite } from "@/lib/pdf/business";
 import Link from "next/link";
 import { FileSpreadsheet, Upload, Truck, Users } from "lucide-react";
+import ReportPreview from "@/components/ReportPreview";
 
 export const dynamic = "force-dynamic";
 
@@ -69,7 +70,7 @@ export default async function ExportDataPage() {
 
   const datasets = [
     { name: "Customers", rows: customerRows, filename: "evergreen-customers.xlsx", sheetName: "Customers" },
-    { name: "Sales", rows: salesRows, filename: "evergreen-sales.xlsx", sheetName: "Sales" },
+    { name: "Invoices / Sales", rows: salesRows, filename: "evergreen-sales.xlsx", sheetName: "Invoices" },
     { name: "Payments", rows: paymentRows, filename: "evergreen-payments.xlsx", sheetName: "Payments" },
     { name: "Expenses", rows: expenseRows, filename: "evergreen-expenses.xlsx", sheetName: "Expenses" },
     { name: "Inventory", rows: inventoryRows, filename: "evergreen-inventory.xlsx", sheetName: "Inventory" },
@@ -80,13 +81,16 @@ export default async function ExportDataPage() {
   return (
     <div>
       <h2 className="font-display text-2xl font-semibold mb-1">Import / Export Center</h2>
-      <p className="text-slate text-sm mb-5">Preview your data before importing, or download a CSV or branded, colour-coded Excel backup.</p>
+      <p className="text-slate text-sm mb-5">Open every report inside ERP, search and review the records, then download a CSV or branded Excel backup when needed.</p>
       <div className="grid sm:grid-cols-2 gap-3 mb-6 max-w-3xl">
         <Link href="/customers" className="rounded-2xl border border-line bg-aquaSoft/50 p-4 flex items-center gap-3 hover:border-aqua/40"><div className="w-10 h-10 rounded-xl bg-card grid place-items-center text-aqua"><Users size={18} /></div><div><p className="text-sm font-semibold">Import Customers</p><p className="text-xs text-slate">Excel/CSV preview, validation and import</p></div><Upload size={16} className="ml-auto text-slate" /></Link>
         <Link href="/deliveries" className="rounded-2xl border border-line bg-aquaSoft/50 p-4 flex items-center gap-3 hover:border-aqua/40"><div className="w-10 h-10 rounded-xl bg-card grid place-items-center text-aqua"><Truck size={18} /></div><div><p className="text-sm font-semibold">Import Deliveries</p><p className="text-xs text-slate">Bulk delivery preview before saving</p></div><Upload size={16} className="ml-auto text-slate" /></Link>
       </div>
-      <h3 className="font-display text-lg font-semibold mb-3">Download backups</h3>
-      <div className="flex flex-col gap-2 max-w-xl">
+      <div className="flex flex-wrap items-end justify-between gap-2 mb-3 max-w-4xl">
+        <div><h3 className="font-display text-lg font-semibold">Reports &amp; backups</h3><p className="text-xs text-slate mt-0.5">View stays inside ERP. Downloads remain available when you need a file.</p></div>
+        <Link href="/reports" className="text-xs font-bold text-aqua hover:underline">Open complete Reports Center →</Link>
+      </div>
+      <div className="flex flex-col gap-2 max-w-4xl">
         {datasets.map((d) => (
           <div key={d.name} className="flex items-center justify-between border border-line rounded-2xl px-5 py-4">
             <div className="flex items-center gap-3">
@@ -97,6 +101,7 @@ export default async function ExportDataPage() {
               </div>
             </div>
             <div className="flex flex-wrap justify-end gap-2">
+              <ReportPreview title={d.name} rows={d.rows} sheetName={d.sheetName} branding={branding} />
               <ExportCsvButton rows={d.rows} reportTitle={d.name} />
               <ExportExcelButton rows={d.rows} sheetName={d.sheetName} reportTitle={d.name} branding={branding} />
             </div>
