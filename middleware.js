@@ -107,5 +107,5 @@ export const config = {
   // this negative lookahead also matches _next/static's own hashed .js/.css
   // chunk requests in a way path-to-regexp doesn't resolve the same as a
   // plain JS RegExp would, which broke the app entirely (confirmed live).
-  matcher: ["/((?!_next/static|_next/image|favicon.ico|icon-192.png|icon-512.png|manifest.json|portal-manifest.json|sw.js).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|ew-mark.svg|icon-192.png|icon-512.png|manifest.json|portal-manifest.json|sw.js).*)"],
 };
