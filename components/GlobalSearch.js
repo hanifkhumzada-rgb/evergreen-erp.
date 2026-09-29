@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
-import { Search, X, User, Receipt, Truck, Wallet, UserCog, Car } from "lucide-react";
+import { Search, X, User, Receipt, Truck, Wallet, UserCog, Car, FileText, LayoutDashboard } from "lucide-react";
 import { globalSearch } from "@/app/actions";
 
 function ResultSection({ title, icon: Icon, items, onSelect, render }) {
@@ -24,7 +24,7 @@ function ResultSection({ title, icon: Icon, items, onSelect, render }) {
 }
 
 function ResultsDropdown({ query, results, isPending, onSelect }) {
-  const hasResults = ["customers", "invoices", "deliveries", "payments", "employees", "vehicles"]
+  const hasResults = ["customers", "invoices", "deliveries", "payments", "expenses", "employees", "vehicles", "workspaces"]
     .some((k) => (results?.[k]?.length || 0) > 0);
   return (
     <div className="absolute top-full mt-2 left-0 right-0 sm:left-auto sm:right-0 sm:w-80 max-h-96 overflow-y-auto bg-card border border-line rounded-xl shadow-lg z-[70]">
@@ -40,10 +40,14 @@ function ResultsDropdown({ query, results, isPending, onSelect }) {
             render={(d) => ({ href: `/deliveries?hq=${encodeURIComponent(d.delivery_no || query)}`, label: d.delivery_no, sub: d.customers?.name })} />
           <ResultSection title="PAYMENTS" icon={Wallet} items={results?.payments} onSelect={onSelect}
             render={(p) => ({ href: `/payments?hq=${encodeURIComponent(p.receipt_no || query)}`, label: p.receipt_no, sub: p.customers?.name })} />
+          <ResultSection title="EXPENSES" icon={FileText} items={results?.expenses} onSelect={onSelect}
+            render={(e) => ({ href: `/expenses?q=${encodeURIComponent(e.expense_no || e.receipt_reference || query)}`, label: e.expense_no || e.receipt_reference || "Expense", sub: e.description })} />
           <ResultSection title="EMPLOYEES" icon={UserCog} items={results?.employees} onSelect={onSelect}
             render={(e) => ({ href: "/employees", label: e.full_name })} />
           <ResultSection title="VEHICLES" icon={Car} items={results?.vehicles} onSelect={onSelect}
             render={(v) => ({ href: "/fleet", label: v.registration_no })} />
+          <ResultSection title="WORKSPACES & REPORTS" icon={LayoutDashboard} items={results?.workspaces} onSelect={onSelect}
+            render={(item) => ({ href: item.href, label: item.label })} />
         </>
       )}
     </div>

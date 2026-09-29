@@ -77,15 +77,16 @@ async function resolveProductId(supabase, requested, fallbackProductId) {
 
 export async function globalSearch(query) {
   const q = (query || "").trim();
-  if (q.length < 2) return { customers: [], invoices: [], deliveries: [], payments: [], employees: [], vehicles: [] };
+  if (q.length < 2) return { customers: [], invoices: [], deliveries: [], payments: [], expenses: [], employees: [], vehicles: [], workspaces: [] };
   const { supabase } = await requireUser();
   const safe = q.replace(/[^\p{L}\p{N}+\-\s]/gu, " ").replace(/\s+/g, " ").trim();
-  if (safe.length < 2) return { customers: [], invoices: [], deliveries: [], payments: [], employees: [], vehicles: [] };
+  if (safe.length < 2) return { customers: [], invoices: [], deliveries: [], payments: [], expenses: [], employees: [], vehicles: [], workspaces: [] };
   const pattern = `%${safe}%`;
-  const [{ data: customers }, { data: employees }, { data: vehicles }] = await Promise.all([
+  const [{ data: customers }, { data: employees }, { data: vehicles }, { data: expenses }] = await Promise.all([
     supabase.from("customers").select("id, name, mobile, code").or(`name.ilike.${pattern},mobile.ilike.${pattern},code.ilike.${pattern}`).limit(5),
     supabase.from("profiles").select("id, full_name, roles!inner(key)").neq("roles.key", "customer").ilike("full_name", pattern).limit(5),
     supabase.from("vehicles").select("id, registration_no").ilike("registration_no", pattern).limit(5),
+    supabase.from("expenses").select("id,expense_no,description,receipt_reference,expense_date").or(`expense_no.ilike.${pattern},description.ilike.${pattern},receipt_reference.ilike.${pattern}`).order("expense_date", { ascending: false }).limit(5),
   ]);
   const customerIds = (customers || []).map((customer) => customer.id);
   const relatedFilter = (column) => customerIds.length
@@ -96,7 +97,13 @@ export async function globalSearch(query) {
     supabase.from("deliveries").select("id, delivery_no, delivery_date, customers(name)").or(relatedFilter("delivery_no")).order("delivery_date", { ascending: false }).limit(5),
     supabase.from("payments").select("id, receipt_no, customer_id, customers(name)").or(relatedFilter("receipt_no")).order("payment_date", { ascending: false }).limit(5),
   ]);
-  return { customers: customers || [], invoices: invoices || [], deliveries: deliveries || [], payments: payments || [], employees: employees || [], vehicles: vehicles || [] };
+  const workspaceCatalog = [
+    ["dashboard", "Owner Control Center", "/dashboard"], ["smart-entry", "Smart Entry", "/smart-entry"],
+    ["reports", "Reports & Performance", "/reports"], ["profit", "Profit & Loss", "/accounting/profit-loss"],
+    ["closing", "Daily Closing", "/accounting/daily-closing"], ["exceptions", "Exception Center", "/exceptions"],
+    ["collections", "Payment Collection Center", "/payments"], ["routes", "Zones & Routes", "/zones"],
+  ].filter(([, label]) => label.toLowerCase().includes(safe.toLowerCase())).map(([id, label, href]) => ({ id, label, href }));
+  return { customers: customers || [], invoices: invoices || [], deliveries: deliveries || [], payments: payments || [], expenses: expenses || [], employees: employees || [], vehicles: vehicles || [], workspaces: workspaceCatalog };
 }
 
 async function getEffectiveRate(supabase, customerId, productId) {
@@ -1056,6 +1063,7 @@ export async function closeDay(formData) {
   const closeDate = formData.get("close_date");
   const openingCash = Number(formData.get("opening_cash")) || 0;
   const actualCash = Number(formData.get("actual_cash"));
+  const differenceReason = String(formData.get("difference_reason") || "").trim();
 
   const { data: invoices } = await supabase.from("invoices").select("net_amount").eq("invoice_date", closeDate).neq("status", "void");
   const { data: payments } = await supabase.from("payments").select("amount").eq("payment_date", closeDate).eq("voided", false);
@@ -1066,11 +1074,12 @@ export async function closeDay(formData) {
   const expensesTotal = (expenses || []).reduce((a, e) => a + Number(e.amount), 0);
   const expectedCash = openingCash + collectionsTotal - expensesTotal;
   const difference = actualCash - expectedCash;
+  if (Math.abs(difference) >= 1 && differenceReason.length < 5) return { error: "Explain the cash difference before closing the day." };
 
   const { data: cashAccount } = await supabase.from("cash_accounts").select("id").eq("is_active", true).limit(1).maybeSingle();
   if (!cashAccount) return { error: "No cash account configured" };
 
-  const summary = JSON.stringify({ close_date: closeDate, opening_cash: openingCash, collections_total: collectionsTotal, expenses_total: expensesTotal, expected_cash: expectedCash, actual_cash: actualCash, difference });
+  const summary = JSON.stringify({ close_date: closeDate, opening_cash: openingCash, collections_total: collectionsTotal, expenses_total: expensesTotal, expected_cash: expectedCash, actual_cash: actualCash, difference, difference_reason: differenceReason || null, status: "closed" });
   const { error } = await supabase.from("cash_transactions").insert({
     account_id: cashAccount.id,
     txn_date: closeDate,
@@ -1082,7 +1091,7 @@ export async function closeDay(formData) {
   });
   if (error) return { error: error.message };
 
-  await supabase.from("audit_logs").insert({ user_id: user.id, action: "CLOSE_DAY", module: "cash_transactions", new_value: { close_date: closeDate, difference } });
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "CLOSE_DAY", module: "cash_transactions", new_value: { close_date: closeDate, difference, difference_reason: differenceReason || null } });
   revalidatePath("/accounting/daily-closing");
   return { ok: true, difference, expectedCash };
 }

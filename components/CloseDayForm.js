@@ -3,10 +3,12 @@ import { useState } from "react";
 import { closeDay } from "@/app/actions";
 import { pkr } from "@/lib/format";
 
-export default function CloseDayForm({ today, defaultOpeningCash }) {
+export default function CloseDayForm({ today, defaultOpeningCash, expectedCash }) {
   const [result, setResult] = useState(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [actualCash, setActualCash] = useState("");
+  const difference = actualCash === "" ? 0 : Number(actualCash) - Number(expectedCash || 0);
 
   const handleSubmit = async (formData) => {
     setBusy(true); setError("");
@@ -33,10 +35,12 @@ export default function CloseDayForm({ today, defaultOpeningCash }) {
       </label>
       <label className="block mb-4">
         <span className="text-xs font-semibold text-slate block mb-1">Actual cash counted (PKR)</span>
-        <input type="number" name="actual_cash" required className="w-full px-3 py-2 rounded-lg border border-line bg-card text-ink text-sm" />
+        <input type="number" name="actual_cash" required value={actualCash} onChange={(event) => setActualCash(event.target.value)} className="w-full px-3 py-2 rounded-lg border border-line bg-card text-ink text-sm" />
       </label>
+      {actualCash !== "" && <div className={`mb-3 rounded-xl px-3 py-2 text-xs ${Math.abs(difference) < 1 ? "bg-greenSoft text-green" : "bg-coralSoft text-coral"}`}><div className="flex justify-between font-bold"><span>Difference</span><span>{difference >= 0 ? "+" : ""}{pkr(difference)}</span></div></div>}
+      {actualCash !== "" && Math.abs(difference) >= 1 ? <label className="block mb-4"><span className="text-xs font-semibold text-slate block mb-1">Difference explanation <strong className="text-coral">*</strong></span><textarea name="difference_reason" required minLength={5} rows={3} placeholder="Explain cash shortage or excess…" className="w-full rounded-lg border border-line bg-card px-3 py-2 text-sm text-ink" /></label> : null}
       {error && <p className="text-coral text-xs mb-3">{error}</p>}
-      <button disabled={busy} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">{busy ? "Closing…" : "Close the day"}</button>
+      <button disabled={busy} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">{busy ? "Submitting…" : "Submit for closing"}</button>
 
       {result && (
         <div className="mt-4 p-3 rounded-xl bg-foam text-sm">

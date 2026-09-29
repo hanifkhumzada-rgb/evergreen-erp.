@@ -6,13 +6,14 @@ import { usePathname } from "next/navigation";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { signOut } from "@/app/actions";
 import { PERMISSION_BY_HREF } from "@/lib/navAccess";
+import ThemeSelector from "@/components/ThemeSelector";
 import {
   Home, Users, Truck, Droplet, Package, Wallet, Receipt, ReceiptText,
   BookOpen, UserCog, BarChart3, Settings, LogOut, Landmark, FileText,
   Scale, TrendingUp, ClipboardCheck, Car, Bot, Bell, MapPin, Menu, X,
   ChevronRight, ChevronLeft, Factory, FolderInput, ShieldCheck, Navigation,
   Zap, MessageSquare, LifeBuoy, Star, Megaphone, Files, BriefcaseBusiness,
-  ChevronDown, Search, CalendarCheck, Wrench, Sparkles,
+  ChevronDown, Search, CalendarCheck, Wrench, Sparkles, AlertTriangle,
 } from "lucide-react";
 
 const SidebarContext = createContext(null);
@@ -83,17 +84,20 @@ const NAV = [
   { type: "group", key: "growth", label: "Growth & Automation", icon: Zap, items: [
     { href: "/ai", label: "Evergreen AI", icon: Bot, roles: [...OWNER_ROLES, "manager", "accountant"] },
     { href: "/marketing", label: "Marketing Studio", icon: Megaphone, roles: [...OWNER_ROLES, "manager"] },
-    { href: "/notifications", label: "Alerts & Notifications", icon: Bell, roles: [...OWNER_ROLES, "manager", "accountant"] },
     { href: "/automation", label: "Automation Center", icon: Zap, roles: OWNER_ROLES },
     { href: "/communication", label: "Communication Center", icon: MessageSquare, roles: OWNER_ROLES },
     { href: "/issues", label: "Customer Issues", icon: LifeBuoy, roles: [...OWNER_ROLES, "manager"] },
     { href: "/customer-feedback", label: "Customer Feedback", icon: Star, roles: [...OWNER_ROLES, "manager"] },
     { href: "/documents", label: "Record Preview Hub", icon: Files, roles: [...OWNER_ROLES, "manager", "accountant"] },
   ]},
+  { type: "group", key: "control", label: "Control", icon: ShieldCheck, items: [
+    { href: "/exceptions", label: "Exception Center", icon: AlertTriangle, roles: [...OWNER_ROLES, "manager", "accountant"] },
+    { href: "/notifications", label: "Notifications", icon: Bell, roles: [...OWNER_ROLES, "manager", "accountant"] },
+    { href: "/audit-logs", label: "Audit History", icon: FileText, roles: OWNER_ROLES },
+  ]},
   { type: "group", key: "system", label: "System", icon: Settings, items: [
     { href: "/user-management", label: "User Management", icon: UserCog, roles: OWNER_ROLES },
     { href: "/user-management/permissions", label: "Permissions", icon: ShieldCheck, roles: OWNER_ROLES },
-    { href: "/audit-logs", label: "Audit Logs", icon: FileText, roles: OWNER_ROLES },
     { href: "/settings/export", label: "Import/Export", icon: FolderInput, roles: OWNER_ROLES },
     { href: "/settings", label: "Settings", icon: Settings, roles: OWNER_ROLES },
   ]},
@@ -203,7 +207,7 @@ function BrandHeader({ onCollapse }) {
   );
 }
 
-export default function Sidebar({ role, permissions = [], unreadNotifications = 0 }) {
+export default function Sidebar({ role, permissions = [], unreadNotifications = 0, profileName = "", roleLabel = "" }) {
   const pathname = usePathname();
   const { open, setOpen } = useContext(SidebarContext);
   const [pinned, setPinned] = useState(false);
@@ -229,6 +233,8 @@ export default function Sidebar({ role, permissions = [], unreadNotifications = 
       <div className={`erp-sidebar-surface no-print md:hidden w-[286px] max-w-[86vw] text-white flex flex-col p-3 fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <BrandHeader />
         <NavList entries={entries} pathname={pathname} unreadNotifications={unreadNotifications} onNavigate={() => setOpen(false)} />
+        <ThemeSelector compact />
+        <div className="mt-1 border-t border-white/10 px-2.5 pt-2"><p className="truncate text-xs font-bold text-white">{profileName}</p><p className="text-[10px] text-[#8FCBC4]">{roleLabel}</p></div>
         <form action={signOut}><button className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-semibold text-[#C7DEDC] w-full mt-2"><LogOut size={16} /> Sign out</button></form>
       </div>
 
@@ -236,6 +242,8 @@ export default function Sidebar({ role, permissions = [], unreadNotifications = 
         <div className="erp-sidebar-surface no-print hidden md:flex md:flex-col w-[272px] flex-shrink-0 text-white p-3">
           <BrandHeader onCollapse={togglePinned} />
           <NavList entries={entries} pathname={pathname} unreadNotifications={unreadNotifications} onNavigate={() => {}} />
+          <ThemeSelector compact />
+          <div className="mt-1 border-t border-white/10 px-2.5 pt-2"><p className="truncate text-xs font-bold text-white">{profileName}</p><p className="text-[10px] text-[#8FCBC4]">{roleLabel}</p></div>
           <form action={signOut}><button className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-semibold text-[#C7DEDC] w-full mt-2"><LogOut size={16} /> Sign out</button></form>
         </div>
       ) : (

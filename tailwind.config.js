@@ -22,9 +22,9 @@ module.exports = {
         greenSoft: "var(--greenSoft)",
       },
       fontFamily: {
-        display: ["Fraunces", "serif"],
-        sans: ["Inter", "sans-serif"],
-        mono: ["IBM Plex Mono", "monospace"],
+        display: ["Inter", "system-ui", "sans-serif"],
+        sans: ["Inter", "system-ui", "sans-serif"],
+        mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       boxShadow: {
         soft: "0 1px 2px rgba(15, 32, 39, 0.04), 0 4px 16px rgba(15, 32, 39, 0.04)",

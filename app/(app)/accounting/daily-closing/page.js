@@ -68,7 +68,7 @@ export default async function DailyClosingPage() {
           </div>
         </div>
       ) : (
-        <CloseDayForm today={today} defaultOpeningCash={defaultOpening} />
+        <CloseDayForm today={today} defaultOpeningCash={defaultOpening} expectedCash={expectedToday} />
       )}
 
       <h4 className="text-sm font-bold mt-8 mb-2.5">Closing history</h4>

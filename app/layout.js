@@ -1,5 +1,6 @@
 import "./globals.css";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
+import Script from "next/script";
 
 export const metadata = {
   title: "Evergreen Water ERP",
@@ -21,8 +22,9 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
+        <Script id="evergreen-theme" strategy="beforeInteractive">{`try{var t=localStorage.getItem('ew-theme')||localStorage.getItem('theme')||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.dataset.theme=t}catch(e){}`}</Script>
         {children}
         <ServiceWorkerRegister />
       </body>

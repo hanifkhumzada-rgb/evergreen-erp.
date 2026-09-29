@@ -49,7 +49,7 @@ export default async function AppLayout({ children }) {
   return (
     <ErpAppearance><SidebarProvider>
     <div className="min-h-screen app-shell-bg flex">
-      <Sidebar role={roleKey} permissions={effectivePermissions} unreadNotifications={unreadNotifications} />
+      <Sidebar role={roleKey} permissions={effectivePermissions} unreadNotifications={unreadNotifications} profileName={profile.full_name} roleLabel={roleLabel} />
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="workspace-topbar topbar-branded no-print sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 py-3">
           <div className="flex items-center gap-3">

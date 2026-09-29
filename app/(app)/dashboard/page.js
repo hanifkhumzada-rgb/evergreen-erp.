@@ -480,7 +480,7 @@ export default async function DashboardPage({ searchParams }) {
       </div>
 
       <div className="border border-line rounded-2xl p-4 bg-card">
-        <h4 className="text-sm font-bold mb-2 flex items-center gap-1.5"><AlertTriangle size={15} className="text-coral" /> Alerts</h4>
+        <div className="mb-2 flex items-center justify-between gap-3"><div><h4 className="text-sm font-bold flex items-center gap-1.5"><AlertTriangle size={15} className="text-coral" /> Needs Your Attention</h4><p className="mt-0.5 text-[11px] text-slate">Only actionable business issues are shown.</p></div><Link href="/exceptions" className="text-xs font-bold text-aqua hover:underline">Open Exception Center →</Link></div>
         <div className="flex flex-col gap-2 max-h-52 overflow-y-auto">
           {overdueCustomerCount > 0 && (
             <Link href="/payments" className="text-xs flex gap-2 hover:underline"><AlertTriangle size={13} className="text-coral flex-shrink-0 mt-0.5" /><span>{overdueCustomerCount} customer{overdueCustomerCount === 1 ? "" : "s"} overdue by more than {overdueDays} days — see Payments → Recovery.</span></Link>
