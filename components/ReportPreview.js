@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ChevronLeft, ChevronRight, Eye, FileDown, Printer, Search, Share2, X } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Eye, FileDown, Maximize2, Minimize2, Printer, Search, Share2, X } from "lucide-react";
 import { ExportCsvButton, ExportExcelButton } from "@/components/ui";
 
 const PAGE_SIZE = 30;
@@ -17,6 +17,7 @@ export default function ReportPreview({ title, rows = [], sheetName, branding })
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
+  const [fullScreen, setFullScreen] = useState(false);
   const columns = rows.length ? Object.keys(rows[0]) : [];
 
   const filteredRows = useMemo(() => {
@@ -62,10 +63,10 @@ export default function ReportPreview({ title, rows = [], sheetName, branding })
     <>
       <button type="button" onClick={() => setOpen(true)} className={VIEW_BTN}><Eye size={14} /> View</button>
       {open ? (
-        <div className="report-preview-overlay fixed inset-0 z-[130] bg-navy/70 p-2 sm:p-5" role="dialog" aria-modal="true" aria-label={`${title} report preview`}>
-          <div className="report-preview-print-area mx-auto flex h-full max-w-7xl flex-col overflow-hidden rounded-[22px] border border-white/20 bg-card shadow-2xl">
+        <div className={`report-preview-overlay fixed inset-0 z-[130] bg-navy/70 ${fullScreen ? "p-0" : "p-2 sm:p-5"}`} role="dialog" aria-modal="true" aria-label={`${title} report preview`}>
+          <div className={`report-preview-print-area mx-auto flex h-full flex-col overflow-hidden border border-white/20 bg-card shadow-2xl ${fullScreen ? "max-w-none rounded-none" : "max-w-7xl rounded-[22px]"}`}>
             <div className="no-print flex flex-wrap items-center gap-2 border-b border-line bg-card px-3 py-3 sm:px-5">
-              <button type="button" onClick={() => setOpen(false)} className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-xs font-bold hover:bg-foam"><ArrowLeft size={15} /> Back</button>
+              <button type="button" onClick={() => { setOpen(false); setFullScreen(false); }} className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-xs font-bold hover:bg-foam"><ArrowLeft size={15} /> Back</button>
               <div className="min-w-[180px] flex-1">
                 <div className="flex items-center gap-2"><Eye size={16} className="text-aqua" /><h2 className="font-display text-base font-semibold sm:text-lg">{title}</h2></div>
                 <p className="mt-0.5 text-[11px] text-slate">{filteredRows.length.toLocaleString()} of {rows.length.toLocaleString()} rows</p>
@@ -74,8 +75,9 @@ export default function ReportPreview({ title, rows = [], sheetName, branding })
               <ExportExcelButton rows={filteredRows} sheetName={sheetName} reportTitle={title} branding={branding} />
               <button type="button" onClick={printReport} className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-xs font-bold hover:bg-aquaSoft"><Printer size={14} /> Print</button>
               <button type="button" onClick={printReport} className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-xs font-bold hover:bg-aquaSoft" title="Choose Save as PDF in the print dialog"><FileDown size={14} /> PDF</button>
-              <button type="button" onClick={shareReport} className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-xs font-bold hover:bg-aquaSoft"><Share2 size={14} /> Share</button>
-              <button type="button" onClick={() => setOpen(false)} className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-line hover:bg-foam" aria-label="Close preview"><X size={17} /></button>
+              <button type="button" onClick={shareReport} className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-xs font-bold hover:bg-aquaSoft"><Share2 size={14} /> WhatsApp / Share</button>
+              <button type="button" onClick={() => setFullScreen((value) => !value)} className="inline-flex items-center gap-1.5 rounded-xl border border-line px-3 py-2 text-xs font-bold hover:bg-aquaSoft">{fullScreen ? <Minimize2 size={14} /> : <Maximize2 size={14} />} <span className="hidden lg:inline">{fullScreen ? "Exit Full Screen" : "Full Screen"}</span></button>
+              <button type="button" onClick={() => { setOpen(false); setFullScreen(false); }} className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-line hover:bg-foam" aria-label="Close preview"><X size={17} /></button>
             </div>
 
             <div className="report-preview-print-heading hidden px-1 pb-4">
@@ -102,7 +104,7 @@ export default function ReportPreview({ title, rows = [], sheetName, branding })
 
             <div className="no-print flex items-center justify-between gap-3 border-t border-line bg-card px-3 py-3 sm:px-5">
               <p className="text-xs text-slate">Page {page} of {pageCount}</p>
-              <div className="flex items-center gap-2"><button type="button" onClick={() => setOpen(false)} className="rounded-lg border border-line px-3 py-2 text-xs font-bold hover:bg-foam">Cancel</button><button type="button" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="rounded-lg border border-line p-2 disabled:opacity-35"><ChevronLeft size={16} /></button><button type="button" disabled={page >= pageCount} onClick={() => setPage((value) => value + 1)} className="rounded-lg border border-line p-2 disabled:opacity-35"><ChevronRight size={16} /></button></div>
+              <div className="flex items-center gap-2"><button type="button" onClick={() => { setOpen(false); setFullScreen(false); }} className="rounded-lg border border-line px-3 py-2 text-xs font-bold hover:bg-foam">Close / Cancel</button><button type="button" disabled={page <= 1} onClick={() => setPage((value) => value - 1)} className="rounded-lg border border-line p-2 disabled:opacity-35"><ChevronLeft size={16} /></button><button type="button" disabled={page >= pageCount} onClick={() => setPage((value) => value + 1)} className="rounded-lg border border-line p-2 disabled:opacity-35"><ChevronRight size={16} /></button></div>
             </div>
           </div>
         </div>
