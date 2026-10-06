@@ -83,7 +83,7 @@ export default async function PaymentsPage({ searchParams }) {
     supabase.from("profiles").select("id, full_name, roles!inner(key)").neq("roles.key", "customer").eq("is_active", true).order("full_name"),
     // Paged: the API returns at most 1,000 rows per request, which would drop
     // older customers' last-payment dates once volume grows.
-    fetchAll(() => supabase.from("payments").select("id, customer_id, payment_date, amount, customers(name)").eq("voided", false).gte("payment_date", paymentLookback).order("payment_date", { ascending: false }).order("id"), { label: "payments lookback" }),
+    fetchAll(() => supabase.from("payments").select("id, customer_id, payment_date, amount, method, customers(name)").eq("voided", false).gte("payment_date", paymentLookback).order("payment_date", { ascending: false }).order("id"), { label: "payments lookback" }),
     supabase.from("customers").select("id, payment_frequency, mobile"),
     supabase.rpc("fn_has_permission", { perm_key: "payments.delete" }),
     // Reuses the existing "Outstanding balance recovery" automation rule
@@ -160,6 +160,10 @@ export default async function PaymentsPage({ searchParams }) {
 
   const totalDue = bucketSum(dueList);
   const todaysCollected = (allPayments || []).filter((p) => p.payment_date === todayISO).reduce((a, p) => a + Number(p.amount), 0);
+  const monthStart = todayISO.slice(0, 7);
+  const monthCollected = (allPayments || []).filter((p) => (p.payment_date || "").startsWith(monthStart)).reduce((a, p) => a + Number(p.amount), 0);
+  const cashToday = (allPayments || []).filter((p) => p.payment_date === todayISO && String(p.method).toLowerCase() === "cash").reduce((a, p) => a + Number(p.amount), 0);
+  const bankToday = todaysCollected - cashToday;
   const overdueTotal = bucketSum(buckets.overdue_1_7) + bucketSum(buckets.overdue_8_30) + bucketSum(buckets.overdue_30_plus);
 
   return (
@@ -169,8 +173,11 @@ export default async function PaymentsPage({ searchParams }) {
       <p className="no-print text-slate text-sm mb-4">Due today, collected today, and every overdue customer that needs a follow-up.</p>
 
       <div className="no-print flex flex-wrap gap-3.5 mb-5">
-        <KPI label="TOTAL DUE" value={pkr(totalDue)} tone="navy" sub={`${dueList.length} customers`} />
         <KPI label="COLLECTED TODAY" value={pkr(todaysCollected)} tone="green" sub={`${paidTodayList.length} customers`} />
+        <KPI label="COLLECTED THIS MONTH" value={pkr(monthCollected)} tone="green" />
+        <KPI label="CASH TODAY" value={pkr(cashToday)} tone="aqua" />
+        <KPI label="BANK / ONLINE TODAY" value={pkr(bankToday)} tone="aqua" />
+        <KPI label="TOTAL DUE" value={pkr(totalDue)} tone="navy" sub={`${dueList.length} customers`} />
         <KPI label="OVERDUE" value={pkr(overdueTotal)} tone="coral" sub={`${buckets.overdue_1_7.length + buckets.overdue_8_30.length + buckets.overdue_30_plus.length} customers`} />
         <KPI label="HIGH OUTSTANDING" value={pkr(bucketSum(highOutstandingList))} tone="amber" sub={`${highOutstandingList.length} customers · over ${pkr(highOutstandingThreshold)}`} />
       </div>
