@@ -171,6 +171,14 @@ async function CustomerTimeline({ supabase, customerId, searchParams }) {
   });
 
   const ageRow = Array.isArray(ageing) ? ageing[0] : ageing;
+  const overdueAmount = Number(ageRow?.d1_30 || 0) + Number(ageRow?.d31_60 || 0) + Number(ageRow?.d61_90 || 0) + Number(ageRow?.d90_plus || 0);
+  const accountHealth = closingBalance <= 0 && closingBottles <= 0
+    ? { label: "CLEAR", tone: "green", detail: "No payment or bottle due" }
+    : overdueAmount > 0
+      ? { label: "OVERDUE", tone: "coral", detail: `${pkr(overdueAmount)} past due` }
+      : closingBalance > 0
+        ? { label: "PAYMENT DUE", tone: "amber", detail: `${pkr(closingBalance)} outstanding` }
+        : { label: "BOTTLE DUE", tone: "amber", detail: `${closingBottles} bottle${closingBottles === 1 ? "" : "s"} with customer` };
   const referenceTypes = [...new Set(allChronological.map((e) => e.reference_type))];
 
   const exportRows = withPaymentStatus.map((e) => ({
@@ -215,6 +223,11 @@ async function CustomerTimeline({ supabase, customerId, searchParams }) {
         <KPI label="TOTAL RECEIVED" value={pkr(totalCredit)} tone="green" />
         <KPI label="CURRENT OUTSTANDING" value={pkr(closingBalance)} tone={closingBalance > 0 ? "coral" : "green"} />
         <KPI label="BOTTLE BALANCE" value={closingBottles} tone="amber" sub="with customer" />
+        <div className="min-w-[170px] flex-1 rounded-2xl border border-line bg-card p-4">
+          <p className="text-[10px] font-bold uppercase tracking-wide text-slate">Account Health</p>
+          <div className="mt-2"><Badge text={accountHealth.label} tone={accountHealth.tone} /></div>
+          <p className="mt-2 text-xs text-slate">{accountHealth.detail}</p>
+        </div>
       </div>
 
       {ageRow && (
