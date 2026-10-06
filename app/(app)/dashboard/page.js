@@ -6,7 +6,7 @@ import { SalesTrendChart, ExpensePie, DeliveriesTrendChart, ZoneRevenueChart } f
 import PendingApprovals from "@/components/PendingApprovals";
 import DashboardSectionTabs from "@/components/DashboardSectionTabs";
 import {
-  AlertTriangle, UserPlus, Truck, ShoppingCart, Receipt, Wallet, Upload, BarChart3, Sparkles, ClipboardPlus,
+  AlertTriangle, UserPlus, Truck, ShoppingCart, Receipt, Wallet, Upload, BarChart3, Sparkles, ClipboardPlus, Droplets,
 } from "lucide-react";
 
 // Rendered server-side (often UTC on Vercel, not the business's own
@@ -323,19 +323,26 @@ export default async function DashboardPage({ searchParams }) {
 
   return (
     <div>
-      <div className="water-orb relative mb-5 overflow-hidden rounded-3xl border border-aqua/20 bg-gradient-to-r from-[#073F3A] via-[#07564D] to-[#087C69] p-5 text-white shadow-lg shadow-aqua/10 sm:p-7">
-        <div aria-hidden="true" className="pointer-events-none absolute -right-6 -top-10 h-40 w-28 rotate-12 rounded-[35%_35%_42%_42%] border border-white/15 bg-gradient-to-br from-white/20 to-aqua/10 shadow-2xl"><span className="absolute inset-x-3 top-16 grid h-12 place-items-center rounded-xl bg-navy/45 font-display text-xl font-bold">EW</span></div>
-        <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.18em] text-[#A9DDD7]">One ERP Solution · Total Business in Control</p>
-        <h2 className="font-display text-2xl font-semibold sm:text-3xl">Owner Control Room</h2>
-        <p className="mt-1 text-sm text-[#D7EFEC]">{greeting()}, {firstName} · Operations to profit, smartly managed in your pocket.</p>
-        <p className="mt-1 text-[11px] text-[#A9DDD7]">{new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}</p>
-        <div className="mt-4 flex flex-wrap gap-2 text-xs">
-          <span className="rounded-full bg-white/10 px-3 py-1.5">{completedDeliveries} completed</span>
-          <span className="rounded-full bg-white/10 px-3 py-1.5">{pendingDeliveries} pending</span>
-          <span className={`rounded-full px-3 py-1.5 ${missedDeliveries ? "bg-coral text-white" : "bg-white/10"}`}>{missedDeliveries} missed</span>
-          <span className="rounded-full bg-white/10 px-3 py-1.5">{lowStock.length + overBottleLimitCustomers.length} bottle/stock alerts</span>
+      <section className="relative mb-5 overflow-hidden rounded-3xl border border-[#17675F] bg-[#073F3A] p-5 text-white shadow-[0_14px_40px_rgba(7,59,58,0.16)] sm:p-7">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-10 -top-14 h-44 w-44 rounded-full border-[28px] border-white/[0.035]" />
+        <div className="relative flex flex-col justify-between gap-5 lg:flex-row lg:items-end">
+          <div className="min-w-0">
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.07] px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-[#BCE7E2]"><Droplets size={12} /> Evergreen Water ERP</span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-300/10 px-2.5 py-1 text-[10px] font-semibold text-emerald-200"><span className="h-1.5 w-1.5 rounded-full bg-emerald-300" /> Live business data</span>
+            </div>
+            <p className="text-xs font-medium text-[#A9D4CF]">{new Date().toLocaleDateString("en-GB", { weekday: "long", day: "2-digit", month: "long", year: "numeric" })}</p>
+            <h2 className="mt-1 font-display text-2xl font-semibold tracking-tight sm:text-3xl">{greeting()}, {firstName}</h2>
+            <p className="mt-1.5 max-w-xl text-sm text-[#CDE7E3]">Your Owner Control Room — daily operations, collections, bottles and profit in one clear view.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:min-w-[470px]">
+            <Link href="/deliveries" className="rounded-2xl border border-white/10 bg-white/[0.07] p-3 transition-colors hover:bg-white/[0.11]"><span className="block text-[10px] font-semibold uppercase tracking-wide text-[#A9D4CF]">Completed</span><strong className="mt-1 block text-xl font-bold">{completedDeliveries}</strong></Link>
+            <Link href="/deliveries" className="rounded-2xl border border-white/10 bg-white/[0.07] p-3 transition-colors hover:bg-white/[0.11]"><span className="block text-[10px] font-semibold uppercase tracking-wide text-[#A9D4CF]">Pending</span><strong className="mt-1 block text-xl font-bold">{pendingDeliveries}</strong></Link>
+            <Link href="/deliveries?status=missed" className={`rounded-2xl border p-3 transition-colors ${missedDeliveries ? "border-coral/50 bg-coral/15 hover:bg-coral/20" : "border-white/10 bg-white/[0.07] hover:bg-white/[0.11]"}`}><span className="block text-[10px] font-semibold uppercase tracking-wide text-[#A9D4CF]">Missed</span><strong className={missedDeliveries ? "mt-1 block text-xl font-bold text-[#FFB3A7]" : "mt-1 block text-xl font-bold"}>{missedDeliveries}</strong></Link>
+            <Link href="/exceptions" className="rounded-2xl border border-white/10 bg-white/[0.07] p-3 transition-colors hover:bg-white/[0.11]"><span className="block text-[10px] font-semibold uppercase tracking-wide text-[#A9D4CF]">Alerts</span><strong className="mt-1 block text-xl font-bold">{lowStock.length + overBottleLimitCustomers.length + failedEntryCount}</strong></Link>
+          </div>
         </div>
-      </div>
+      </section>
 
       <DashboardSectionTabs />
 
