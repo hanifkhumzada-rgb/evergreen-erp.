@@ -1,7 +1,7 @@
 import { getCurrentProfile } from "@/lib/session";
 import Link from "@/components/ErpNavLink";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, KPI, DocumentActionBar, Th, Td } from "@/components/ui";
+import { Badge, KPI, DocumentActionBar, RecordStamp, Th, Td } from "@/components/ui";
 import MarkDeliveredButton from "@/components/MarkDeliveredButton";
 import DeliveryStatusButton from "@/components/DeliveryStatusButton";
 import BulkImportButton from "@/components/BulkImportButton";
@@ -22,7 +22,7 @@ import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components
 export const dynamic = "force-dynamic";
 
 const HISTORY_PAGE_SIZE = 100;
-const HISTORY_COLUMNS = "id, delivery_no, customer_id, rider_id, delivery_date, status, amount, amount_collected, rider_remarks, void_reason, customers(name, code, mobile, zone_id), profiles!deliveries_rider_id_fkey(id, full_name), delivery_items(product_id, expected_qty, delivered_qty, returned_qty)";
+const HISTORY_COLUMNS = "id, delivery_no, customer_id, rider_id, delivery_date, status, amount, amount_collected, rider_remarks, void_reason, created_at, updated_at, customers(name, code, mobile, zone_id), profiles!deliveries_rider_id_fkey(id, full_name), creator:profiles!deliveries_created_by_fkey(full_name), delivery_items(product_id, expected_qty, delivered_qty, returned_qty)";
 
 // The month view used to fetch with .limit(1000), so any month with more
 // than 1,000 deliveries (≈250 customers × 13 visits) would silently drop
@@ -402,15 +402,16 @@ export default async function DeliveriesPage({ searchParams }) {
           <BulkSelectProvider noun="delivery" scopeLabel="on this page" actions={canVoidDeliveries ? [{ key: "void", label: "Void", icon: "ban", action: voidDelivery, busyLabel: "Voiding", doneLabel: "Void", detailText: "Each delivery is voided exactly as with the single Void button (bottle movements and the customer ledger are reversed; the original stays for the audit trail)." }] : []}>
           <div className="overflow-x-auto border border-line rounded-2xl">
             <table className="w-full text-[13.5px] border-collapse">
-              <thead><tr className="bg-foam">{canVoidDeliveries && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>#</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Delivery Boy</Th><Th>Status</Th><Th>Cash Collected</Th><Th>Notes</Th><Th className="no-print">&nbsp;</Th></tr></thead>
+              <thead><tr className="bg-foam">{canVoidDeliveries && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>#</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Delivery Boy</Th><Th>Status</Th><Th>Cash Collected</Th><Th>Notes</Th><Th>Recorded</Th><Th className="no-print">&nbsp;</Th></tr></thead>
               <tbody>
-                {historyRows.length === 0 && <tr><td colSpan={canVoidDeliveries ? 10 : 9} className="text-center py-8 text-slate">No deliveries match.</td></tr>}
+                {historyRows.length === 0 && <tr><td colSpan={canVoidDeliveries ? 11 : 10} className="text-center py-8 text-slate">No deliveries match.</td></tr>}
                 {historyPageRows.map((d, index) => (
                   <tr key={d.id} className={`hover:bg-foam ${d.status === "void" ? "opacity-60" : ""}`}>
                     {canVoidDeliveries && <Td className="no-print">{d.status !== "void" ? <RowCheckbox id={d.id} label={`${d.customers?.name || "Delivery"} (${d.delivery_date})`} /> : null}</Td>}
                     <Td>{historyOffset + index + 1}</Td><Td>{fmtDate(d.delivery_date)}</Td><Td>{d.customers?.name}</Td><Td>{qtyOf(d)}</Td><Td>{d.profiles?.full_name || "—"}</Td>
                     <Td><Badge text={d.status} tone={STATUS_TONE(d.status)} />{d.status === "void" && d.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{d.void_reason}</div>}</Td>
                     <Td>{pkr(d.amount_collected)}</Td><Td className="max-w-[220px] truncate">{d.rider_remarks || "—"}</Td>
+                    <Td><RecordStamp date={d.created_at} user={d.creator?.full_name} updatedAt={d.updated_at} /></Td>
                     <Td className="no-print">
                       {profile?.roles?.key === "owner" && ["delivered", "partially_delivered"].includes(d.status) && <DeliveryCorrectionForm delivery={{ id: d.id, delivery_no: d.delivery_no, delivery_date: d.delivery_date, customers: { name: d.customers?.name }, delivery_items: d.delivery_items }} products={products || []} />}
                       {canVoidDeliveries && d.status !== "void" && (

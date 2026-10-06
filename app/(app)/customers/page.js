@@ -1,7 +1,7 @@
 import { getCurrentProfile } from "@/lib/session";
 import Link from "@/components/ErpNavLink";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, KPI, DocumentActionBar, Th, Td } from "@/components/ui";
+import { Badge, KPI, DocumentActionBar, RecordStamp, Th, Td } from "@/components/ui";
 import CustomerForm from "@/components/CustomerForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
@@ -233,9 +233,9 @@ export default async function CustomersPage({ searchParams }) {
 
       <div className="hidden overflow-x-auto rounded-2xl border border-line md:block">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam">{canDelete && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Customer ID</Th><Th>Name</Th><Th>Phone</Th><Th>Zone</Th><Th>Type</Th><Th>Balance</Th><Th>Status</Th><Th className="no-print">Quick Actions</Th></tr></thead>
+          <thead><tr className="bg-foam">{canDelete && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Customer ID</Th><Th>Name</Th><Th>Phone</Th><Th>Zone</Th><Th>Type</Th><Th>Balance</Th><Th>Status</Th><Th>Recorded</Th><Th className="no-print">Quick Actions</Th></tr></thead>
           <tbody>
-            {pageRows.length === 0 && <tr><td colSpan={canDelete ? 9 : 8} className="text-center py-8 text-slate">No customers match.</td></tr>}
+            {pageRows.length === 0 && <tr><td colSpan={canDelete ? 10 : 9} className="text-center py-8 text-slate">No customers match.</td></tr>}
             {pageRows.map((c) => {
               const badge = STATUS_BADGE[c.status] || (c.is_active ? STATUS_BADGE.active : STATUS_BADGE.inactive);
               return (
@@ -248,6 +248,7 @@ export default async function CustomersPage({ searchParams }) {
                   <Td>{c.customer_type}</Td>
                   <Td><span className={c.balance > 0 ? "text-coral font-semibold" : "text-green font-semibold"}>{pkr(c.balance)}</span></Td>
                   <Td><Badge text={badge.text} tone={badge.tone} /></Td>
+                  <Td><RecordStamp date={c.created_at} user={c.creator?.full_name} updatedAt={c.updated_at} updatedBy={c.updater?.full_name} /></Td>
                   <Td className="no-print">
                     <div className="flex gap-1.5">
                       <Link href={`/deliveries?customer=${c.id}`} title="Deliver" className="w-9 h-9 flex items-center justify-center rounded-lg border border-line text-aqua hover:bg-aquaSoft"><Truck size={15} /></Link>

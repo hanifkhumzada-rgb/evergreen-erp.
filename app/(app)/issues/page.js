@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
-import { KPI, Badge, Th, Td, DocumentActionBar } from "@/components/ui";
+import { KPI, Badge, Th, Td, DocumentActionBar, RecordStamp } from "@/components/ui";
 import ListFilterBar from "@/components/ListFilterBar";
 import { orIlike } from "@/lib/listParams";
 import IssueStatusForm from "@/components/IssueStatusForm";
@@ -79,10 +79,10 @@ export default async function IssuesPage({ searchParams }) {
       <div className="bg-card border border-line rounded-2xl overflow-x-auto">
         <table className="w-full text-sm">
           <thead><tr>
-            <Th>Customer</Th><Th>Type</Th><Th>Description</Th><Th>Delivery</Th><Th>Reported</Th><Th>Status</Th>
+            <Th>Customer</Th><Th>Type</Th><Th>Description</Th><Th>Delivery</Th><Th>Reported</Th><Th>Recorded</Th><Th>Status</Th>
           </tr></thead>
           <tbody>
-            {(issues || []).length === 0 && <tr><Td colSpan={6} className="text-center text-slate py-8">No issues found.</Td></tr>}
+            {(issues || []).length === 0 && <tr><Td colSpan={7} className="text-center text-slate py-8">No issues found.</Td></tr>}
             {(issues || []).map((issue) => (
               <tr key={issue.id}>
                 <Td>
@@ -93,6 +93,7 @@ export default async function IssuesPage({ searchParams }) {
                 <Td className="max-w-xs whitespace-normal">{issue.description}</Td>
                 <Td>{issue.deliveries?.delivery_no || "—"}</Td>
                 <Td>{fmtDate(issue.created_at)}</Td>
+                <Td><RecordStamp date={issue.created_at} user={issue.customers?.name ? `${issue.customers.name} (Customer)` : "Customer Portal"} updatedAt={issue.updated_at} /></Td>
                 <Td>
                   <Badge text={STATUS_LABEL[issue.status]} tone={STATUS_TONE[issue.status]} />
                   <IssueStatusForm issue={issue} />

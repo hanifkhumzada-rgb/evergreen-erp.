@@ -1,6 +1,6 @@
 import { Star } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { KPI, Badge, DocumentActionBar } from "@/components/ui";
+import { KPI, Badge, DocumentActionBar, RecordStamp } from "@/components/ui";
 import ListFilterBar from "@/components/ListFilterBar";
 import { RatingTrendChart } from "@/components/LazyCharts";
 import { fmtDate } from "@/lib/format";
@@ -125,7 +125,7 @@ export default async function CustomerFeedbackPage({ searchParams }) {
               </div>
               <div className="text-right flex-shrink-0">
                 <Stars n={f.overall_rating} />
-                <div className="text-[10.5px] text-slate mt-0.5">{fmtDate(f.created_at)}</div>
+                <RecordStamp date={f.created_at} user={f.customers?.name ? `${f.customers.name} (Customer)` : "Customer Portal"} className="mt-1 items-end" />
               </div>
             </div>
           ))}

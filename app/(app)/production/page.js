@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { KPI, DocumentActionBar, Th, Td, Badge } from "@/components/ui";
+import { KPI, DocumentActionBar, RecordStamp, Th, Td, Badge } from "@/components/ui";
 import ProductionBatchForm from "@/components/ProductionBatchForm";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { voidProductionBatch } from "@/app/actions";
@@ -19,7 +19,7 @@ export default async function ProductionPage({ searchParams }) {
   const monthFilter = /^\d{4}-\d{2}$/.test(sp.month || "") ? sp.month : "";
   const q = (sp.q || "").trim().toLowerCase();
 
-  let batchQuery = supabase.from("production_batches").select("*, products(name)").order("batch_date", { ascending: false });
+  let batchQuery = supabase.from("production_batches").select("*, products(name), creator:profiles!production_batches_created_by_fkey(full_name)").order("batch_date", { ascending: false });
   // A month filter scopes to a single month's worth of batches (never more
   // than a few dozen), so it can safely skip the 200-row cap entirely —
   // that cap exists only to bound the default "recent activity" view, and
@@ -88,9 +88,9 @@ export default async function ProductionPage({ searchParams }) {
       <BulkSelectProvider noun="batch" actions={canVoid ? [{ key: "void", label: "Void", icon: "ban", action: voidProductionBatch, busyLabel: "Voiding", doneLabel: "Void", detailText: "Each batch is voided exactly as with the single Void button (its stock and cost effect is reversed; the original stays for the audit trail)." }] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Date</Th><Th>Size</Th><Th>Quantity</Th><Th>Cost/Bottle</Th><Th>Filling Cost</Th><Th>Caps</Th><Th>Cap Cost</Th><Th>Other Material</Th><Th>Supplier</Th><Th>Status</Th><Th className="no-print">&nbsp;</Th></tr></thead>
+          <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Date</Th><Th>Size</Th><Th>Quantity</Th><Th>Cost/Bottle</Th><Th>Filling Cost</Th><Th>Caps</Th><Th>Cap Cost</Th><Th>Other Material</Th><Th>Supplier</Th><Th>Status</Th><Th>Recorded</Th><Th className="no-print">&nbsp;</Th></tr></thead>
           <tbody>
-            {allRows.length === 0 && <tr><td colSpan={canVoid ? 12 : 11} className="text-center py-8 text-slate">No production batches recorded yet.</td></tr>}
+            {allRows.length === 0 && <tr><td colSpan={canVoid ? 13 : 12} className="text-center py-8 text-slate">No production batches recorded yet.</td></tr>}
             {allRows.map((b) => (
               <tr key={b.id} className={`hover:bg-foam ${b.voided ? "opacity-60" : ""}`}>
                   {canVoid && <Td className="no-print">{!b.voided ? <RowCheckbox id={b.id} label={`${b.batch_date || b.production_date || ""} ${b.products?.name || ""}`.trim() || "batch"} /> : null}</Td>}
@@ -100,6 +100,7 @@ export default async function ProductionPage({ searchParams }) {
                 <Td>{b.other_material_cost != null ? pkr(b.other_material_cost) : "—"}</Td>
                 <Td>{b.supplier || "—"}</Td>
                 <Td>{b.voided ? <><Badge text="Voided" tone="coral" />{b.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{b.void_reason}</div>}</> : <Badge text="Active" tone="green" />}</Td>
+                <Td><RecordStamp date={b.created_at} user={b.creator?.full_name} /></Td>
                 <Td className="no-print">
                   {canVoid && !b.voided && (
                     <ReasonConfirmButton action={voidProductionBatch} id={b.id} label="Void"

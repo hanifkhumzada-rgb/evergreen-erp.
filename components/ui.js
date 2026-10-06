@@ -1,8 +1,9 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, Loader2, Share2, FileText } from "lucide-react";
+import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, Loader2, Share2, FileText, CalendarClock, UserRound } from "lucide-react";
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
+import { fmtDateTime } from "@/lib/format";
 
 export function Badge({ text, tone = "slate" }) {
   const map = {
@@ -10,6 +11,20 @@ export function Badge({ text, tone = "slate" }) {
     coral: "bg-coralSoft text-coral", aqua: "bg-aquaSoft text-aqua", slate: "bg-[#EEF2F2] text-slate",
   };
   return <span className={`${map[tone] || map.slate} text-[11.5px] font-semibold px-2.5 py-1 rounded-full border border-black/[0.03]`}>{text}</span>;
+}
+
+// Standard audit stamp for every operational list. `date` is the actual
+// database created_at timestamp, not the editable transaction/business date.
+// This distinction makes back-dated entries transparent without making wide
+// tables even wider with separate day/month/year/user columns.
+export function RecordStamp({ date, user, updatedAt, updatedBy, className = "" }) {
+  return (
+    <span className={`inline-flex min-w-[142px] flex-col gap-1 text-[10.5px] leading-tight text-slate ${className}`}>
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><CalendarClock size={12} className="text-aqua" />{fmtDateTime(date)}</span>
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><UserRound size={12} className="text-aqua" />{user || "System / legacy record"}</span>
+      {updatedAt && updatedAt !== date && <span className="whitespace-nowrap pl-[18px] text-[9.5px]">Updated {fmtDateTime(updatedAt)}{updatedBy ? ` · ${updatedBy}` : ""}</span>}
+    </span>
+  );
 }
 
 // For a sentence-length informational note (e.g. "Coming soon", a

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { fetchAll } from "@/lib/fetchAll";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, DocumentActionBar, Th, Td } from "@/components/ui";
+import { Badge, DocumentActionBar, RecordStamp, Th, Td } from "@/components/ui";
 import BottleReconciliationForm from "@/components/BottleReconciliationForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import { bulkImportBottleOpeningBalances } from "@/app/actions";
@@ -37,7 +37,7 @@ export default async function BottleLedgerPage({ searchParams }) {
   const supabase = await createClient();
   // A search needs to reach the full history, not just the default
   // recent-150 feed — only cap when there's no search term to narrow it.
-  let movementsQuery = supabase.from("bottle_transactions").select("*, customers(name, code, mobile), products(name), profiles(full_name)").order("created_at", { ascending: false });
+  let movementsQuery = supabase.from("bottle_transactions").select("*, customers(name, code, mobile), products(name), creator:profiles!bottle_transactions_created_by_fkey(full_name)").order("created_at", { ascending: false });
   if (!q) movementsQuery = movementsQuery.limit(150);
   const [branding, { data: balances }, { data: movements }, { data: customers }, { data: reconciliation }, { data: products }, { data: reconHistory }] = await Promise.all([
     getBrandingLite(supabase),
@@ -58,7 +58,7 @@ export default async function BottleLedgerPage({ searchParams }) {
   const withRiderTotal = bySize.reduce((a, s) => a + Number(s.with_rider), 0);
   const damagedTotal = bySize.reduce((a, s) => a + Number(s.damaged), 0);
   const lostTotal = bySize.reduce((a, s) => a + Number(s.lost), 0);
-  const exportRows = (movements || []).map((m) => ({ Date: m.txn_date, Type: movementType(m).text, "Customer ID": m.customers?.code, Customer: m.customers?.name, Size: m.products?.name, From: m.from_state, To: m.to_state, Qty: m.quantity, By: m.profiles?.full_name }));
+  const exportRows = (movements || []).map((m) => ({ Date: m.txn_date, Type: movementType(m).text, "Customer ID": m.customers?.code, Customer: m.customers?.name, Size: m.products?.name, From: m.from_state, To: m.to_state, Qty: m.quantity, By: m.creator?.full_name, RecordedAt: m.created_at }));
 
   // Before/after "with customer" balance per row — computed from each
   // customer+size's full transaction history (not just the 150-row feed
@@ -231,7 +231,7 @@ export default async function BottleLedgerPage({ searchParams }) {
             </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Type</Th><Th>Customer ID</Th><Th>Customer</Th><Th>Size</Th><Th>Qty</Th><Th>Before</Th><Th>After</Th><Th>Who</Th><Th>Reason</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Type</Th><Th>Customer ID</Th><Th>Customer</Th><Th>Size</Th><Th>Qty</Th><Th>Before</Th><Th>After</Th><Th>Reason</Th><Th>Recorded</Th></tr></thead>
           <tbody>
             {visibleMovements.length === 0 && <tr><td colSpan={10} className="text-center py-8 text-slate">{q ? "No movements match." : "No movements recorded yet."}</td></tr>}
             {visibleMovements.map((m) => {
@@ -244,8 +244,8 @@ export default async function BottleLedgerPage({ searchParams }) {
                   <Td className="font-mono-num text-slate">{m.customers?.code || "—"}</Td><Td>{m.customers?.name || "—"}</Td><Td>{m.products?.name || "—"}</Td><Td>{m.quantity}</Td>
                   <Td className="text-slate">{rb ? rb.before : "—"}</Td>
                   <Td className="font-semibold">{rb ? rb.after : "—"}</Td>
-                  <Td>{m.profiles?.full_name || "—"}</Td>
                   <Td className="max-w-[160px] truncate">{m.remarks || "—"}</Td>
+                  <Td><RecordStamp date={m.created_at} user={m.creator?.full_name} /></Td>
                 </tr>
               );
             })}

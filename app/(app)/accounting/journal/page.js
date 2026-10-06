@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { Th, Td, Badge, DocumentActionBar } from "@/components/ui";
+import { Th, Td, Badge, DocumentActionBar, RecordStamp } from "@/components/ui";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { voidJournalEntry } from "@/app/actions";
 import ListFilterBar from "@/components/ListFilterBar";
@@ -33,7 +33,7 @@ export default async function JournalPage({ searchParams }) {
   const [from, to] = rangeFor(page, PAGE_SIZE);
 
   const [{ data: entries, count }, { data: canVoid }, branding] = await Promise.all([
-    applyJournalFilters(supabase.from("journal_entries").select("*, journal_lines(*, chart_of_accounts(code, name))", { count: "exact" }), filters)
+    applyJournalFilters(supabase.from("journal_entries").select("*, journal_lines(*, chart_of_accounts(code, name)), creator:profiles!journal_entries_created_by_fkey(full_name)", { count: "exact" }), filters)
       .order("entry_date", { ascending: false }).order("created_at", { ascending: false }).order("id").range(from, to),
     supabase.rpc("fn_has_permission", { perm_key: "journal.delete" }),
     getBrandingLite(supabase),
@@ -86,6 +86,7 @@ export default async function JournalPage({ searchParams }) {
                   {je.reference && <span className="text-slate text-xs ml-2">· {je.reference}</span>}
                   {je.source_module === "journal_void" && <span className="ml-2"><Badge text="Reversal" tone="slate" /></span>}
                   {alreadyVoided && <span className="ml-2"><Badge text="Voided" tone="coral" /></span>}
+                  <RecordStamp date={je.created_at} user={je.creator?.full_name} className="ml-3" />
                 </div>
                 <div className="flex items-center gap-2.5">
                   <span className="font-mono-num text-xs text-slate">{pkr(total)}</span>

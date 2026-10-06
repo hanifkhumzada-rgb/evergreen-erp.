@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, KPI, DocumentActionBar, Th, Td } from "@/components/ui";
+import { Badge, KPI, DocumentActionBar, RecordStamp, Th, Td } from "@/components/ui";
 import { AddVehicleForm, AddVehicleExpenseForm, EditVehicleForm } from "@/components/FleetForms";
 import ListFilterBar from "@/components/ListFilterBar";
 import BulkImportButton from "@/components/BulkImportButton";
@@ -23,15 +23,15 @@ export default async function FleetPage({ searchParams }) {
     getBrandingLite(supabase),
     supabase.from("vehicles").select("*, profiles!vehicles_assigned_rider_id_fkey(full_name)"),
     supabase.from("profiles").select("id, full_name"),
-    supabase.from("vehicle_fuel_logs").select("*, vehicles(registration_no)"),
-    supabase.from("vehicle_maintenance_logs").select("*, vehicles(registration_no)"),
+    supabase.from("vehicle_fuel_logs").select("*, vehicles(registration_no), creator:profiles!vehicle_fuel_logs_created_by_fkey(full_name)"),
+    supabase.from("vehicle_maintenance_logs").select("*, vehicles(registration_no), creator:profiles!vehicle_maintenance_logs_created_by_fkey(full_name)"),
     supabase.from("customers").select("assigned_vehicle_id"),
     supabase.rpc("fn_has_permission", { perm_key: "vehicles.delete" }),
   ]);
 
   const vehExpenses = [
-    ...(fuelLogs || []).map((l) => ({ id: `f-${l.id}`, vehicle_id: l.vehicle_id, vehicles: l.vehicles, category: "Fuel", amount: l.cost, notes: "" })),
-    ...(maintLogs || []).map((l) => ({ id: `m-${l.id}`, vehicle_id: l.vehicle_id, vehicles: l.vehicles, category: "Maintenance", amount: l.cost, notes: l.description })),
+    ...(fuelLogs || []).map((l) => ({ id: `f-${l.id}`, vehicle_id: l.vehicle_id, vehicles: l.vehicles, category: "Fuel", amount: l.cost, notes: "", created_at: l.created_at, creator: l.creator })),
+    ...(maintLogs || []).map((l) => ({ id: `m-${l.id}`, vehicle_id: l.vehicle_id, vehicles: l.vehicles, category: "Maintenance", amount: l.cost, notes: l.description, created_at: l.created_at, creator: l.creator })),
   ];
 
   const custCountByVehicle = {};
@@ -161,13 +161,13 @@ export default async function FleetPage({ searchParams }) {
       <BulkSelectProvider noun="expense log" scopeLabel="shown" actions={canDelete ? [{ key: "delete", label: "Delete", icon: "trash", action: deleteVehicleExpenseLog, busyLabel: "Deleting", doneLabel: "Delete" }] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam">{canDelete && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Vehicle</Th><Th>Category</Th><Th>Amount</Th><Th>Notes</Th><Th className="no-print"></Th></tr></thead>
+          <thead><tr className="bg-foam">{canDelete && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Vehicle</Th><Th>Category</Th><Th>Amount</Th><Th>Notes</Th><Th>Recorded</Th><Th className="no-print"></Th></tr></thead>
           <tbody>
-            {visibleExpenses.length === 0 && <tr><td colSpan={canDelete ? 6 : 5} className="text-center py-6 text-slate">{expenseQuery ? "No expenses match." : "No vehicle expenses logged yet."}</td></tr>}
+            {visibleExpenses.length === 0 && <tr><td colSpan={canDelete ? 7 : 6} className="text-center py-6 text-slate">{expenseQuery ? "No expenses match." : "No vehicle expenses logged yet."}</td></tr>}
             {visibleExpenses.map((e) => (
               <tr key={e.id} className="hover:bg-foam">
                 {canDelete && <Td className="no-print"><RowCheckbox id={e.id} label={`${e.vehicles?.registration_no || "Vehicle"} ${e.category}`} /></Td>}
-                <Td>{e.vehicles?.registration_no}</Td><Td>{e.category}</Td><Td>{pkr(e.amount)}</Td><Td>{e.notes}</Td>
+                <Td>{e.vehicles?.registration_no}</Td><Td>{e.category}</Td><Td>{pkr(e.amount)}</Td><Td>{e.notes}</Td><Td><RecordStamp date={e.created_at} user={e.creator?.full_name} /></Td>
                 <Td className="no-print">
                   {canDelete && (
                     <ReasonConfirmButton action={deleteVehicleExpenseLog} id={e.id} label="Delete" icon="trash"

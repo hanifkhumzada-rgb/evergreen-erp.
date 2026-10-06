@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, DocumentActionBar, Th, Td } from "@/components/ui";
+import { Badge, DocumentActionBar, RecordStamp, Th, Td } from "@/components/ui";
 import BulkImportButton from "@/components/BulkImportButton";
 import { bulkImportPurchases } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
@@ -18,7 +18,7 @@ export default async function InventoryPage({ searchParams }) {
     supabase.from("products").select("*").order("name"),
     supabase.from("v_bottle_reconciliation").select("product_id, warehouse"),
     supabase.from("product_prices").select("product_id, price"),
-    supabase.from("purchases").select("*, suppliers(name), purchase_items(quantity, rate, amount, inventory_items(name))").order("purchase_date", { ascending: false }).limit(50),
+    supabase.from("purchases").select("*, suppliers(name), purchase_items(quantity, rate, amount, inventory_items(name)), creator:profiles!purchases_created_by_fkey(full_name)").order("purchase_date", { ascending: false }).limit(50),
   ]);
 
   const stockMap = {};
@@ -73,13 +73,13 @@ export default async function InventoryPage({ searchParams }) {
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Supplier</Th><Th>Item</Th><Th>Qty</Th><Th>Rate</Th><Th>Amount</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Supplier</Th><Th>Item</Th><Th>Qty</Th><Th>Rate</Th><Th>Amount</Th><Th>Recorded</Th></tr></thead>
           <tbody>
-            {(purchases || []).length === 0 && <tr><td colSpan={6} className="text-center py-6 text-slate">No purchases recorded yet.</td></tr>}
+            {(purchases || []).length === 0 && <tr><td colSpan={7} className="text-center py-6 text-slate">No purchases recorded yet.</td></tr>}
             {(purchases || []).flatMap((p) => (p.purchase_items || []).map((it, i) => (
               <tr key={p.id + "-" + i} className="hover:bg-foam">
                 <Td>{fmtDate(p.purchase_date)}</Td><Td>{p.suppliers?.name}</Td><Td>{it.inventory_items?.name}</Td>
-                <Td>{it.quantity}</Td><Td>{pkr(it.rate)}</Td><Td>{pkr(it.amount)}</Td>
+                <Td>{it.quantity}</Td><Td>{pkr(it.rate)}</Td><Td>{pkr(it.amount)}</Td><Td><RecordStamp date={p.created_at} user={p.creator?.full_name} /></Td>
               </tr>
             )))}
           </tbody>

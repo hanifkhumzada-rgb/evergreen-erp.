@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, KPI, DocumentActionBar, Th, Td } from "@/components/ui";
+import { Badge, KPI, DocumentActionBar, RecordStamp, Th, Td } from "@/components/ui";
 import AddSaleForm from "@/components/AddSaleForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
@@ -34,7 +34,7 @@ export default async function InvoicesPage({ searchParams }) {
   const [branding, { data: invoices, count }, { data: kpis }, { data: customers }, { data: products }, { data: canVoid }] = await Promise.all([
     getBrandingLite(supabase),
     applyInvoiceFilters(
-      supabase.from("invoices").select("id, invoice_no, invoice_date, status, net_amount, void_reason, created_at, customers(name), invoice_items(quantity)", { count: "exact" }),
+      supabase.from("invoices").select("id, invoice_no, invoice_date, status, net_amount, void_reason, created_at, customers(name), invoice_items(quantity), creator:profiles!invoices_created_by_fkey(full_name)", { count: "exact" }),
       filters, customerIds,
     ).order("created_at", { ascending: false }).order("id").range(from, to),
     supabase.rpc("fn_invoice_kpis"),
@@ -90,9 +90,9 @@ export default async function InvoicesPage({ searchParams }) {
       <BulkSelectProvider noun="invoice" actions={canVoid ? [{ key: "void", label: "Void", icon: "ban", action: voidInvoice, busyLabel: "Voiding", doneLabel: "Void", detailText: "Each invoice is voided exactly as with the single Void button (reversing its ledger effect; the original stays for the audit trail). Paid or part-paid invoices can't be selected." }] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Invoice #</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Total</Th><Th>Status</Th><Th className="no-print">Actions</Th></tr></thead>
+          <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Invoice #</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Total</Th><Th>Status</Th><Th>Recorded</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
-            {pageRows.length === 0 && <tr><td colSpan={canVoid ? 8 : 7} className="text-center py-8 text-slate">No invoices match.</td></tr>}
+            {pageRows.length === 0 && <tr><td colSpan={canVoid ? 9 : 8} className="text-center py-8 text-slate">No invoices match.</td></tr>}
             {pageRows.map((s) => {
               const canVoidThis = canVoid && s.status !== "void" && !["paid", "partially_paid"].includes(s.status);
               const statusLabel = STATUS_LABEL[s.status] || s.status;
@@ -115,6 +115,7 @@ export default async function InvoicesPage({ searchParams }) {
                   <Td>{qtyOf(s)}</Td>
                   <Td>{pkr(s.net_amount)}</Td>
                   <Td><Badge text={statusLabel} tone={STATUS_TONE[s.status] || "slate"} />{s.status === "void" && s.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{s.void_reason}</div>}</Td>
+                  <Td><RecordStamp date={s.created_at} user={s.creator?.full_name} /></Td>
                   <Td className="no-print">
                     <div className="flex items-center gap-1.5">
                       <RecordPreview iconOnly title={`${s.invoice_no} · ${s.customers?.name || "Invoice"}`} subtitle="Read-only invoice preview" fields={previewFields} excelRows={previewExcel} excelTitle={s.invoice_no || "Invoice"} openHref={`/sales/${s.id}`} openLabel="Open Invoice" />
