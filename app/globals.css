@@ -59,14 +59,6 @@ body {
 .page-stage { animation: page-stage-in .22s ease-out both; }
 @keyframes page-stage-in { from { opacity: 0; } to { opacity: 1; } }
 
-/* Small branded water motion. Transform-only animation keeps it cheap. */
-.water-orb { position: relative; isolation: isolate; overflow: hidden; }
-.water-orb::after {
-  content: ""; position: absolute; width: 150%; height: 75%; left: -25%; top: 52%;
-  border-radius: 42%; background: rgba(158,240,208,.28); z-index: -1;
-  animation: water-turn 7s linear infinite;
-}
-@keyframes water-turn { to { transform: rotate(360deg); } }
 .erp-nav-controls { padding: 3px; border: 1px solid var(--line); border-radius: 13px; background: color-mix(in srgb, var(--card) 82%, transparent); box-shadow: 0 5px 18px rgba(7,59,58,.06); }
 .erp-nav-button { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 6px 9px; border-radius: 9px; color: var(--slate); font-size: 11px; font-weight: 700; transition: background-color .16s ease, color .16s ease, transform .16s ease; }
 .erp-nav-button:not(:disabled):hover { background: var(--aquaSoft); color: #087C69; transform: translateY(-1px); }
