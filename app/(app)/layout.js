@@ -13,6 +13,7 @@ import { Bell, Command } from "lucide-react";
 import WorkspaceIdentity from "@/components/WorkspaceIdentity";
 import ErpAppearance from "@/components/ErpAppearance";
 import MobileBottomNav from "@/components/MobileBottomNav";
+import LiveUsers from "@/components/LiveUsers";
 
 export default async function AppLayout({ children }) {
   const { user, profile, roleKey, permissions: effectivePermissions, unreadNotifications } = await getCurrentProfile();
@@ -62,6 +63,13 @@ export default async function AppLayout({ children }) {
           <div className="flex items-center gap-4">
             <OfflineIndicator />
             <div className="topbar-search flex items-center gap-2 rounded-xl px-2 py-1"><Command size={13} className="topbar-muted hidden md:block" /><GlobalSearch /></div>
+            <LiveUsers
+              userId={user.id}
+              businessId={profile.business_id}
+              name={profile.full_name}
+              role={roleLabel}
+              canView={["owner", "admin"].includes(roleKey)}
+            />
             <Link href="/notifications" className="topbar-icon-btn relative grid h-10 w-10 place-items-center -m-2 rounded-lg transition-colors" aria-label="Notifications">
               <Bell size={17} />
               {unreadNotifications > 0 && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-coral ring-2 ring-[#073F3A]" />}
