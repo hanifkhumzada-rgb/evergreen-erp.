@@ -85,7 +85,7 @@ export default async function DashboardPage({ searchParams }) {
     overdueRuleRes, { data: unpaidInvoices }, { data: monthToDateExpenses }, { data: lastMonthExpenses },
     { data: bottleLimits },
     { data: rangeInvoices }, { data: rangeDeliveriesRaw }, { data: rangeExpensesRaw }, { data: rangePaymentsRaw }, { data: rangeRiderDeliveriesRaw },
-    { data: weekDeliveries }, { data: pendingApprovals },
+    { data: weekDeliveries }, { data: pendingApprovals }, { data: failedEntries }, { data: todayClosings },
   ] = await Promise.all([
     supabase.from("invoices").select("net_amount").eq("invoice_date", today).neq("status", "void"),
     supabase.from("deliveries").select("rider_id, status, amount_collected, profiles!deliveries_rider_id_fkey(full_name), delivery_items(delivered_qty, returned_qty)").eq("delivery_date", today),
@@ -153,6 +153,8 @@ export default async function DashboardPage({ searchParams }) {
     ["owner", "admin"].includes(profile?.roles?.key)
       ? supabase.from("expenses").select("id, description, amount, expense_date, expense_categories(name)").eq("status", "submitted").order("created_at", { ascending: false }).limit(8)
       : Promise.resolve({ data: [] }),
+    supabase.from("smart_entries").select("id, entry_no, entry_type").eq("status", "failed").order("updated_at", { ascending: false }).limit(20),
+    supabase.from("cash_transactions").select("id, amount, description").eq("reference_type", "daily_closing").eq("txn_date", today).limit(1),
   ]);
 
   const rangeDeliveries = rangeKey === "today" ? todayDeliveries : rangeDeliveriesRaw;
@@ -183,6 +185,9 @@ export default async function DashboardPage({ searchParams }) {
   const completedDeliveries = (todayDeliveries || []).filter((d) => d.status === "delivered").length;
   const missedDeliveries = (todayDeliveries || []).filter((d) => ["missed", "failed", "cancelled"].includes(d.status)).length;
   const pendingDeliveries = (todayDeliveries || []).filter((d) => !["delivered", "missed", "failed", "cancelled"].includes(d.status)).length;
+  const failedEntryCount = (failedEntries || []).length;
+  const cashDifference = Number(todayClosings?.[0]?.amount || 0);
+  const pendingApprovalCount = (pendingApprovals || []).length;
 
   // Previous-period figures
   const ySalesAmt = (yesterdayInvoices || []).reduce((a, s) => a + Number(s.net_amount), 0);
@@ -482,6 +487,18 @@ export default async function DashboardPage({ searchParams }) {
       <div className="border border-line rounded-2xl p-4 bg-card">
         <div className="mb-2 flex items-center justify-between gap-3"><div><h4 className="text-sm font-bold flex items-center gap-1.5"><AlertTriangle size={15} className="text-coral" /> Needs Your Attention</h4><p className="mt-0.5 text-[11px] text-slate">Only actionable business issues are shown.</p></div><Link href="/exceptions" className="text-xs font-bold text-aqua hover:underline">Open Exception Center →</Link></div>
         <div className="flex flex-col gap-2 max-h-52 overflow-y-auto">
+          {missedDeliveries > 0 && (
+            <Link href="/deliveries?status=missed" className="text-xs flex gap-2 hover:underline"><AlertTriangle size={13} className="text-coral flex-shrink-0 mt-0.5" /><span>{missedDeliveries} delivery{missedDeliveries === 1 ? "" : "ies"} missed or failed today — open Deliveries.</span></Link>
+          )}
+          {pendingApprovalCount > 0 && (
+            <Link href="/expenses?status=submitted" className="text-xs flex gap-2 hover:underline"><AlertTriangle size={13} className="text-amber flex-shrink-0 mt-0.5" /><span>{pendingApprovalCount} expense{pendingApprovalCount === 1 ? "" : "s"} waiting for Owner approval.</span></Link>
+          )}
+          {failedEntryCount > 0 && (
+            <Link href="/smart-entry" className="text-xs flex gap-2 hover:underline"><AlertTriangle size={13} className="text-coral flex-shrink-0 mt-0.5" /><span>{failedEntryCount} Smart Entr{failedEntryCount === 1 ? "y has" : "ies have"} validation errors — edit and retry.</span></Link>
+          )}
+          {Math.abs(cashDifference) >= 1 && (
+            <Link href="/accounting/daily-closing" className="text-xs flex gap-2 hover:underline"><AlertTriangle size={13} className="text-coral flex-shrink-0 mt-0.5" /><span>Today&apos;s cash closing has a difference of {pkr(cashDifference)} — review the explanation.</span></Link>
+          )}
           {overdueCustomerCount > 0 && (
             <Link href="/payments" className="text-xs flex gap-2 hover:underline"><AlertTriangle size={13} className="text-coral flex-shrink-0 mt-0.5" /><span>{overdueCustomerCount} customer{overdueCustomerCount === 1 ? "" : "s"} overdue by more than {overdueDays} days — see Payments → Recovery.</span></Link>
           )}
@@ -494,7 +511,7 @@ export default async function DashboardPage({ searchParams }) {
           {overBottleLimitCustomers.map((c) => (
             <Link key={c.customer_id} href={`/customers/${c.customer_id}`} className="text-xs flex gap-2 hover:underline"><AlertTriangle size={13} className="text-amber flex-shrink-0 mt-0.5" /><span>{c.name} is holding {c.total} bottles, above their limit of {c.limit}.</span></Link>
           ))}
-          {(overdueCustomerCount || 0) + lowStock.length + (overdueCustomers || []).length + overBottleLimitCustomers.length === 0 && <p className="text-sm text-slate">No critical alerts right now.</p>}
+          {(overdueCustomerCount || 0) + lowStock.length + (overdueCustomers || []).length + overBottleLimitCustomers.length + missedDeliveries + pendingApprovalCount + failedEntryCount + (Math.abs(cashDifference) >= 1 ? 1 : 0) === 0 && <p className="text-sm text-slate">No critical alerts right now.</p>}
         </div>
       </div>
       </section>
