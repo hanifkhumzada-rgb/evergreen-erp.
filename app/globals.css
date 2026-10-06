@@ -216,6 +216,22 @@ table tr.hover\:bg-foam:hover {
   transform: translateY(0);
 }
 
+/* Staff login: a calm water backdrop with a compact, distraction-free card. */
+.ew-login-bg {
+  background:
+    radial-gradient(circle at 16% 20%, rgba(151, 245, 226, .24), transparent 28%),
+    radial-gradient(circle at 82% 75%, rgba(71, 193, 208, .22), transparent 30%),
+    linear-gradient(135deg, #0b7774 0%, #07514f 48%, #073b3a 100%);
+}
+.ew-login-pattern {
+  opacity: .33;
+  background-image:
+    radial-gradient(circle at 22% 28%, rgba(255,255,255,.42) 0 2px, transparent 3px),
+    radial-gradient(circle at 75% 62%, rgba(255,255,255,.32) 0 3px, transparent 4px),
+    repeating-radial-gradient(ellipse at 50% 115%, transparent 0 34px, rgba(255,255,255,.12) 35px 37px, transparent 38px 62px);
+  background-size: 150px 150px, 210px 210px, 100% 100%;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .login-card-in { animation: none; }
 }
