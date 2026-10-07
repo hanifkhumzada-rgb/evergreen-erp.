@@ -6,6 +6,7 @@ import { KPI, Badge, Th, Td } from "@/components/ui";
 import EmployeeEditForm from "@/components/EmployeeEditForm";
 import EmployeeAdvanceForm from "@/components/EmployeeAdvanceForm";
 import AttendanceButtons from "@/components/AttendanceButtons";
+import EmployeeSalaries from "@/components/ew/EmployeeSalaries";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { deleteEmployeeAdvance, deleteEmployeeAttendance } from "@/app/actions";
 
@@ -144,6 +145,7 @@ export default async function EmployeeProfilePage({ params }) {
           </tbody>
         </table>
       </div>
+      <EmployeeSalaries employeeId={e.id} />
     </div>
   );
 }

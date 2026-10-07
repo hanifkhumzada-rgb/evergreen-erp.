@@ -15,7 +15,7 @@ import { bulkImportDeliveries, voidDelivery } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import { fetchAll } from "@/lib/fetchAll";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
-import { Phone, MessageCircle } from "lucide-react";
+import { Phone, MessageCircle, FileText } from "lucide-react";
 import ListFilterBar from "@/components/ListFilterBar";
 import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
 
@@ -413,6 +413,7 @@ export default async function DeliveriesPage({ searchParams }) {
                     <Td>{pkr(d.amount_collected)}</Td><Td className="max-w-[220px] truncate">{d.rider_remarks || "—"}</Td>
                     <Td><RecordStamp date={d.created_at} user={d.creator?.full_name} updatedAt={d.updated_at} /></Td>
                     <Td className="no-print"><RowActionMenu label={`Actions for delivery ${d.delivery_no || "record"}`}>
+                      <Link href={`/deliveries/slip/${d.id}`} title="Delivery Slip" className="flex items-center gap-1.5 text-xs font-semibold"><FileText size={14} /></Link>
                       {profile?.roles?.key === "owner" && ["delivered", "partially_delivered"].includes(d.status) && <DeliveryCorrectionForm delivery={{ id: d.id, delivery_no: d.delivery_no, delivery_date: d.delivery_date, customers: { name: d.customers?.name }, delivery_items: d.delivery_items }} products={products || []} />}
                       {canVoidDeliveries && d.status !== "void" && (
                         <ReasonConfirmButton action={voidDelivery} id={d.id} label="Void"

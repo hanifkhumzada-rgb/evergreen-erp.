@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
 import { Badge, DocumentActionBar, RecordStamp, Th, Td } from "@/components/ui";
@@ -78,7 +79,7 @@ export default async function InventoryPage({ searchParams }) {
             {(purchases || []).length === 0 && <tr><td colSpan={7} className="text-center py-6 text-slate">No purchases recorded yet.</td></tr>}
             {(purchases || []).flatMap((p) => (p.purchase_items || []).map((it, i) => (
               <tr key={p.id + "-" + i} className="hover:bg-foam">
-                <Td>{fmtDate(p.purchase_date)}</Td><Td>{p.suppliers?.name}</Td><Td>{it.inventory_items?.name}</Td>
+                <Td>{i === 0 ? <Link href={`/inventory/purchase/${p.id}`} className="font-semibold text-navy hover:text-aqua">{fmtDate(p.purchase_date)}{p.purchase_no ? ` · ${p.purchase_no}` : ""}</Link> : fmtDate(p.purchase_date)}</Td><Td>{p.suppliers?.name}</Td><Td>{it.inventory_items?.name}</Td>
                 <Td>{it.quantity}</Td><Td>{pkr(it.rate)}</Td><Td>{pkr(it.amount)}</Td><Td><RecordStamp date={p.created_at} user={p.creator?.full_name} /></Td>
               </tr>
             )))}

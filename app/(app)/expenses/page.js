@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentProfile } from "@/lib/session";
 import { pkr, fmtDate } from "@/lib/format";
 import { KPI, DocumentActionBar, RecordStamp, RowActionMenu, Th, Td, Badge } from "@/components/ui";
+import { FileText } from "lucide-react";
 import AddExpenseForm from "@/components/AddExpenseForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import PendingApprovals from "@/components/PendingApprovals";
@@ -147,6 +148,7 @@ export default async function ExpensesPage({ searchParams }) {
                   <Td><Badge text={badge.text} tone={badge.tone} />{e.voided && e.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{e.void_reason}</div>}</Td>
                   <Td><RecordStamp date={e.created_at} user={e.profiles?.full_name} /></Td>
                   <Td className="no-print"><RowActionMenu label={`Actions for expense ${e.expense_no || "record"}`}>
+                      <Link href={`/expenses/voucher/${e.id}`} title="View Voucher" className="flex items-center gap-1.5 text-xs font-semibold"><FileText size={14} /></Link>
                       <RecordPreview iconOnly title={`${e.expense_categories?.name || "Expense"} · ${pkr(e.amount)}`} subtitle="Read-only expense preview" fields={previewFields} excelRows={previewExcel} excelTitle={`Expense_${e.expense_date}`} />
                       {e.payment_method === "bank" && ["approved", "paid"].includes(e.status) && (
                         <DocumentActionBar compact pdfHref={`/api/pdf/bank-payment-voucher/expenses/${e.id}`} pdfLabel="BPV" />
