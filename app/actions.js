@@ -9,6 +9,7 @@ import { isTwilioConfigured } from "@/lib/twilio";
 import { formatAmount, statementLine } from "@/lib/reminders";
 import { appOrigin } from "@/lib/appOrigin";
 import { createHash, randomUUID } from "node:crypto";
+import { computeDaySummary, expectedCash, closingNo } from "@/lib/ew/closing";
 
 async function requireUser() {
   const supabase = await createClient();
@@ -1060,40 +1061,75 @@ export async function updateCustomerLiveTrackingSetting(enabled) {
 // show them. This is a best-effort workaround, not a real accounting table.
 export async function closeDay(formData) {
   const { supabase, user } = await requireUser();
-  const closeDate = formData.get("close_date");
+  const closeDate = String(formData.get("close_date") || "");
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(closeDate)) return { error: "Pick a valid closing date." };
   const openingCash = Number(formData.get("opening_cash")) || 0;
-  const actualCash = Number(formData.get("actual_cash"));
+  const actualRaw = formData.get("actual_cash");
+  if (actualRaw === null || actualRaw === "" || !Number.isFinite(Number(actualRaw))) return { error: "Enter the actual cash counted." };
+  const actualCash = Number(actualRaw);
   const differenceReason = String(formData.get("difference_reason") || "").trim();
 
-  const { data: invoices } = await supabase.from("invoices").select("net_amount").eq("invoice_date", closeDate).neq("status", "void");
-  const { data: payments } = await supabase.from("payments").select("amount").eq("payment_date", closeDate).eq("voided", false);
-  const { data: expenses } = await supabase.from("expenses").select("amount").eq("expense_date", closeDate).in("status", ["approved", "paid"]);
-
-  const salesTotal = (invoices || []).reduce((a, s) => a + Number(s.net_amount), 0);
-  const collectionsTotal = (payments || []).reduce((a, p) => a + Number(p.amount), 0);
-  const expensesTotal = (expenses || []).reduce((a, e) => a + Number(e.amount), 0);
-  const expectedCash = openingCash + collectionsTotal - expensesTotal;
-  const difference = actualCash - expectedCash;
+  // Same calculation the Daily Closing page, statement and report use.
+  const s = await computeDaySummary(supabase, closeDate);
+  const expected = expectedCash(openingCash, s);
+  const difference = actualCash - expected;
   if (Math.abs(difference) >= 1 && differenceReason.length < 5) return { error: "Explain the cash difference before closing the day." };
 
+  const { data: closing, error } = await supabase.from("daily_closings").insert({
+    closing_no: closingNo(closeDate), close_date: closeDate,
+    opening_cash: openingCash, sales_total: s.sales, collections_total: s.collections, cash_collections: s.cashCollections,
+    expenses_total: s.expenses, cash_expenses: s.cashExpenses, expected_cash: expected, actual_cash: actualCash,
+    difference_reason: differenceReason || null,
+    deliveries_count: s.deliveries, bottles_delivered: s.bottlesDelivered, empty_returned: s.emptyReturned, missed_deliveries: s.missed,
+    closed_by: user.id,
+  }).select("id").single();
+  if (error) {
+    if (error.code === "23505") return { error: "This day has already been closed." };
+    return { error: error.message };
+  }
+
+  // Keep the legacy cash-book adjustment entry so existing cash reports and
+  // the accounting views continue to see the closing difference.
   const { data: cashAccount } = await supabase.from("cash_accounts").select("id").eq("is_active", true).limit(1).maybeSingle();
-  if (!cashAccount) return { error: "No cash account configured" };
+  if (cashAccount) {
+    const summary = JSON.stringify({ close_date: closeDate, opening_cash: openingCash, collections_total: s.collections, expenses_total: s.expenses, expected_cash: expected, actual_cash: actualCash, difference, difference_reason: differenceReason || null, status: "closed", daily_closing_id: closing.id });
+    await supabase.from("cash_transactions").insert({ account_id: cashAccount.id, txn_date: closeDate, type: "adjustment", amount: difference, reference_type: "daily_closing", reference_id: closing.id, description: summary, created_by: user.id });
+  }
 
-  const summary = JSON.stringify({ close_date: closeDate, opening_cash: openingCash, collections_total: collectionsTotal, expenses_total: expensesTotal, expected_cash: expectedCash, actual_cash: actualCash, difference, difference_reason: differenceReason || null, status: "closed" });
-  const { error } = await supabase.from("cash_transactions").insert({
-    account_id: cashAccount.id,
-    txn_date: closeDate,
-    type: "adjustment",
-    amount: difference,
-    reference_type: "daily_closing",
-    description: summary,
-    created_by: user.id,
-  });
-  if (error) return { error: error.message };
-
-  await supabase.from("audit_logs").insert({ user_id: user.id, action: "CLOSE_DAY", module: "cash_transactions", new_value: { close_date: closeDate, difference, difference_reason: differenceReason || null } });
+  await supabase.from("audit_logs").insert({ user_id: user.id, action: "CLOSE_DAY", module: "daily_closings", record_id: closing.id, new_value: { close_date: closeDate, expected_cash: expected, actual_cash: actualCash, difference, difference_reason: differenceReason || null } });
   revalidatePath("/accounting/daily-closing");
-  return { ok: true, difference, expectedCash };
+  return { ok: true, id: closing.id, difference, expectedCash: expected };
+}
+
+// Owner/Admin approval of a daily closing (fn_review_daily_closing enforces
+// the role and four-eyes rule in the database).
+export async function reviewDailyClosing(id, approve, note) {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.rpc("fn_review_daily_closing", { p_id: id, p_approve: !!approve, p_note: note || null });
+  if (error) return { error: error.message };
+  revalidatePath("/accounting/daily-closing");
+  revalidatePath(`/accounting/daily-closing/${id}`);
+  return { ok: true };
+}
+
+// Credit / Debit adjustment: document + ledger posting in one database
+// transaction (fn_post_customer_adjustment, customers.manage_financial).
+export async function postCustomerAdjustment(formData) {
+  const { supabase } = await requireUser();
+  const customerId = String(formData.get("customer_id") || "");
+  const type = String(formData.get("adjustment_type") || "");
+  const amount = Number(formData.get("amount"));
+  const date = String(formData.get("adjustment_date") || "") || null;
+  const reason = String(formData.get("reason") || "").trim();
+  const reference = String(formData.get("reference") || "").trim() || null;
+  if (!["credit", "debit"].includes(type)) return { error: "Choose Credit or Debit." };
+  if (!(amount > 0)) return { error: "Enter an amount greater than zero." };
+  if (reason.length < 5) return { error: "Give a reason (at least 5 characters)." };
+  const { data: id, error } = await supabase.rpc("fn_post_customer_adjustment", { p_customer_id: customerId, p_type: type, p_amount: amount, p_date: date, p_reason: reason, p_reference: reference });
+  if (error) return { error: error.message };
+  revalidatePath(`/customers/${customerId}`);
+  revalidatePath("/ledger");
+  return { ok: true, id };
 }
 
 export async function addVehicle(formData) {

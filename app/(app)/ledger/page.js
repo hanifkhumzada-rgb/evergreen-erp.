@@ -14,6 +14,7 @@ const TXN_TYPE_LABEL = {
   opening: "Opening Balance", delivery: "Delivery", delivery_void: "Delivery Reversed",
   payment: "Payment", payment_void: "Payment Reversed", invoice: "Invoice",
   invoice_void: "Invoice Reversed", invoice_adjustment: "Invoice/Adjustment",
+  credit_note: "Credit Adjustment", debit_note: "Debit Adjustment",
 };
 
 export default async function LedgerPage({ searchParams }) {
@@ -297,7 +298,8 @@ async function CustomerTimeline({ supabase, customerId, searchParams }) {
               const isVoidRow = (e.reference_type || "").endsWith("_void");
               const viewHref = ["delivery", "delivery_void"].includes(e.reference_type) ? "/deliveries"
                 : ["payment", "payment_void"].includes(e.reference_type) ? "/payments"
-                : ["invoice", "invoice_void", "invoice_adjustment"].includes(e.reference_type) ? "/invoices" : null;
+                : ["invoice", "invoice_void", "invoice_adjustment"].includes(e.reference_type) ? "/invoices"
+                : ["credit_note", "debit_note"].includes(e.reference_type) && e.reference_id ? `/customers/adjustments/${e.reference_id}` : null;
               return (
                 <tr key={e.id} className="hover:bg-foam">
                   <Td>{fmtDate(e.entry_date)}</Td>

@@ -8,6 +8,8 @@ import RecurringScheduleControl from "@/components/RecurringScheduleControl";
 import { SalesTrendChart } from "@/components/LazyCharts";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import WhatsAppButton from "@/components/WhatsAppButton";
+import AdjustmentForm from "@/components/ew/AdjustmentForm";
+import CustomerAdjustments from "@/components/ew/CustomerAdjustments";
 import { archiveCustomer, deleteCustomer, voidDelivery } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
@@ -196,6 +198,7 @@ export default async function CustomerProfilePage({ params }) {
           />
 <Link href={`/customers/${c.id}/statement`} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold text-ink hover:border-aqua/40 hover:bg-aquaSoft/60 hover:text-aqua"><FileText size={14} /> View Statement</Link>
           <Link href={`/customers/${c.id}/ledger`} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold text-ink hover:border-aqua/40 hover:bg-aquaSoft/60 hover:text-aqua"><BookOpen size={14} /> Print Ledger</Link>
+          {canManageFinancial ? <AdjustmentForm customerId={c.id} customerName={c.name} /> : null}
           <DocumentActionBar
             print
             share={{ title: `${c.name} — Customer Profile` }}
@@ -391,6 +394,7 @@ export default async function CustomerProfilePage({ params }) {
           <SalesTrendChart data={monthlySales} />
         </div>
       )}
+      <CustomerAdjustments customerId={c.id} />
       <DocumentPrintFooter />
     </div>
   );

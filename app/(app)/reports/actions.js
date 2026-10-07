@@ -140,6 +140,36 @@ export async function getRecordDetail(kind, id) {
         fullHref: "/inventory",
       };
     }
+    case "closing": {
+      const { data: c } = await supabase.from("daily_closings").select("*, closer:profiles!daily_closings_closed_by_fkey(full_name), approver:profiles!daily_closings_approved_by_fkey(full_name)").eq("id", id).maybeSingle();
+      if (!c) return { error: "Daily closing not found or not accessible." };
+      return {
+        typeLabel: "Daily Closing", title: `${c.closing_no} · ${fmtDate(c.close_date)}`, status: c.status === "closed" ? "pending" : c.status,
+        sections: [
+          { title: "Cash", fields: [{ label: "Opening Cash", value: pkr(c.opening_cash) }, { label: "Cash Collections", value: pkr(c.cash_collections) }, { label: "Cash Expenses", value: pkr(c.cash_expenses) }, { label: "Expected Cash", value: pkr(c.expected_cash) }, { label: "Actual Cash", value: pkr(c.actual_cash) }, { label: "Difference", value: pkr(c.difference) }, { label: "Explanation", value: c.difference_reason || "—", wide: true }] },
+          { title: "Day Totals", fields: [{ label: "Sales", value: pkr(c.sales_total) }, { label: "Collections", value: pkr(c.collections_total) }, { label: "Expenses", value: pkr(c.expenses_total) }, { label: "Deliveries", value: c.deliveries_count }, { label: "Bottles Delivered", value: c.bottles_delivered }, { label: "Empty Returned", value: c.empty_returned }, { label: "Missed", value: c.missed_deliveries }] },
+          { title: "Approval", fields: [{ label: "Closed By", value: c.closer?.full_name }, { label: "Closed At", value: fmtDateTime(c.closed_at) }, { label: c.status === "rejected" ? "Rejected By" : "Approved By", value: c.approver?.full_name || "Awaiting approval" }, { label: "Reviewed At", value: c.approved_at ? fmtDateTime(c.approved_at) : "—" }, { label: "Notes", value: c.notes || "—", wide: true }] },
+        ],
+        links: [{ href: `/accounting/daily-closing/${c.id}`, label: "Daily Closing Statement" }],
+        audit: await auditFor(supabase, [c.id]),
+        fullHref: `/accounting/daily-closing/${c.id}`,
+      };
+    }
+    case "adjustment": {
+      const { data: a } = await supabase.from("customer_adjustments").select("*, customers(id, code, name), creator:profiles!customer_adjustments_created_by_fkey(full_name)").eq("id", id).maybeSingle();
+      if (!a) return { error: "Adjustment not found or not accessible." };
+      return {
+        typeLabel: a.adjustment_type === "credit" ? "Credit Note" : "Debit Note", title: a.adjustment_no, status: a.status,
+        sections: [
+          { title: "Transaction Details", fields: [{ label: "Date", value: fmtDate(a.adjustment_date) }, { label: "Amount", value: pkr(a.amount) }, { label: "Reference", value: a.reference || "—" }, { label: "Reason", value: a.reason, wide: true }] },
+          { title: "Customer", fields: [{ label: "Customer", value: a.customers?.name }, { label: "Customer ID", value: a.customers?.code }] },
+          { title: "Entry", fields: [{ label: "Entered By", value: a.creator?.full_name }, { label: "Date / Time", value: fmtDateTime(a.created_at) }] },
+        ],
+        links: [{ href: `/customers/adjustments/${a.id}`, label: "View Document" }, ...(a.customers?.id ? [{ href: `/customers/${a.customers.id}/statement`, label: "Customer Statement" }] : [])],
+        audit: await auditFor(supabase, [a.id]),
+        fullHref: `/customers/adjustments/${a.id}`,
+      };
+    }
     default:
       return { error: "No detail view for this record type." };
   }

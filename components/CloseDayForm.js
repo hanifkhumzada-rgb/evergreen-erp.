@@ -1,5 +1,7 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { closeDay } from "@/app/actions";
 import { pkr } from "@/lib/format";
 
@@ -8,7 +10,11 @@ export default function CloseDayForm({ today, defaultOpeningCash, expectedCash }
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [actualCash, setActualCash] = useState("");
-  const difference = actualCash === "" ? 0 : Number(actualCash) - Number(expectedCash || 0);
+  const [opening, setOpening] = useState(String(defaultOpeningCash ?? 0));
+  const router = useRouter();
+  // expectedCash arrives for the default opening; follow any edit to it.
+  const expectedNow = Number(expectedCash || 0) - Number(defaultOpeningCash || 0) + (Number(opening) || 0);
+  const difference = actualCash === "" ? 0 : Number(actualCash) - expectedNow;
 
   const handleSubmit = async (formData) => {
     setBusy(true); setError("");
@@ -17,6 +23,7 @@ export default function CloseDayForm({ today, defaultOpeningCash, expectedCash }
       setBusy(false);
       if (res?.error) { setError(res.error); return; }
       setResult(res);
+      router.refresh();
     } catch {
       setBusy(false);
       setError("Network error — please check your connection and try again.");
@@ -31,7 +38,7 @@ export default function CloseDayForm({ today, defaultOpeningCash, expectedCash }
       </label>
       <label className="block mb-3">
         <span className="text-xs font-semibold text-slate block mb-1">Opening cash (PKR)</span>
-        <input type="number" name="opening_cash" defaultValue={defaultOpeningCash} required className="w-full px-3 py-2 rounded-lg border border-line bg-card text-ink text-sm" />
+        <input type="number" name="opening_cash" value={opening} onChange={(event) => setOpening(event.target.value)} required className="w-full px-3 py-2 rounded-lg border border-line bg-card text-ink text-sm" />
       </label>
       <label className="block mb-4">
         <span className="text-xs font-semibold text-slate block mb-1">Actual cash counted (PKR)</span>
@@ -45,6 +52,7 @@ export default function CloseDayForm({ today, defaultOpeningCash, expectedCash }
       {result && (
         <div className="mt-4 p-3 rounded-xl bg-foam text-sm">
           <div className="flex justify-between"><span>Expected cash</span><span>{pkr(result.expectedCash)}</span></div>
+          {result.id ? <Link href={`/accounting/daily-closing/${result.id}`} className="mt-2 inline-block text-xs font-semibold text-aqua">View Daily Closing Statement →</Link> : null}
           <div className={`flex justify-between font-bold ${Math.abs(result.difference) < 1 ? "text-green" : "text-coral"}`}>
             <span>Difference</span><span>{result.difference >= 0 ? "+" : ""}{pkr(result.difference)}</span>
           </div>
