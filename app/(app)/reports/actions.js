@@ -5,6 +5,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate, fmtDateTime } from "@/lib/format";
 import { methodLabel } from "@/lib/ew/status";
+import { findInvoiceByRef } from "@/lib/ew/docData";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const n = (v) => Number(v) || 0;
@@ -34,7 +35,8 @@ export async function getRecordDetail(kind, id) {
     case "invoice": {
       const { data: i } = await supabase.from("invoices").select("*, customers(id, code, name, mobile, zones(name)), invoice_items(quantity, rate, amount, description, products(name)), creator:profiles!invoices_created_by_fkey(full_name), deliveries(id, delivery_no, delivery_items(delivered_qty, returned_qty))").eq("id", id).maybeSingle();
       if (!i) return { error: "Invoice not found or not accessible." };
-      const { data: pays } = await supabase.from("payments").select("id, receipt_no, amount, method, payment_date").eq("reference", i.invoice_no).eq("voided", false);
+      const d0 = Array.isArray(i.deliveries) ? i.deliveries[0] : i.deliveries;
+      const { data: pays } = await supabase.from("payments").select("id, receipt_no, amount, method, payment_date").in("reference", [i.invoice_no, d0?.delivery_no].filter(Boolean)).eq("voided", false);
       const paid = (pays || []).reduce((a, p) => a + n(p.amount), 0);
       const d = Array.isArray(i.deliveries) ? i.deliveries[0] : i.deliveries;
       const delivered = (d?.delivery_items || []).reduce((a, x) => a + n(x.delivered_qty), 0);
@@ -57,7 +59,7 @@ export async function getRecordDetail(kind, id) {
     case "payment": {
       const { data: p } = await supabase.from("payments").select("*, customers(id, code, name, mobile, zones(name)), collector:profiles!payments_received_by_fkey(full_name)").eq("id", id).maybeSingle();
       if (!p) return { error: "Payment not found or not accessible." };
-      const { data: inv } = p.reference ? await supabase.from("invoices").select("id, invoice_no").eq("invoice_no", p.reference).maybeSingle() : { data: null };
+      const inv = p.reference ? await findInvoiceByRef(supabase, p.reference) : null;
       return {
         typeLabel: "Payment Receipt", title: p.receipt_no || "Payment", status: p.voided ? "void" : "paid",
         sections: [

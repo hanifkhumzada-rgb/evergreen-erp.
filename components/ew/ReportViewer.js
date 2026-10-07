@@ -173,6 +173,27 @@ export default function ReportViewer({ spec, branding, children }) {
 
         {children}
 
+        {spec.viewTabs ? (
+          <div className="ew-presets" role="tablist" aria-label="View">
+            {spec.viewTabs.options.map(([value, label]) => (
+              <button key={value} type="button" role="tab" aria-selected={spec.viewTabs.current === value} onClick={() => setFilter(spec.viewTabs.name, value)} className={`ew-preset ${spec.viewTabs.current === value ? "ew-preset-on" : ""}`}>{label}</button>
+            ))}
+          </div>
+        ) : null}
+
+        {spec.statement ? (
+          <div className="ew-panel" style={{ maxWidth: 640 }}>
+            <div className="ew-panel-head"><div className="ew-panel-title">Profit Statement · {spec.period}</div></div>
+            <div className="ew-pl">
+              {spec.statement.map((l) => (
+                <div key={l.label} className={`ew-pl-row ${l.kind === "rev" ? "ew-pl-rev" : l.kind === "net" ? `ew-pl-net ${l.value >= 0 ? "ew-text-green" : "ew-text-red"}` : "ew-pl-exp"}`}>
+                  <span>{l.label}</span><span>{pkr(l.value)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
         {(spec.charts || []).filter((ch) => ch.items?.length).length ? (
           <div className="grid gap-3 lg:grid-cols-2">
             {spec.charts.filter((ch) => ch.items?.length).map((ch) => {
@@ -299,7 +320,13 @@ function ReportPrint({ spec, branding, rows, totals, filterSummary, generated })
             <div className="ew-tiles" style={{ marginTop: 6 }}>{spec.cards.map((c, i) => <div key={c.label} className={`ew-tile ${i === 0 ? "ew-tile-hl" : ""}`}><div className="ew-tile-label">{c.label}</div><div className="ew-tile-value">{c.value}</div>{c.sub ? <div className="ew-tile-sub">{c.sub}</div> : null}</div>)}</div>
           </section>
         ) : null}
-        {spec.printExtra ? <section className="ew-section">{spec.printExtra}</section> : null}
+        {spec.statement ? (
+          <section className="ew-section"><h3 className="ew-section-title">Profit Statement</h3>
+            <div className="ew-amounts" style={{ marginTop: 6, maxWidth: 420 }}>
+              {spec.statement.map((l) => <div key={l.label} className={`ew-amount-row ${l.kind === "net" ? "ew-amount-total" : ""} ${l.kind === "rev" ? "ew-strong" : ""}`}><span>{l.label}</span><span className="ew-num">{pkr(l.value)}</span></div>)}
+            </div>
+          </section>
+        ) : null}
         {(spec.charts || []).filter((ch) => ch.items?.length && ch.print !== false).map((ch) => (
           <section key={ch.title} className="ew-section"><h3 className="ew-section-title">{ch.title}</h3>
             <table className="ew-table ew-table-dense" style={{ marginTop: 6 }}><tbody>{ch.items.map((i) => <tr key={i.label}><td>{i.label}</td><td style={{ textAlign: "right" }}>{i.display ?? i.value}</td></tr>)}</tbody></table>
