@@ -25,9 +25,14 @@ async function buildReport(name, supabase, dateRange) {
 
   switch (name) {
     case "Sales Report": {
-      const { data } = await fetchAll(() => dateRange(supabase.from("invoices").select("id, invoice_no, invoice_date, net_amount, status, customers(name), invoice_items(quantity)"), "invoice_date")
+      const { data } = await fetchAll(() => dateRange(supabase.from("invoices").select("id, invoice_no, invoice_date, net_amount, status, customers(code, name, zones(name)), invoice_items(quantity)"), "invoice_date")
         .order("invoice_date", { ascending: false }).order("id"), { label: "sales report" });
-      return data.map((s) => ({ Invoice: s.invoice_no, Date: s.invoice_date, Customer: s.customers?.name, Qty: qtySum(s.invoice_items), Total: s.net_amount, Status: s.status }));
+      return data.map((s) => { const qty = qtySum(s.invoice_items); return { Reference: s.invoice_no, Date: s.invoice_date, "Customer ID": s.customers?.code, Customer: s.customers?.name, Zone: s.customers?.zones?.name, Qty: qty, "Average Rate": qty ? Number(s.net_amount) / qty : 0, Sales: Number(s.net_amount), Status: s.status }; });
+    }
+    case "Collection Report": {
+      const { data } = await fetchAll(() => dateRange(supabase.from("payments").select("id, receipt_no, payment_date, amount, method, reference, voided, customers(code, name), profiles!payments_received_by_fkey(full_name)"), "payment_date")
+        .order("payment_date", { ascending: false }).order("id"), { label: "collection report" });
+      return data.map((p) => ({ Date: p.payment_date, "Receipt #": p.receipt_no, "Customer ID": p.customers?.code, Customer: p.customers?.name, Amount: Number(p.amount), Mode: p.method, Reference: p.reference, "Collected By": p.profiles?.full_name, Status: p.voided ? "Void" : "Received" }));
     }
     case "Customer Profitability":
     case "Area / Route Report": {
@@ -46,19 +51,19 @@ async function buildReport(name, supabase, dateRange) {
       return Object.entries(groups).map(([Zone, v]) => ({ Zone, BottlesSold: v.qty, Revenue: v.revenue }));
     }
     case "Customer Ledger":
-    case "Receivables Report": {
+    case "Outstanding Report": {
       const [{ data: customers }, { data: balances }] = await Promise.all([
-        fetchAll(() => supabase.from("customers").select("id, name, mobile, credit_limit").order("id"), { label: "customers" }),
+        fetchAll(() => supabase.from("customers").select("id, code, name, mobile, credit_limit").order("id"), { label: "customers" }),
         fetchAll(() => supabase.from("v_customer_balance").select("customer_id, balance").order("customer_id"), { label: "balances" }),
       ]);
       const balanceMap = byCustomer(balances, "balance");
-      if (name === "Customer Ledger") return customers.map((c) => ({ Customer: c.name, Balance: balanceMap[c.id] || 0, CreditLimit: c.credit_limit }));
-      return customers.filter((c) => (balanceMap[c.id] || 0) > 0).map((c) => ({ Customer: c.name, Phone: c.mobile, Outstanding: balanceMap[c.id] || 0 }));
+      if (name === "Customer Ledger") return customers.map((c) => ({ "Customer ID": c.code, Customer: c.name, Balance: balanceMap[c.id] || 0, "Credit Limit": c.credit_limit }));
+      return customers.filter((c) => (balanceMap[c.id] || 0) > 0).map((c) => ({ "Customer ID": c.code, Customer: c.name, Phone: c.mobile, Outstanding: balanceMap[c.id] || 0, Status: Number(c.credit_limit || 0) > 0 && (balanceMap[c.id] || 0) > Number(c.credit_limit) ? "Critical" : "Payment Due" }));
     }
     case "Delivery Report": {
-      const { data } = await fetchAll(() => dateRange(supabase.from("deliveries").select("id, delivery_date, status, customers(name), profiles!deliveries_rider_id_fkey(full_name), delivery_items(delivered_qty)"), "delivery_date")
+      const { data } = await fetchAll(() => dateRange(supabase.from("deliveries").select("id, delivery_no, delivery_date, status, amount, customers(code, name, zones(name)), profiles!deliveries_rider_id_fkey(full_name), delivery_items(delivered_qty)"), "delivery_date")
         .order("delivery_date", { ascending: false }).order("id"), { label: "delivery report" });
-      return data.map((d) => ({ Date: d.delivery_date, Customer: d.customers?.name, DeliveryBoy: d.profiles?.full_name, Qty: qtySum(d.delivery_items, "delivered_qty"), Status: d.status }));
+      return data.map((d) => ({ Date: d.delivery_date, "Delivery #": d.delivery_no, "Customer ID": d.customers?.code, Customer: d.customers?.name, Zone: d.customers?.zones?.name, Qty: qtySum(d.delivery_items, "delivered_qty"), Amount: Number(d.amount || 0), "Delivery Boy": d.profiles?.full_name, Status: d.status }));
     }
     case "Bottle Report": {
       const [{ data: customers }, { data: bottles }] = await Promise.all([
@@ -73,9 +78,9 @@ async function buildReport(name, supabase, dateRange) {
       return (data || []).map(({ id, is_active, ...r }) => r);
     }
     case "Expense Report": {
-      const { data } = await fetchAll(() => dateRange(supabase.from("expenses").select("id, expense_date, description, amount, payment_method, expense_categories(name)"), "expense_date")
+      const { data } = await fetchAll(() => dateRange(supabase.from("expenses").select("id, expense_no, expense_date, description, amount, payment_method, status, profiles!expenses_submitted_by_fkey(full_name), expense_categories(name)"), "expense_date")
         .order("expense_date", { ascending: false }).order("id"), { label: "expense report" });
-      return data.map((e) => ({ Date: e.expense_date, Category: e.expense_categories?.name, Description: e.description, Amount: e.amount, Method: e.payment_method }));
+      return data.map((e) => ({ Date: e.expense_date, "Expense #": e.expense_no, Category: e.expense_categories?.name, Description: e.description, Amount: Number(e.amount), "Payment Mode": e.payment_method, "Entered By": e.profiles?.full_name, Status: e.status }));
     }
     case "Employee Performance": {
       const [{ data: employees }, { data: deliveries }] = await Promise.all([
@@ -154,7 +159,7 @@ export default async function ReportsPage({ searchParams }) {
         <Link href="/accounting/profit-loss" className="px-3 py-1.5 rounded-lg border border-line bg-card text-xs font-semibold hover:bg-foam">Profit &amp; Loss →</Link>
         <Link href="/accounting/balance-sheet" className="px-3 py-1.5 rounded-lg border border-line bg-card text-xs font-semibold hover:bg-foam">Balance Sheet →</Link>
       </div>
-      <ReportsBrowser selected={selected} rows={rows} displayLimit={DISPLAY_ROW_LIMIT} baseParams={baseParams} branding={branding} />
+      <ReportsBrowser selected={selected} rows={rows} displayLimit={DISPLAY_ROW_LIMIT} baseParams={baseParams} branding={branding} period={allTime ? "All-time" : `${fromDate} to ${toDate}`} />
     </div>
   );
 }

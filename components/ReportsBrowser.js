@@ -1,87 +1,49 @@
 "use client";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { DocumentActionBar, Th, Td } from "@/components/ui";
+import { usePathname, useRouter } from "next/navigation";
+import { Badge, DocumentActionBar, Th, Td } from "@/components/ui";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
-import { FileSpreadsheet } from "lucide-react";
+import { ChevronRight, FileSpreadsheet, RefreshCw, Search, X } from "lucide-react";
 import { REPORT_GROUPS } from "@/lib/reportGroups";
 
-function fmtCell(v) {
-  if (typeof v === "number") return v.toLocaleString();
-  if (v === null || v === undefined || v === "") return "—";
-  return String(v);
+const TONES = { paid:"green", delivered:"green", approved:"green", clear:"green", received:"green", active:"green", pending:"amber", partial:"amber", partially_paid:"amber", payment_due:"amber", low_stock:"amber", submitted:"amber", overdue:"coral", missed:"coral", failed:"coral", critical:"coral", void:"coral", inactive:"coral", draft:"aqua", normal:"aqua", information:"aqua", sent:"amber" };
+const fmt = (v) => typeof v === "number" ? v.toLocaleString("en-PK", { maximumFractionDigits: 2 }) : (v === null || v === undefined || v === "" ? "—" : String(v).replaceAll("_", " "));
+const sum = (rows, key) => rows.reduce((total, row) => total + (Number(row[key]) || 0), 0);
+const distinct = (rows, key) => new Set(rows.map((row) => row[key]).filter(Boolean)).size;
+const tone = (value) => TONES[String(value || "").toLowerCase().replaceAll(" ", "_")] || "slate";
+
+function summaryFor(name, rows) {
+  if (name === "Sales Report") return [["TOTAL SALES",sum(rows,"Sales"),"PKR"],["TOTAL BOTTLES",sum(rows,"Qty")],["AVERAGE RATE",sum(rows,"Qty") ? sum(rows,"Sales")/sum(rows,"Qty") : 0,"PKR"],["CUSTOMERS",distinct(rows,"Customer")]];
+  if (name === "Collection Report") return [["TOTAL COLLECTION",sum(rows,"Amount"),"PKR"],["CASH",sum(rows.filter((r)=>String(r.Mode).toLowerCase()==="cash"),"Amount"),"PKR"],["BANK / ONLINE",sum(rows.filter((r)=>String(r.Mode).toLowerCase()!=="cash"),"Amount"),"PKR"],["RECEIPTS",rows.length]];
+  if (name === "Expense Report") return [["TOTAL EXPENSE",sum(rows,"Amount"),"PKR"],["CATEGORIES",distinct(rows,"Category")],["CASH",sum(rows.filter((r)=>String(r["Payment Mode"]).toLowerCase()==="cash"),"Amount"),"PKR"],["ENTRIES",rows.length]];
+  if (["Outstanding Report","Customer Ledger"].includes(name)) return [["TOTAL OUTSTANDING",sum(rows,name === "Customer Ledger" ? "Balance" : "Outstanding"),"PKR"],["CUSTOMERS",rows.length],["CRITICAL",rows.filter((r)=>String(r.Status).toLowerCase()==="critical").length],["PAYMENT DUE",rows.filter((r)=>String(r.Status).toLowerCase()==="payment due").length]];
+  if (name === "Delivery Report") return [["DELIVERIES",rows.length],["TOTAL BOTTLES",sum(rows,"Qty")],["DELIVERED",rows.filter((r)=>String(r.Status).toLowerCase()==="delivered").length],["PENDING / MISSED",rows.filter((r)=>!["delivered","partially delivered"].includes(String(r.Status).toLowerCase())).length]];
+  if (name === "Bottle Report") return [["CUSTOMER BOTTLES",sum(rows,"Balance")],["CUSTOMERS",rows.length],["HIGH BALANCE",rows.filter((r)=>Number(r.Balance)>10).length],["CLEAR",rows.filter((r)=>Number(r.Balance)===0).length]];
+  const numeric = rows.length ? Object.keys(rows[0]).filter((key)=>rows.some((row)=>typeof row[key] === "number")) : [];
+  return [["TOTAL RECORDS",rows.length],...numeric.slice(0,3).map((key)=>[key.toUpperCase(),sum(rows,key)])];
 }
 
-// The server builds only the selected report (see app/(app)/reports), so
-// switching reports is a normal navigation carrying the date range along.
-export default function ReportsBrowser({ selected, rows = [], displayLimit = 300, baseParams = {}, branding }) {
-  const pathname = usePathname();
+export default function ReportsBrowser({ selected, rows = [], displayLimit = 300, baseParams = {}, branding, period }) {
+  const pathname = usePathname(); const router = useRouter();
+  const [query,setQuery] = useState(""); const [detail,setDetail] = useState(null);
   const columns = rows.length ? Object.keys(rows[0]) : [];
-  const numericCols = columns.filter((c) => rows.length > 0 && rows.every((r) => typeof r[c] === "number"));
-  const totals = {};
-  numericCols.forEach((c) => { totals[c] = rows.reduce((a, r) => a + (Number(r[c]) || 0), 0); });
-  const shownRows = rows.length > displayLimit ? rows.slice(0, displayLimit) : rows;
-  const today = new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
-  const hrefFor = (name) => `${pathname}?${new URLSearchParams({ ...baseParams, report: name })}`;
-
-  return (
-    <div className="flex flex-col lg:flex-row gap-5">
-      <div className="lg:w-64 flex-shrink-0 border border-line rounded-2xl p-3 h-fit no-print">
-        {REPORT_GROUPS.map((g) => (
-          <div key={g.label} className="mb-3 last:mb-0">
-            <div className="text-[10px] font-bold tracking-wider text-slate px-2 mb-1">{g.label.toUpperCase()}</div>
-            <div className="flex flex-col gap-0.5">
-              {g.reports.map((name) => (
-                <Link key={name} href={hrefFor(name)} scroll={false} aria-current={selected === name ? "page" : undefined}
-                  className={`flex items-center gap-2 px-2.5 py-1.75 rounded-lg text-[13px] font-semibold text-left transition-colors ${selected === name ? "bg-aquaSoft text-aqua" : "hover:bg-foam text-ink"}`}>
-                  <FileSpreadsheet size={14} className="flex-shrink-0" />
-                  <span className="flex-1">{name}</span>
-                </Link>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex-1 min-w-0">
-        <DocumentPrintHeader branding={branding} title={selected} meta={`Generated ${today}`} />
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-          <h3 className="font-display text-lg font-semibold">{selected}</h3>
-          <div className="no-print flex gap-2">
-            <DocumentActionBar
-              print
-              excel={{ rows, sheetName: selected.slice(0, 30), reportTitle: selected, branding }}
-              share={{ title: selected }}
-            />
-          </div>
-        </div>
-        {rows.length > shownRows.length && (
-          <p className="no-print mb-2 text-xs text-slate">
-            Showing the first {shownRows.length.toLocaleString()} of {rows.length.toLocaleString()} rows. Totals and the Excel export include all rows.
-          </p>
-        )}
-        <div className="overflow-x-auto border border-line rounded-2xl">
-          <table className="w-full text-[13.5px] border-collapse">
-            <thead><tr className="bg-foam">{columns.map((c) => <Th key={c}>{c}</Th>)}</tr></thead>
-            <tbody>
-              {rows.length === 0 && <tr><td colSpan={columns.length || 1} className="text-center py-8 text-slate">No data for this report yet.</td></tr>}
-              {shownRows.map((row, i) => (
-                <tr key={i} className="hover:bg-foam">{columns.map((c) => <Td key={c}>{fmtCell(row[c])}</Td>)}</tr>
-              ))}
-            </tbody>
-            {numericCols.length > 0 && rows.length > 0 && (
-              <tfoot>
-                <tr className="bg-foam font-semibold">
-                  {columns.map((c, i) => (
-                    <Td key={c}>{i === 0 ? "Total" : (numericCols.includes(c) ? fmtCell(totals[c]) : "")}</Td>
-                  ))}
-                </tr>
-              </tfoot>
-            )}
-          </table>
-        </div>
-        <DocumentPrintFooter />
-      </div>
-    </div>
-  );
+  const filtered = useMemo(()=>{ const q=query.trim().toLowerCase(); return q ? rows.filter((row)=>columns.some((c)=>String(row[c]??"").toLowerCase().includes(q))) : rows; },[columns,query,rows]);
+  const numeric = columns.filter((c)=>filtered.some((row)=>typeof row[c] === "number"));
+  const totals = Object.fromEntries(numeric.map((c)=>[c,sum(filtered,c)])); const shown=filtered.slice(0,displayLimit);
+  const today = new Date().toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+  const hrefFor=(name)=>`${pathname}?${new URLSearchParams({...baseParams,report:name})}`;
+  return <div className="flex flex-col gap-5 lg:flex-row">
+    <aside className="no-print h-fit flex-shrink-0 rounded-2xl border border-line bg-card p-3 lg:sticky lg:top-20 lg:w-64">{REPORT_GROUPS.map((g)=><div key={g.label} className="mb-3 last:mb-0"><div className="mb-1 px-2 text-[10px] font-bold tracking-wider text-slate">{g.label.toUpperCase()}</div><div className="flex flex-col gap-0.5">{g.reports.map((name)=><Link key={name} href={hrefFor(name)} scroll={false} className={`flex items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-semibold ${selected===name?"bg-aquaSoft text-aqua":"text-ink hover:bg-foam"}`}><FileSpreadsheet size={14}/><span className="flex-1">{name}</span>{selected===name&&<ChevronRight size={13}/>}</Link>)}</div></div>)}</aside>
+    <section className="min-w-0 flex-1">
+      <DocumentPrintHeader branding={branding} title={selected} meta={`${period||"Selected period"}\nGenerated ${today}`}/>
+      <div className="mb-4 rounded-2xl bg-gradient-to-r from-navy to-[#087C69] p-5 text-white shadow-sm print:hidden"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[.18em] text-[#9EF0D0]">Evergreen Water · Management Report</p><h3 className="mt-1 font-display text-xl font-semibold">{selected}</h3><p className="mt-1 text-xs text-[#D7EFEC]">{period||"Selected period"} · Updated {today}</p></div><DocumentActionBar print excel={{rows:filtered,sheetName:selected.slice(0,30),reportTitle:selected,branding,period}} share={{title:selected}}/></div></div>
+      <div className="mb-4 grid grid-cols-2 gap-3 xl:grid-cols-4">{summaryFor(selected,filtered).map(([label,value,unit],i)=><div key={label} className={`rounded-2xl border border-line bg-card p-4 ${i===0?"border-t-2 border-t-aqua":""}`}><p className="text-[10px] font-bold tracking-wide text-slate">{label}</p><p className="mt-1 font-mono-num text-xl font-semibold text-navy">{unit==="PKR"?"PKR ":""}{fmt(value)}</p></div>)}</div>
+      <div className="no-print mb-3 flex flex-wrap items-center gap-2"><label className="flex min-w-[240px] flex-1 items-center gap-2 rounded-xl border border-line bg-card px-3 py-2.5 focus-within:border-aqua/50"><Search size={15} className="text-slate"/><input value={query} onChange={(e)=>setQuery(e.target.value)} placeholder={`Search ${selected.toLowerCase()}…`} className="w-full bg-transparent text-sm outline-none"/>{query&&<button type="button" onClick={()=>setQuery("")}><X size={14}/></button>}</label><button type="button" onClick={()=>router.refresh()} className="inline-flex items-center gap-1.5 rounded-xl border border-line bg-card px-3 py-2.5 text-xs font-bold hover:bg-foam"><RefreshCw size={14}/> Refresh</button><span className="text-xs text-slate">{filtered.length.toLocaleString()} records</span></div>
+      {filtered.length>shown.length&&<p className="no-print mb-2 text-xs text-slate">Showing first {shown.length.toLocaleString()} of {filtered.length.toLocaleString()}. Totals and Excel include all matching rows.</p>}
+      <div className="overflow-x-auto rounded-2xl border border-line bg-card"><table className="w-full border-collapse text-[13px]"><thead className="sticky top-0 z-10"><tr className="bg-navy text-white">{columns.map((c)=><Th key={c} className="!border-white/10 !text-white">{c}</Th>)}</tr></thead><tbody>{!shown.length&&<tr><td colSpan={columns.length||1} className="py-12 text-center text-slate">No matching data for this report.</td></tr>}{shown.map((row,i)=><tr key={i} onClick={()=>setDetail(row)} className="cursor-pointer border-t border-line even:bg-foam/45 hover:bg-aquaSoft/50">{columns.map((c)=><Td key={c}>{c.toLowerCase().includes("status")?<Badge text={fmt(row[c])} tone={tone(row[c])}/>:fmt(row[c])}</Td>)}</tr>)}</tbody>{filtered.length>0&&numeric.length>0&&<tfoot><tr className="border-t-2 border-aqua/30 bg-aquaSoft font-bold">{columns.map((c,i)=><Td key={c}>{i===0?"GRAND TOTAL":numeric.includes(c)?fmt(totals[c]):""}</Td>)}</tr></tfoot>}</table></div>
+      <p className="no-print mt-2 text-[11px] text-slate">Click any row to view its details without leaving the report.</p><DocumentPrintFooter/>
+    </section>
+    {detail&&<div className="no-print fixed inset-0 z-[150] bg-navy/30" onMouseDown={(e)=>e.target===e.currentTarget&&setDetail(null)}><aside className="absolute inset-y-0 right-0 w-full max-w-md overflow-y-auto border-l border-line bg-card p-5 shadow-2xl"><div className="mb-5 flex items-start justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-wider text-aqua">Transaction details</p><h3 className="font-display text-xl font-semibold">{selected}</h3><p className="mt-1 text-xs text-slate">Report remains open behind this drawer.</p></div><button type="button" onClick={()=>setDetail(null)} className="grid h-9 w-9 place-items-center rounded-xl border border-line"><X size={16}/></button></div><div className="space-y-2">{Object.entries(detail).map(([label,value])=><div key={label} className="rounded-xl border border-line bg-foam/55 px-3 py-2.5"><p className="text-[9px] font-bold uppercase tracking-wide text-slate">{label}</p><div className="mt-1 text-sm font-semibold text-ink">{label.toLowerCase().includes("status")?<Badge text={fmt(value)} tone={tone(value)}/>:fmt(value)}</div></div>)}</div><div className="mt-5 rounded-xl border border-aqua/15 bg-aquaSoft p-3 text-xs text-slate"><b className="text-ink">Audit:</b> This read-only drawer uses the same live ERP transaction. Corrections stay in the original controlled workflow.</div><button type="button" onClick={()=>setDetail(null)} className="mt-5 w-full rounded-xl bg-navy px-4 py-2.5 text-sm font-bold text-white">Close</button></aside></div>}
+  </div>;
 }
