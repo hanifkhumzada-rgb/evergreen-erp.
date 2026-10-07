@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import ReportsBrowser from "@/components/ReportsBrowser";
-import { REPORT_GROUPS } from "@/lib/reportGroups";
+import { REPORT_GROUPS, LEGACY_REPORT_ROUTES } from "@/lib/reportGroups";
+import { redirect } from "next/navigation";
+import { REPORTS } from "@/lib/ew/reports";
+import { BarChart3, Wallet, AlertTriangle, Receipt, Truck, Droplets, Boxes, TrendingUp, CalendarCheck } from "lucide-react";
 import { getBrandingLite } from "@/lib/pdf/business";
 import { fetchAll } from "@/lib/fetchAll";
 
@@ -21,14 +24,8 @@ const qtySum = (items, key = "quantity") => (items || []).reduce((a, it) => a + 
 // selected report's queries run, and date-ranged ones page through the
 // full result (lib/fetchAll).
 async function buildReport(name, supabase, dateRange) {
-  const byCustomer = (rows, key) => { const m = {}; (rows || []).forEach((r) => { m[r.customer_id] = (m[r.customer_id] || 0) + Number(r[key]); }); return m; };
 
   switch (name) {
-    case "Sales Report": {
-      const { data } = await fetchAll(() => dateRange(supabase.from("invoices").select("id, invoice_no, invoice_date, net_amount, status, customers(name), invoice_items(quantity)"), "invoice_date")
-        .order("invoice_date", { ascending: false }).order("id"), { label: "sales report" });
-      return data.map((s) => ({ Invoice: s.invoice_no, Date: s.invoice_date, Customer: s.customers?.name, Qty: qtySum(s.invoice_items), Total: s.net_amount, Status: s.status }));
-    }
     case "Customer Profitability":
     case "Area / Route Report": {
       const { data } = await fetchAll(() => dateRange(supabase.from("invoices").select("id, net_amount, invoice_items(quantity), customers(name, zones(name))").neq("status", "void"), "invoice_date")
@@ -44,38 +41,6 @@ async function buildReport(name, supabase, dateRange) {
         return Object.entries(groups).map(([Customer, v]) => ({ Customer, BottlesSold: v.qty, Revenue: v.revenue })).sort((a, b) => b.Revenue - a.Revenue);
       }
       return Object.entries(groups).map(([Zone, v]) => ({ Zone, BottlesSold: v.qty, Revenue: v.revenue }));
-    }
-    case "Customer Ledger":
-    case "Receivables Report": {
-      const [{ data: customers }, { data: balances }] = await Promise.all([
-        fetchAll(() => supabase.from("customers").select("id, name, mobile, credit_limit").order("id"), { label: "customers" }),
-        fetchAll(() => supabase.from("v_customer_balance").select("customer_id, balance").order("customer_id"), { label: "balances" }),
-      ]);
-      const balanceMap = byCustomer(balances, "balance");
-      if (name === "Customer Ledger") return customers.map((c) => ({ Customer: c.name, Balance: balanceMap[c.id] || 0, CreditLimit: c.credit_limit }));
-      return customers.filter((c) => (balanceMap[c.id] || 0) > 0).map((c) => ({ Customer: c.name, Phone: c.mobile, Outstanding: balanceMap[c.id] || 0 }));
-    }
-    case "Delivery Report": {
-      const { data } = await fetchAll(() => dateRange(supabase.from("deliveries").select("id, delivery_date, status, customers(name), profiles!deliveries_rider_id_fkey(full_name), delivery_items(delivered_qty)"), "delivery_date")
-        .order("delivery_date", { ascending: false }).order("id"), { label: "delivery report" });
-      return data.map((d) => ({ Date: d.delivery_date, Customer: d.customers?.name, DeliveryBoy: d.profiles?.full_name, Qty: qtySum(d.delivery_items, "delivered_qty"), Status: d.status }));
-    }
-    case "Bottle Report": {
-      const [{ data: customers }, { data: bottles }] = await Promise.all([
-        fetchAll(() => supabase.from("customers").select("id, name").order("id"), { label: "customers" }),
-        fetchAll(() => supabase.from("v_customer_bottle_balance").select("customer_id, product_id, bottles_with_customer").order("customer_id").order("product_id"), { label: "bottle balances" }),
-      ]);
-      const bottleMap = byCustomer(bottles, "bottles_with_customer");
-      return customers.map((c) => ({ Customer: c.name, Balance: bottleMap[c.id] || 0 }));
-    }
-    case "Inventory Report": {
-      const { data } = await supabase.from("products").select("*");
-      return (data || []).map(({ id, is_active, ...r }) => r);
-    }
-    case "Expense Report": {
-      const { data } = await fetchAll(() => dateRange(supabase.from("expenses").select("id, expense_date, description, amount, payment_method, expense_categories(name)"), "expense_date")
-        .order("expense_date", { ascending: false }).order("id"), { label: "expense report" });
-      return data.map((e) => ({ Date: e.expense_date, Category: e.expense_categories?.name, Description: e.description, Amount: e.amount, Method: e.payment_method }));
     }
     case "Employee Performance": {
       const [{ data: employees }, { data: deliveries }] = await Promise.all([
@@ -99,8 +64,11 @@ async function buildReport(name, supabase, dateRange) {
   }
 }
 
+const REPORT_ICONS = { sales: BarChart3, collections: Wallet, outstanding: AlertTriangle, expenses: Receipt, deliveries: Truck, bottles: Droplets, inventory: Boxes, profit: TrendingUp, "daily-closing": CalendarCheck };
+
 export default async function ReportsPage({ searchParams }) {
   const sp = (await searchParams) || {};
+  if (sp.report && LEGACY_REPORT_ROUTES[sp.report]) redirect(LEGACY_REPORT_ROUTES[sp.report]);
   const supabase = await createClient();
   // Every transactional report here defaults to the last 12 months
   // instead of the business's entire history — the same reports still
@@ -121,7 +89,8 @@ export default async function ReportsPage({ searchParams }) {
 
   const knownReports = REPORT_GROUPS.flatMap((g) => g.reports);
   const selected = knownReports.includes(sp.report) ? sp.report : DEFAULT_REPORT;
-  const [branding, rows] = await Promise.all([getBrandingLite(supabase), buildReport(selected, supabase, dateRange)]);
+  const showAnalysis = knownReports.includes(sp.report);
+  const [branding, rows] = await Promise.all([getBrandingLite(supabase), showAnalysis ? buildReport(selected, supabase, dateRange) : Promise.resolve([])]);
 
   // Keep the chosen date range when switching reports.
   const baseParams = {};
@@ -134,27 +103,45 @@ export default async function ReportsPage({ searchParams }) {
   return (
     <div>
       <h2 className="font-display text-2xl font-semibold mb-1">Reports</h2>
-      <p className="text-slate text-sm mb-5">
-        Live Postgres data. Pick a report, export to Excel, or print to PDF.{" "}
-        {allTime ? "Showing all-time history." : `Showing ${fromDate} to ${toDate}.`}
+      <p className="text-slate text-sm mb-5">Interactive reports from live ERP records — filter, search, open any transaction, then print, save as PDF, export to Excel or share.</p>
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 mb-8">
+        {Object.entries(REPORTS).map(([key, r]) => {
+          const Icon = REPORT_ICONS[key] || BarChart3;
+          return (
+            <Link key={key} href={`/reports/${key}`} className="card-lift group flex items-start gap-3 rounded-2xl border border-line bg-card p-4">
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl text-white" style={{ background: "linear-gradient(135deg,#0B2E59,#0A5DA8)" }}><Icon size={20} /></span>
+              <span className="min-w-0">
+                <span className="block font-semibold text-ink group-hover:text-aqua">{r.title}</span>
+                <span className="block text-xs text-slate mt-0.5">{r.blurb}</span>
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+
+      <h3 className="font-display text-lg font-semibold mb-1">More analysis</h3>
+      <p className="text-slate text-sm mb-3">
+        {showAnalysis ? (allTime ? "Showing all-time history." : `Showing ${fromDate} to ${toDate}.`) : "Pick an analysis table below."}
       </p>
-      <form className="no-print flex flex-wrap gap-2.5 mb-4 items-center" action="/reports">
-        <input type="hidden" name="report" value={selected} />
-        <input type="date" name="from" defaultValue={fromDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
-        <span className="text-xs text-slate">to</span>
-        <input type="date" name="to" defaultValue={toDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
-        <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Apply</button>
-        {allTime ? (
-          <Link href={`/reports?${new URLSearchParams({ report: selected })}`} className="text-xs text-slate hover:text-aqua">Back to last 12 months</Link>
-        ) : (
-          <Link href={`/reports?${new URLSearchParams({ report: selected, range: "all" })}`} className="text-xs text-slate hover:text-aqua">Show all-time history instead</Link>
-        )}
-      </form>
+      {showAnalysis ? (
+        <form className="no-print flex flex-wrap gap-2.5 mb-4 items-center" action="/reports">
+          <input type="hidden" name="report" value={selected} />
+          <input type="date" name="from" defaultValue={fromDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
+          <span className="text-xs text-slate">to</span>
+          <input type="date" name="to" defaultValue={toDate} className="px-3 py-2 rounded-xl border border-line bg-card text-xs" />
+          <button type="submit" className="px-3.5 py-2 rounded-xl border border-line bg-card text-xs font-semibold">Apply</button>
+          {allTime ? (
+            <Link href={`/reports?${new URLSearchParams({ report: selected })}`} className="text-xs text-slate hover:text-aqua">Back to last 12 months</Link>
+          ) : (
+            <Link href={`/reports?${new URLSearchParams({ report: selected, range: "all" })}`} className="text-xs text-slate hover:text-aqua">Show all-time history instead</Link>
+          )}
+        </form>
+      ) : null}
       <div className="no-print flex flex-wrap gap-2 mb-5">
-        <Link href="/accounting/profit-loss" className="px-3 py-1.5 rounded-lg border border-line bg-card text-xs font-semibold hover:bg-foam">Profit &amp; Loss →</Link>
+        <Link href="/accounting/profit-loss" className="px-3 py-1.5 rounded-lg border border-line bg-card text-xs font-semibold hover:bg-foam">Profit &amp; Loss (accounting) →</Link>
         <Link href="/accounting/balance-sheet" className="px-3 py-1.5 rounded-lg border border-line bg-card text-xs font-semibold hover:bg-foam">Balance Sheet →</Link>
       </div>
-      <ReportsBrowser selected={selected} rows={rows} displayLimit={DISPLAY_ROW_LIMIT} baseParams={baseParams} branding={branding} />
+      <ReportsBrowser selected={showAnalysis ? selected : ""} rows={rows} displayLimit={DISPLAY_ROW_LIMIT} baseParams={baseParams} branding={branding} />
     </div>
   );
 }

@@ -43,6 +43,7 @@ export default function ReportsBrowser({ selected, rows = [], displayLimit = 300
         ))}
       </div>
 
+      {!selected ? <p className="flex-1 text-sm text-slate">Choose a table from the list.</p> : (
       <div className="flex-1 min-w-0">
         <DocumentPrintHeader branding={branding} title={selected} meta={`Generated ${today}`} />
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
@@ -82,6 +83,7 @@ export default function ReportsBrowser({ selected, rows = [], displayLimit = 300
         </div>
         <DocumentPrintFooter />
       </div>
+      )}
     </div>
   );
 }

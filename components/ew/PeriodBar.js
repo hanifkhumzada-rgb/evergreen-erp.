@@ -18,6 +18,7 @@ export default function PeriodBar({ current = "month", from = "", to = "", extra
     const params = new URLSearchParams(sp.toString());
     Object.entries(changes).forEach(([k, v]) => (v ? params.set(k, v) : params.delete(k)));
     params.delete("page");
+    params.delete("month"); // a picked period replaces a month filter
     start(() => router.replace(`${pathname}?${params.toString()}`, { scroll: false }));
   };
 
