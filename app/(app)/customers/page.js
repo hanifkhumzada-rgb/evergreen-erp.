@@ -1,7 +1,7 @@
 import { getCurrentProfile } from "@/lib/session";
 import Link from "@/components/ErpNavLink";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, KPI, DocumentActionBar, RecordStamp, Th, Td } from "@/components/ui";
+import { Badge, KPI, DocumentActionBar, RecordStamp, RowActionMenu, Th, Td } from "@/components/ui";
 import CustomerForm from "@/components/CustomerForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
@@ -233,7 +233,7 @@ export default async function CustomersPage({ searchParams }) {
 
       <div className="hidden overflow-x-auto rounded-2xl border border-line md:block">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam">{canDelete && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Customer ID</Th><Th>Name</Th><Th>Phone</Th><Th>Zone</Th><Th>Type</Th><Th>Balance</Th><Th>Status</Th><Th>Recorded</Th><Th className="no-print">Quick Actions</Th></tr></thead>
+          <thead><tr className="bg-foam">{canDelete && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Customer ID</Th><Th>Name</Th><Th>Phone</Th><Th>Zone</Th><Th>Type</Th><Th>Balance</Th><Th>Status</Th><Th>Details</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
             {pageRows.length === 0 && <tr><td colSpan={canDelete ? 10 : 9} className="text-center py-8 text-slate">No customers match.</td></tr>}
             {pageRows.map((c) => {
@@ -250,18 +250,18 @@ export default async function CustomersPage({ searchParams }) {
                   <Td><Badge text={badge.text} tone={badge.tone} /></Td>
                   <Td><RecordStamp date={c.created_at} user={c.creator?.full_name} updatedAt={c.updated_at} updatedBy={c.updater?.full_name} /></Td>
                   <Td className="no-print">
-                    <div className="flex gap-1.5">
+                    <RowActionMenu label={`Actions for ${c.name}`}>
                       <Link href={`/deliveries?customer=${c.id}`} title="Deliver" className="w-9 h-9 flex items-center justify-center rounded-lg border border-line text-aqua hover:bg-aquaSoft"><Truck size={15} /></Link>
                       <Link href={`/payments?customer=${c.id}`} title="Collect Payment" className="w-9 h-9 flex items-center justify-center rounded-lg border border-line text-green hover:bg-greenSoft"><Wallet size={15} /></Link>
                       <Link href={`/invoices?customer=${c.id}`} title="Create Invoice" className="w-9 h-9 flex items-center justify-center rounded-lg border border-line text-navy hover:bg-foam"><FilePlus size={15} /></Link>
                       <Link href={`/customers/${c.id}`} title="View Profile" className="w-9 h-9 flex items-center justify-center rounded-lg border border-line text-slate hover:bg-foam"><UserCircle2 size={15} /></Link>
                       {canDelete && (
-                        <ReasonConfirmButton action={deleteCustomer} id={c.id} label="" icon="trash"
+                        <ReasonConfirmButton action={deleteCustomer} id={c.id} label="Delete" icon="trash"
                           confirmText={`Permanently delete ${c.name}?`}
                           detailText="This can't be undone. Blocked automatically if this customer has any delivery, invoice, payment, or ledger history — archive instead in that case."
                           confirmLabel="Confirm Delete" busyLabel="Deleting…" />
                       )}
-                    </div>
+                    </RowActionMenu>
                   </Td>
                 </tr>
               );

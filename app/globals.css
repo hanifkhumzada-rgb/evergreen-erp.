@@ -162,6 +162,33 @@ table tr.hover\:bg-foam:hover {
   body.report-preview-print tfoot { position: static !important; }
 }
 
+/* Shared three-dot row menu: normalize legacy icon buttons into a clear,
+   touch-friendly vertical action list without changing their behavior. */
+.row-actions-panel > a,
+.row-actions-panel > button,
+.row-actions-panel > span,
+.row-actions-panel > div,
+.row-actions-panel > span > a,
+.row-actions-panel > span > button,
+.row-actions-panel > div > a,
+.row-actions-panel > div > button {
+  width: 100% !important;
+  min-height: 36px;
+  justify-content: flex-start !important;
+  border: 0 !important;
+  border-radius: 9px !important;
+  padding: 0 10px !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  font-size: 12px !important;
+}
+.row-actions-panel > a:hover,
+.row-actions-panel > button:hover,
+.row-actions-panel > span:hover,
+.row-actions-panel > div:hover { background: var(--foam) !important; }
+.row-actions-panel button[title]::after,
+.row-actions-panel a[title]::after { content: attr(title); }
+
 .report-preview-print-row { display: none; }
 
 /* Route loading.js shimmer skeletons — a moving highlight sweep (not just

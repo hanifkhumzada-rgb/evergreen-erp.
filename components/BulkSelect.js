@@ -1,8 +1,8 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Ban, Trash2, Archive, UserX, X, Loader2 } from "lucide-react";
+import { Ban, Trash2, Archive, UserX, X, Loader2, Check, Minus } from "lucide-react";
 
 // Multi-select + bulk actions for any list page, dropped into existing
 // server-rendered tables:
@@ -160,16 +160,16 @@ export function BulkSelectProvider({ actions = [], noun = "record", scopeLabel =
 // Header checkbox: selects/deselects every selectable row on this page.
 export function SelectAllCheckbox({ scopeLabel = "on this page" }) {
   const ctx = useContext(Ctx);
-  const ref = useRef(null);
   const count = ctx?.ids.length || 0;
   const some = ctx ? ctx.ids.some((id) => ctx.selected.has(id)) : false;
-  useEffect(() => { if (ref.current) ref.current.indeterminate = some && !ctx?.allSelected; }, [some, ctx?.allSelected]);
   if (!ctx) return null;
   return (
-    <input ref={ref} type="checkbox" checked={ctx.allSelected} onChange={ctx.toggleAll} disabled={!count}
+    <button type="button" role="checkbox" aria-checked={ctx.allSelected ? "true" : some ? "mixed" : "false"} onClick={ctx.toggleAll} disabled={!count}
       title={count ? `Select all ${count} ${scopeLabel}` : "Nothing selectable here"}
       aria-label={`Select all ${count} ${scopeLabel}`}
-      className="no-print h-4 w-4 cursor-pointer align-middle accent-[#059669] disabled:cursor-not-allowed disabled:opacity-40" />
+      className={`no-print inline-grid h-7 w-7 place-items-center rounded-lg border transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${ctx.allSelected || some ? "border-aqua bg-aqua text-white" : "border-line bg-card text-transparent hover:border-aqua/50"}`}>
+      {some && !ctx.allSelected ? <Minus size={14} strokeWidth={3} /> : <Check size={14} strokeWidth={3} />}
+    </button>
   );
 }
 
@@ -179,9 +179,12 @@ export function RowCheckbox({ id, label }) {
   const register = ctx?.register;
   useEffect(() => (register ? register(id, label) : undefined), [register, id, label]);
   if (!ctx) return null;
+  const checked = ctx.selected.has(id);
   return (
-    <input type="checkbox" checked={ctx.selected.has(id)} onChange={() => ctx.toggle(id)}
+    <button type="button" role="checkbox" aria-checked={checked} onClick={() => ctx.toggle(id)}
       aria-label={`Select ${label || "row"}`}
-      className="no-print h-4 w-4 cursor-pointer align-middle accent-[#059669]" />
+      className={`no-print inline-grid h-7 w-7 place-items-center rounded-lg border transition-colors ${checked ? "border-aqua bg-aqua text-white shadow-sm" : "border-line bg-card text-transparent hover:border-aqua/50 hover:bg-aquaSoft"}`}>
+      <Check size={14} strokeWidth={3} />
+    </button>
   );
 }

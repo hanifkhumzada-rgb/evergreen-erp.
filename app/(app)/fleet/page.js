@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, KPI, DocumentActionBar, RecordStamp, Th, Td } from "@/components/ui";
+import { Badge, KPI, DocumentActionBar, RecordStamp, RowActionMenu, Th, Td } from "@/components/ui";
 import { AddVehicleForm, AddVehicleExpenseForm, EditVehicleForm } from "@/components/FleetForms";
 import ListFilterBar from "@/components/ListFilterBar";
 import BulkImportButton from "@/components/BulkImportButton";
@@ -140,7 +140,7 @@ export default async function FleetPage({ searchParams }) {
                 <Td className={isExpiringSoon(v.registration_expiry) ? (isExpired(v.registration_expiry) ? "text-coral font-semibold" : "text-amber font-semibold") : ""}>{v.registration_expiry || "—"}</Td>
                 <Td className={isExpiringSoon(v.service_due_date) ? (isExpired(v.service_due_date) ? "text-coral font-semibold" : "text-amber font-semibold") : ""}>{v.service_due_date || "—"}</Td>
                 <Td><Badge text={v.is_active ? "Active" : "Inactive"} tone={v.is_active ? "green" : "slate"} /></Td>
-                <Td className="no-print flex items-center gap-1.5">
+                <Td className="no-print"><RowActionMenu label={`Actions for vehicle ${v.registration_no}`}>
                   <EditVehicleForm vehicle={v} employees={(riders || []).map((r) => ({ id: r.id, name: r.full_name }))} />
                   {canDelete && (
                     <ReasonConfirmButton action={deleteVehicle} id={v.id} label="Delete" icon="trash"
@@ -148,7 +148,7 @@ export default async function FleetPage({ searchParams }) {
                       detailText="This can't be undone. Blocked automatically if the vehicle is still assigned to a customer, driver, or has delivery/expense history."
                       confirmLabel="Confirm Delete" busyLabel="Deleting…" />
                   )}
-                </Td>
+                </RowActionMenu></Td>
               </tr>
             ))}
           </tbody>
@@ -161,21 +161,21 @@ export default async function FleetPage({ searchParams }) {
       <BulkSelectProvider noun="expense log" scopeLabel="shown" actions={canDelete ? [{ key: "delete", label: "Delete", icon: "trash", action: deleteVehicleExpenseLog, busyLabel: "Deleting", doneLabel: "Delete" }] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam">{canDelete && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Vehicle</Th><Th>Category</Th><Th>Amount</Th><Th>Notes</Th><Th>Recorded</Th><Th className="no-print"></Th></tr></thead>
+          <thead><tr className="bg-foam">{canDelete && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Vehicle</Th><Th>Category</Th><Th>Amount</Th><Th>Notes</Th><Th>Details</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
             {visibleExpenses.length === 0 && <tr><td colSpan={canDelete ? 7 : 6} className="text-center py-6 text-slate">{expenseQuery ? "No expenses match." : "No vehicle expenses logged yet."}</td></tr>}
             {visibleExpenses.map((e) => (
               <tr key={e.id} className="hover:bg-foam">
                 {canDelete && <Td className="no-print"><RowCheckbox id={e.id} label={`${e.vehicles?.registration_no || "Vehicle"} ${e.category}`} /></Td>}
                 <Td>{e.vehicles?.registration_no}</Td><Td>{e.category}</Td><Td>{pkr(e.amount)}</Td><Td>{e.notes}</Td><Td><RecordStamp date={e.created_at} user={e.creator?.full_name} /></Td>
-                <Td className="no-print">
+                <Td className="no-print"><RowActionMenu label={`Actions for ${e.category} entry`}>
                   {canDelete && (
                     <ReasonConfirmButton action={deleteVehicleExpenseLog} id={e.id} label="Delete" icon="trash"
                       confirmText={`Delete this ${e.category.toLowerCase()} entry for ${e.vehicles?.registration_no}?`}
                       detailText="This can't be undone — use this only to correct a mis-entered amount or wrong vehicle."
                       confirmLabel="Confirm Delete" busyLabel="Deleting…" />
                   )}
-                </Td>
+                </RowActionMenu></Td>
               </tr>
             ))}
           </tbody>

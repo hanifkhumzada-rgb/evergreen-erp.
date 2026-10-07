@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr } from "@/lib/format";
-import { Th, Td, Badge, KPI, DocumentActionBar } from "@/components/ui";
+import { Th, Td, Badge, KPI, DocumentActionBar, RowActionMenu } from "@/components/ui";
 import AddZoneForm from "@/components/AddZoneForm";
 import AddRouteForm from "@/components/AddRouteForm";
 import ZoneEditForm from "@/components/ZoneEditForm";
@@ -91,7 +91,7 @@ export default async function ZonesPage({ searchParams }) {
       <BulkSelectProvider noun="zone" scopeLabel="shown" actions={canDeleteZone ? [{ key: "delete", label: "Delete", icon: "trash", action: deleteZone, busyLabel: "Deleting", doneLabel: "Delete", detailText: "Each zone is deleted exactly as with the single Delete button. Zones that still have customers, routes or other records are refused automatically and listed as failed." }] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl mb-8">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam">{canDeleteZone && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Zone</Th><Th>Description</Th><Th>Customers</Th><Th>Revenue</Th><Th className="no-print">&nbsp;</Th></tr></thead>
+          <thead><tr className="bg-foam">{canDeleteZone && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Zone</Th><Th>Description</Th><Th>Customers</Th><Th>Revenue</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
             {visibleZones.length === 0 && <tr><td colSpan={canDeleteZone ? 6 : 5} className="text-center py-8 text-slate">{q ? "No zones match." : "No zones yet — add one to start organizing routes."}</td></tr>}
             {visibleZones.map((z) => (
@@ -101,7 +101,7 @@ export default async function ZonesPage({ searchParams }) {
                 <Td>{z.description || "—"}</Td>
                 <Td>{custByZone[z.id] || 0}</Td>
                 <Td>{pkr(revByZone[z.id] || 0)}</Td>
-                <Td className="no-print flex items-center gap-1.5">
+                <Td className="no-print"><RowActionMenu label={`Actions for ${z.name}`}>
                   <ZoneEditForm zone={z} />
                   {canDeleteZone && (
                     <ReasonConfirmButton action={deleteZone} id={z.id} label="Delete" icon="trash"
@@ -109,7 +109,7 @@ export default async function ZonesPage({ searchParams }) {
                       detailText="This can't be undone. Blocked automatically if the zone still has customers, routes, or other records assigned to it."
                       confirmLabel="Confirm Delete" busyLabel="Deleting…" />
                   )}
-                </Td>
+                </RowActionMenu></Td>
               </tr>
             ))}
           </tbody>
@@ -124,7 +124,7 @@ export default async function ZonesPage({ searchParams }) {
       <BulkSelectProvider noun="route" scopeLabel="shown" actions={canDeleteRoute ? [{ key: "delete", label: "Delete", icon: "trash", action: deleteRoute, busyLabel: "Deleting", doneLabel: "Delete", detailText: "Each route is deleted exactly as with the single Delete button. Routes that still have customers assigned are refused automatically and listed as failed." }] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam">{canDeleteRoute && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Route</Th><Th>Zone</Th><Th>Delivery Boy</Th><Th>Customers</Th><Th>Deliveries</Th><Th>Status</Th><Th className="no-print">&nbsp;</Th></tr></thead>
+          <thead><tr className="bg-foam">{canDeleteRoute && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Route</Th><Th>Zone</Th><Th>Delivery Boy</Th><Th>Customers</Th><Th>Deliveries</Th><Th>Status</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
             {visibleRoutes.length === 0 && <tr><td colSpan={canDeleteRoute ? 8 : 7} className="text-center py-8 text-slate">{q ? "No routes match." : "No routes yet — add one, then assign customers to it from Customer Master."}</td></tr>}
             {visibleRoutes.map((r) => (
@@ -136,7 +136,7 @@ export default async function ZonesPage({ searchParams }) {
                 <Td>{custByRoute[r.id] || 0}</Td>
                 <Td>{deliveriesByRoute[r.id] || 0}</Td>
                 <Td><Badge text={r.is_active ? "Active" : "Inactive"} tone={r.is_active ? "green" : "slate"} /></Td>
-                <Td className="no-print flex items-center gap-1.5">
+                <Td className="no-print"><RowActionMenu label={`Actions for ${r.name}`}>
                   <RouteEditForm route={r} zones={zones || []} riders={riders || []} />
                   {canDeleteRoute && (
                     <ReasonConfirmButton action={deleteRoute} id={r.id} label="Delete" icon="trash"
@@ -144,7 +144,7 @@ export default async function ZonesPage({ searchParams }) {
                       detailText="This can't be undone. Blocked automatically if the route still has customers assigned to it."
                       confirmLabel="Confirm Delete" busyLabel="Deleting…" />
                   )}
-                </Td>
+                </RowActionMenu></Td>
               </tr>
             ))}
           </tbody>

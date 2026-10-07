@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, DocumentActionBar, Th, Td } from "@/components/ui";
+import { Badge, DocumentActionBar, RowActionMenu, Th, Td } from "@/components/ui";
 import AddSaleForm from "@/components/AddSaleForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import RecordPreview from "@/components/RecordPreview";
@@ -104,10 +104,10 @@ export default async function SalesPage({ searchParams }) {
                   <Td>{pkr(s.net_amount)}</Td>
                   <Td><Badge text={statusLabel} tone={STATUS_TONE[s.status] || "slate"} /></Td>
                   <Td className="no-print">
-                    <div className="flex items-center gap-1.5">
+                    <RowActionMenu label={`Actions for ${s.invoice_no}`}>
                       <RecordPreview iconOnly title={`${s.invoice_no} · ${s.customers?.name || "Sale"}`} subtitle="Read-only sale preview" fields={previewFields} excelRows={previewExcel} excelTitle={s.invoice_no || "Sale"} openHref={`/sales/${s.id}`} openLabel="Open Invoice" />
                       {canVoid && s.status !== "void" && !["paid", "partially_paid"].includes(s.status) && <ReasonConfirmButton action={voidInvoice} id={s.id} confirmText={`Void invoice ${s.invoice_no}?`} />}
-                    </div>
+                    </RowActionMenu>
                   </Td>
                 </tr>
               );

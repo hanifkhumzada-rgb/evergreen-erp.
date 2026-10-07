@@ -231,7 +231,7 @@ export default async function BottleLedgerPage({ searchParams }) {
             </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Type</Th><Th>Customer ID</Th><Th>Customer</Th><Th>Size</Th><Th>Qty</Th><Th>Before</Th><Th>After</Th><Th>Reason</Th><Th>Recorded</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Type</Th><Th>Customer ID</Th><Th>Customer</Th><Th>Size</Th><Th>Qty</Th><Th>Before</Th><Th>After</Th><Th>Reason</Th><Th>Details</Th></tr></thead>
           <tbody>
             {visibleMovements.length === 0 && <tr><td colSpan={10} className="text-center py-8 text-slate">{q ? "No movements match." : "No movements recorded yet."}</td></tr>}
             {visibleMovements.map((m) => {

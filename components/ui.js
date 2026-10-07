@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
-import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, Loader2, Share2, FileText, CalendarClock, UserRound } from "lucide-react";
+import { FileSpreadsheet, Printer, ArrowUp, ArrowDown, Minus, Loader2, Share2, FileText, CalendarClock, UserRound, MoreHorizontal, Info } from "lucide-react";
 import PdfPreviewDialog from "@/components/PdfPreviewDialog";
 import { fmtDateTime } from "@/lib/format";
 
@@ -18,13 +19,89 @@ export function Badge({ text, tone = "slate" }) {
 // This distinction makes back-dated entries transparent without making wide
 // tables even wider with separate day/month/year/user columns.
 export function RecordStamp({ date, user, updatedAt, updatedBy, className = "" }) {
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event) => {
+      if (!triggerRef.current?.contains(event.target) && !event.target.closest?.("[data-audit-popover]")) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    const closeOnScroll = () => setOpen(false);
+    window.addEventListener("scroll", closeOnScroll, true);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      window.removeEventListener("scroll", closeOnScroll, true);
+    };
+  }, [open]);
+
+  const toggle = () => {
+    if (!open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      const width = 250;
+      setPosition({
+        top: Math.min(window.innerHeight - 150, Math.max(10, rect.top - 20)),
+        left: Math.max(10, rect.left - width - 10),
+      });
+    }
+    setOpen((value) => !value);
+  };
+
   return (
-    <span className={`inline-flex min-w-[142px] flex-col gap-1 text-[10.5px] leading-tight text-slate ${className}`}>
-      <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><CalendarClock size={12} className="text-aqua" />{fmtDateTime(date)}</span>
-      <span className="inline-flex items-center gap-1.5 whitespace-nowrap"><UserRound size={12} className="text-aqua" />{user || "System / legacy record"}</span>
-      {updatedAt && updatedAt !== date && <span className="whitespace-nowrap pl-[18px] text-[9.5px]">Updated {fmtDateTime(updatedAt)}{updatedBy ? ` · ${updatedBy}` : ""}</span>}
+    <span className={`inline-flex ${className}`}>
+      <button ref={triggerRef} type="button" onClick={toggle} aria-expanded={open} title="Record details"
+        className="no-print inline-flex h-8 items-center gap-1.5 rounded-lg border border-line bg-card px-2.5 text-[11px] font-semibold text-slate transition-colors hover:border-aqua/40 hover:bg-aquaSoft hover:text-aqua">
+        <Info size={13} /> Details
+      </button>
+      {open && typeof document !== "undefined" && createPortal(
+        <span data-audit-popover className="fixed z-[80] w-[250px] rounded-xl border border-line bg-card p-3 text-[10.5px] leading-tight text-slate shadow-2xl" style={position}>
+          <span className="mb-2 block text-[10px] font-bold uppercase tracking-wide text-ink">Record information</span>
+          <span className="flex items-start gap-2"><CalendarClock size={13} className="mt-0.5 shrink-0 text-aqua" /><span><b className="block text-ink">Created</b>{fmtDateTime(date)}</span></span>
+          <span className="mt-2 flex items-start gap-2"><UserRound size={13} className="mt-0.5 shrink-0 text-aqua" /><span><b className="block text-ink">Recorded by</b>{user || "System / legacy record"}</span></span>
+          {updatedAt && updatedAt !== date && <span className="mt-2 block border-t border-line pt-2"><b className="text-ink">Updated:</b> {fmtDateTime(updatedAt)}{updatedBy ? ` · ${updatedBy}` : ""}</span>}
+        </span>, document.body
+      )}
     </span>
   );
+}
+
+// Compact, consistent row menu. Existing links/buttons are preserved as-is;
+// this component only changes their presentation and keeps wide tables calm.
+export function RowActionMenu({ children, label = "Row actions" }) {
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState({ top: 0, left: 0 });
+  const triggerRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (event) => {
+      if (!triggerRef.current?.contains(event.target) && !event.target.closest?.("[data-row-actions]")) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  const toggle = () => {
+    if (!open && triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPosition({ top: Math.min(window.innerHeight - 230, rect.bottom + 6), left: Math.max(10, rect.right - 190) });
+    }
+    setOpen((value) => !value);
+  };
+
+  return <span className="relative inline-flex">
+    <button ref={triggerRef} type="button" onClick={toggle} aria-label={label} aria-expanded={open}
+      className="no-print grid h-9 w-9 place-items-center rounded-xl border border-line bg-card text-slate transition-colors hover:border-aqua/40 hover:bg-aquaSoft hover:text-aqua">
+      <MoreHorizontal size={18} />
+    </button>
+    {typeof document !== "undefined" && createPortal(
+      <span data-row-actions className={`row-actions-panel fixed z-[79] w-[190px] flex-col gap-1 rounded-xl border border-line bg-card p-1.5 shadow-2xl ${open ? "flex" : "hidden"}`} style={position}>
+        {children}
+      </span>, document.body
+    )}
+  </span>;
 }
 
 // For a sentence-length informational note (e.g. "Coming soon", a

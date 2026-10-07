@@ -73,7 +73,7 @@ export default async function InventoryPage({ searchParams }) {
       </div>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam"><Th>Date</Th><Th>Supplier</Th><Th>Item</Th><Th>Qty</Th><Th>Rate</Th><Th>Amount</Th><Th>Recorded</Th></tr></thead>
+          <thead><tr className="bg-foam"><Th>Date</Th><Th>Supplier</Th><Th>Item</Th><Th>Qty</Th><Th>Rate</Th><Th>Amount</Th><Th>Details</Th></tr></thead>
           <tbody>
             {(purchases || []).length === 0 && <tr><td colSpan={7} className="text-center py-6 text-slate">No purchases recorded yet.</td></tr>}
             {(purchases || []).flatMap((p) => (p.purchase_items || []).map((it, i) => (

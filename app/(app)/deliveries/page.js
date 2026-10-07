@@ -1,7 +1,7 @@
 import { getCurrentProfile } from "@/lib/session";
 import Link from "@/components/ErpNavLink";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, KPI, DocumentActionBar, RecordStamp, Th, Td } from "@/components/ui";
+import { Badge, KPI, DocumentActionBar, RecordStamp, RowActionMenu, Th, Td } from "@/components/ui";
 import MarkDeliveredButton from "@/components/MarkDeliveredButton";
 import DeliveryStatusButton from "@/components/DeliveryStatusButton";
 import BulkImportButton from "@/components/BulkImportButton";
@@ -402,7 +402,7 @@ export default async function DeliveriesPage({ searchParams }) {
           <BulkSelectProvider noun="delivery" scopeLabel="on this page" actions={canVoidDeliveries ? [{ key: "void", label: "Void", icon: "ban", action: voidDelivery, busyLabel: "Voiding", doneLabel: "Void", detailText: "Each delivery is voided exactly as with the single Void button (bottle movements and the customer ledger are reversed; the original stays for the audit trail)." }] : []}>
           <div className="overflow-x-auto border border-line rounded-2xl">
             <table className="w-full text-[13.5px] border-collapse">
-              <thead><tr className="bg-foam">{canVoidDeliveries && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>#</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Delivery Boy</Th><Th>Status</Th><Th>Cash Collected</Th><Th>Notes</Th><Th>Recorded</Th><Th className="no-print">&nbsp;</Th></tr></thead>
+              <thead><tr className="bg-foam">{canVoidDeliveries && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>#</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Delivery Boy</Th><Th>Status</Th><Th>Cash Collected</Th><Th>Notes</Th><Th>Details</Th><Th className="no-print">Actions</Th></tr></thead>
               <tbody>
                 {historyRows.length === 0 && <tr><td colSpan={canVoidDeliveries ? 11 : 10} className="text-center py-8 text-slate">No deliveries match.</td></tr>}
                 {historyPageRows.map((d, index) => (
@@ -412,7 +412,7 @@ export default async function DeliveriesPage({ searchParams }) {
                     <Td><Badge text={d.status} tone={STATUS_TONE(d.status)} />{d.status === "void" && d.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{d.void_reason}</div>}</Td>
                     <Td>{pkr(d.amount_collected)}</Td><Td className="max-w-[220px] truncate">{d.rider_remarks || "—"}</Td>
                     <Td><RecordStamp date={d.created_at} user={d.creator?.full_name} updatedAt={d.updated_at} /></Td>
-                    <Td className="no-print">
+                    <Td className="no-print"><RowActionMenu label={`Actions for delivery ${d.delivery_no || "record"}`}>
                       {profile?.roles?.key === "owner" && ["delivered", "partially_delivered"].includes(d.status) && <DeliveryCorrectionForm delivery={{ id: d.id, delivery_no: d.delivery_no, delivery_date: d.delivery_date, customers: { name: d.customers?.name }, delivery_items: d.delivery_items }} products={products || []} />}
                       {canVoidDeliveries && d.status !== "void" && (
                         <ReasonConfirmButton action={voidDelivery} id={d.id} label="Void"
@@ -420,7 +420,7 @@ export default async function DeliveriesPage({ searchParams }) {
                           detailText="This can't be undone. Reverses the bottle movement, the ledger charge, and any payment collected on this delivery."
                           confirmLabel="Confirm Void" busyLabel="Voiding…" />
                       )}
-                    </Td>
+                    </RowActionMenu></Td>
                   </tr>
                 ))}
               </tbody>

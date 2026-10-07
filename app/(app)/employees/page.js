@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { DocumentActionBar, Th, Td, KPI } from "@/components/ui";
+import { DocumentActionBar, RowActionMenu, Th, Td, KPI } from "@/components/ui";
 import EmployeeAdvanceForm from "@/components/EmployeeAdvanceForm";
 import EmployeeEditForm from "@/components/EmployeeEditForm";
 import UserActiveToggle from "@/components/UserActiveToggle";
@@ -97,7 +97,7 @@ export default async function EmployeesPage({ searchParams }) {
         ] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam">{canManageUsers && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Name</Th><Th>ID</Th><Th>Role</Th><Th>Mobile</Th><Th>Joining Date</Th><Th>Zone</Th><Th>Vehicle</Th><Th>Deliveries</Th><Th>Cash Collected</Th><Th>Advance Due</Th><Th>Today</Th><Th></Th></tr></thead>
+          <thead><tr className="bg-foam">{canManageUsers && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Name</Th><Th>ID</Th><Th>Role</Th><Th>Mobile</Th><Th>Joining Date</Th><Th>Zone</Th><Th>Vehicle</Th><Th>Deliveries</Th><Th>Cash Collected</Th><Th>Advance Due</Th><Th>Today</Th><Th>Actions</Th></tr></thead>
           <tbody>
             {visible.length === 0 && <tr><td colSpan={canManageUsers ? 13 : 12} className="text-center py-8 text-slate">No employees match.</td></tr>}
             {visible.map((e) => (
@@ -115,11 +115,11 @@ export default async function EmployeesPage({ searchParams }) {
                 <Td className={e.outstandingAdvance > 0 ? "text-amber font-semibold" : ""}>{e.outstandingAdvance > 0 ? pkr(e.outstandingAdvance) : "—"}</Td>
                 <Td><AttendanceButtons employeeId={e.id} today={today} initialStatus={e.attendanceToday} /></Td>
                 <Td className="no-print">
-                  <div className="flex items-center gap-1.5">
+                  <RowActionMenu label={`Actions for ${e.full_name}`}>
                     <EmployeeEditForm employee={e} zones={zones || []} vehicles={vehicles || []} />
                     {canManageUsers && e.id !== me?.id && <UserActiveToggle userId={e.id} isActive={e.is_active !== false} />}
                     {canManageUsers && <DeleteUserButton userId={e.id} userName={e.full_name} isSelf={e.id === me?.id} />}
-                  </div>
+                  </RowActionMenu>
                 </Td>
               </tr>
             ))}

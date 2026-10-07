@@ -2,7 +2,7 @@ import Link from "next/link";
 import { fetchAll } from "@/lib/fetchAll";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { Badge, KPI, DocumentActionBar, RecordStamp, Th, Td } from "@/components/ui";
+import { Badge, KPI, DocumentActionBar, RecordStamp, RowActionMenu, Th, Td } from "@/components/ui";
 import AddPaymentForm from "@/components/AddPaymentForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
@@ -265,7 +265,7 @@ export default async function PaymentsPage({ searchParams }) {
       <BulkSelectProvider noun="payment" actions={canVoid ? [{ key: "void", label: "Void", icon: "ban", action: voidPayment, busyLabel: "Voiding", doneLabel: "Void", detailText: "Each payment is voided exactly as with the single Void button — the customer ledger credit, cash movement and journal entry are reversed; the original stays for the audit trail." }] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Date</Th><Th>Receipt</Th><Th>Customer</Th><Th>Amount</Th><Th>Method</Th><Th>Collected By</Th><Th>Reference</Th><Th>Status</Th><Th>Recorded</Th><Th>&nbsp;</Th></tr></thead>
+          <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Date</Th><Th>Receipt</Th><Th>Customer</Th><Th>Amount</Th><Th>Method</Th><Th>Collected By</Th><Th>Reference</Th><Th>Status</Th><Th>Details</Th><Th>Actions</Th></tr></thead>
           <tbody>
             {paymentRows.length === 0 && <tr><td colSpan={canVoid ? 11 : 10} className="text-center py-8 text-slate">No payments match.</td></tr>}
             {paymentRows.map((p) => (
@@ -274,13 +274,11 @@ export default async function PaymentsPage({ searchParams }) {
                 <Td>{fmtDate(p.payment_date)}</Td><Td className="font-mono-num text-xs text-slate">{p.receipt_no}</Td><Td>{p.customers?.name}</Td><Td>{pkr(p.amount)}</Td><Td>{p.method}</Td><Td>{p.profiles?.full_name || "—"}</Td><Td className="text-slate">{p.reference || "—"}</Td>
                 <Td>{p.voided ? <><Badge text="Voided" tone="coral" />{p.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{p.void_reason}</div>}</> : <Badge text="Active" tone="green" />}</Td>
                 <Td><RecordStamp date={p.created_at} user={p.profiles?.full_name} /></Td>
-                <Td>
-                  <div className="flex items-center gap-1.5">
+                <Td><RowActionMenu label={`Actions for ${p.receipt_no || "payment"}`}>
                     <DocumentActionBar compact pdfHref={`/api/pdf/payment-receipt/${p.id}`} pdfLabel="Receipt" />
                     {p.method === "bank" && <DocumentActionBar compact pdfHref={`/api/pdf/bank-payment-voucher/payments/${p.id}`} pdfLabel="BPV" />}
                     {canVoid && !p.voided && <ReasonConfirmButton action={voidPayment} id={p.id} confirmText={`Void payment of ${pkr(p.amount)} from ${p.customers?.name}?`} />}
-                  </div>
-                </Td>
+                </RowActionMenu></Td>
               </tr>
             ))}
           </tbody>

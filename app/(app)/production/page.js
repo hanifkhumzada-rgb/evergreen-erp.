@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
-import { KPI, DocumentActionBar, RecordStamp, Th, Td, Badge } from "@/components/ui";
+import { KPI, DocumentActionBar, RecordStamp, RowActionMenu, Th, Td, Badge } from "@/components/ui";
 import ProductionBatchForm from "@/components/ProductionBatchForm";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { voidProductionBatch } from "@/app/actions";
@@ -88,7 +88,7 @@ export default async function ProductionPage({ searchParams }) {
       <BulkSelectProvider noun="batch" actions={canVoid ? [{ key: "void", label: "Void", icon: "ban", action: voidProductionBatch, busyLabel: "Voiding", doneLabel: "Void", detailText: "Each batch is voided exactly as with the single Void button (its stock and cost effect is reversed; the original stays for the audit trail)." }] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Date</Th><Th>Size</Th><Th>Quantity</Th><Th>Cost/Bottle</Th><Th>Filling Cost</Th><Th>Caps</Th><Th>Cap Cost</Th><Th>Other Material</Th><Th>Supplier</Th><Th>Status</Th><Th>Recorded</Th><Th className="no-print">&nbsp;</Th></tr></thead>
+          <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Date</Th><Th>Size</Th><Th>Quantity</Th><Th>Cost/Bottle</Th><Th>Filling Cost</Th><Th>Caps</Th><Th>Cap Cost</Th><Th>Other Material</Th><Th>Supplier</Th><Th>Status</Th><Th>Details</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
             {allRows.length === 0 && <tr><td colSpan={canVoid ? 13 : 12} className="text-center py-8 text-slate">No production batches recorded yet.</td></tr>}
             {allRows.map((b) => (
@@ -101,14 +101,14 @@ export default async function ProductionPage({ searchParams }) {
                 <Td>{b.supplier || "—"}</Td>
                 <Td>{b.voided ? <><Badge text="Voided" tone="coral" />{b.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{b.void_reason}</div>}</> : <Badge text="Active" tone="green" />}</Td>
                 <Td><RecordStamp date={b.created_at} user={b.creator?.full_name} /></Td>
-                <Td className="no-print">
+                <Td className="no-print"><RowActionMenu label="Production batch actions">
                   {canVoid && !b.voided && (
                     <ReasonConfirmButton action={voidProductionBatch} id={b.id} label="Void"
                       confirmText={`Void this production batch (${b.products?.name || "batch"})?`}
                       detailText="This can't be undone. It stops counting toward production/cost totals; the record stays for the audit trail."
                       confirmLabel="Confirm Void" busyLabel="Voiding…" />
                   )}
-                </Td>
+                </RowActionMenu></Td>
               </tr>
             ))}
           </tbody>

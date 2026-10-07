@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { getCurrentProfile } from "@/lib/session";
 import { pkr, fmtDate } from "@/lib/format";
-import { KPI, DocumentActionBar, RecordStamp, Th, Td, Badge } from "@/components/ui";
+import { KPI, DocumentActionBar, RecordStamp, RowActionMenu, Th, Td, Badge } from "@/components/ui";
 import AddExpenseForm from "@/components/AddExpenseForm";
 import BulkImportButton from "@/components/BulkImportButton";
 import PendingApprovals from "@/components/PendingApprovals";
@@ -122,7 +122,7 @@ export default async function ExpensesPage({ searchParams }) {
       <BulkSelectProvider noun="expense" actions={canVoid ? [{ key: "void", label: "Void", icon: "ban", action: voidExpense, busyLabel: "Voiding", doneLabel: "Void", detailText: "Each expense is voided exactly as with the single Void button (its journal entry is reversed; the original stays for the audit trail)." }] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
-          <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Date</Th><Th>Category</Th><Th>Description</Th><Th>Amount</Th><Th>Method</Th><Th>Entered By</Th><Th>Receipt</Th><Th>Status</Th><Th>Recorded</Th><Th className="no-print">Actions</Th></tr></thead>
+          <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Date</Th><Th>Category</Th><Th>Description</Th><Th>Amount</Th><Th>Method</Th><Th>Entered By</Th><Th>Receipt</Th><Th>Status</Th><Th>Details</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
             {rows.length === 0 && <tr><td colSpan={canVoid ? 11 : 10} className="text-center py-8 text-slate">No expenses match.</td></tr>}
             {rows.map((e) => {
@@ -146,16 +146,14 @@ export default async function ExpensesPage({ searchParams }) {
                   <Td>{e.profiles?.full_name || "—"}</Td><Td className="text-xs text-slate max-w-[140px] truncate">{e.receipt_reference || "—"}</Td>
                   <Td><Badge text={badge.text} tone={badge.tone} />{e.voided && e.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{e.void_reason}</div>}</Td>
                   <Td><RecordStamp date={e.created_at} user={e.profiles?.full_name} /></Td>
-                  <Td className="no-print">
-                    <div className="flex items-center gap-1.5">
+                  <Td className="no-print"><RowActionMenu label={`Actions for expense ${e.expense_no || "record"}`}>
                       <RecordPreview iconOnly title={`${e.expense_categories?.name || "Expense"} · ${pkr(e.amount)}`} subtitle="Read-only expense preview" fields={previewFields} excelRows={previewExcel} excelTitle={`Expense_${e.expense_date}`} />
                       {e.payment_method === "bank" && ["approved", "paid"].includes(e.status) && (
                         <DocumentActionBar compact pdfHref={`/api/pdf/bank-payment-voucher/expenses/${e.id}`} pdfLabel="BPV" />
                       )}
                       {isOwner && !e.voided && e.status !== "void" && <AddExpenseForm expense={e} categories={categories || []} />}
                       {canVoid && !e.voided && <ReasonConfirmButton action={voidExpense} id={e.id} confirmText={`Void expense "${e.description || e.expense_categories?.name}"?`} />}
-                    </div>
-                  </Td>
+                  </RowActionMenu></Td>
                 </tr>
               );
             })}
