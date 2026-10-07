@@ -1,10 +1,11 @@
 "use client";
 
-import { Check, Laptop, Moon, Palette, Sun } from "lucide-react";
+import { Check, Droplets, Laptop, Moon, Palette, Sun } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 const OPTIONS = [
   { value: "light", label: "Evergreen Light", description: "Bright professional workspace", icon: Sun },
+  { value: "blue", label: "EW Blue", description: "Clean blue and aqua workspace", icon: Droplets },
   { value: "dark", label: "Evergreen Dark", description: "Comfortable low-light workspace", icon: Moon },
   { value: "system", label: "System", description: "Follow this device", icon: Laptop },
 ];
@@ -47,7 +48,7 @@ export default function ThemeSelector({ compact = false, className = "" }) {
   };
 
   if (!compact) {
-    return <div className={`grid gap-3 sm:grid-cols-3 ${className}`}>{OPTIONS.map(({ value, label, description, icon: Icon }) => {
+    return <div className={`grid gap-3 sm:grid-cols-2 xl:grid-cols-4 ${className}`}>{OPTIONS.map(({ value, label, description, icon: Icon }) => {
       const selected = preference === value;
       return <button key={value} type="button" aria-pressed={selected} onClick={() => choose(value)} className={`relative flex min-h-[92px] items-start gap-3 rounded-2xl border p-4 text-left transition-colors ${selected ? "border-aqua bg-aquaSoft" : "border-line bg-card hover:bg-foam"}`}><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${selected ? "bg-aqua text-white" : "bg-foam text-slate"}`}><Icon size={18} /></span><span><span className="block text-sm font-bold text-ink">{label}</span><span className="mt-1 block text-xs leading-relaxed text-slate">{description}</span></span>{selected ? <Check size={16} className="absolute right-3 top-3 text-aqua" /> : null}</button>;
     })}</div>;

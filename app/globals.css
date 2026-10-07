@@ -29,6 +29,27 @@
   --greenSoft: #123020;
 }
 
+/* Professional EW Blue — a calm operational workspace with the same
+   accessible contrast and document-friendly white surfaces as Light mode. */
+html[data-theme="blue"] {
+  --foam: #F2F7FC;
+  --card: #FFFFFF;
+  --ink: #10243E;
+  --slate: #60758D;
+  --line: #D8E5F1;
+  --aquaSoft: #E1F3F8;
+  --amberSoft: #FDF0DD;
+  --coralSoft: #FCE6E5;
+  --greenSoft: #E4F5EA;
+  --surface-raised: rgba(255,255,255,.86);
+  --navy-rgb: 15,59,105;
+  --erp-navy: #0F3B69;
+  --erp-navy-light: #15558E;
+  --erp-accent: #078FB3;
+  --erp-accent-soft: #DDF3F8;
+  color-scheme: light;
+}
+
 html { color-scheme: light; }
 html.dark { color-scheme: dark; }
 
