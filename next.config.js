@@ -2,16 +2,21 @@
 const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  experimental: {
-    // @react-pdf/renderer loads PDFKit's built-in fonts dynamically.
-    // Next's file tracer cannot discover those runtime paths on its own,
-    // so Vercel previously omitted them and every PDF preview returned 500.
-    outputFileTracingIncludes: {
-      "/api/pdf/**": [
-        "./node_modules/pdfkit/js/standard-fonts/**/*",
-        "./node_modules/pdfkit/js/data/**/*",
-      ],
-    },
+  // @react-pdf/renderer loads PDFKit's built-in fonts dynamically.
+  // Next's file tracer cannot discover those runtime paths on its own,
+  // so Vercel previously omitted them and every PDF preview returned 500.
+  outputFileTracingIncludes: {
+    "/api/pdf/**": [
+      "./node_modules/pdfkit/js/standard-fonts/**/*",
+      "./node_modules/pdfkit/js/data/**/*",
+    ],
+  },
+  webpack(config) {
+    // pdfjs uses node-canvas only for server-side rendering. ERP previews
+    // render in the browser, so keep that optional native module out of the
+    // server bundle (and out of Vercel's deployment artifact).
+    config.resolve.alias.canvas = false;
+    return config;
   },
   async headers() {
     return [

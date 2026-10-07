@@ -86,20 +86,21 @@ export default async function DashboardPage({ searchParams }) {
     { data: todayInvoices }, { data: todayDeliveries }, { data: todayExpenses }, { data: customerBalances },
     { data: products }, { data: recentInvoices }, { data: allExpenses }, { data: cashBalances },
     { data: bottleStock }, { data: bottleWithCustomers }, { data: supplierBalances }, { data: prices },
-    activeCustomersRes, { data: overdueCustomers },
+    { data: dashboardCustomers },
     { data: yesterdayInvoices }, { data: yesterdayExpenses }, { data: yesterdayDeliveries },
     { data: todayPayments }, { data: todayPurchases }, { data: todayCashTxns },
-    yesterdayActiveCustomersRes,
     overdueRuleRes, { data: unpaidInvoices }, { data: monthToDateExpenses }, { data: lastMonthExpenses },
-    { data: bottleLimits },
     { data: rangeInvoices }, { data: rangeDeliveriesRaw }, { data: rangeExpensesRaw }, { data: rangePaymentsRaw }, { data: rangeRiderDeliveriesRaw },
     { data: weekDeliveries }, { data: pendingApprovals }, { data: failedEntries }, { data: todayClosings },
-    { data: customerTypes }, { data: recentDeliveries }, { data: recentPayments }, { data: recentExpenses },
+    { data: recentDeliveries }, { data: recentPayments }, { data: recentExpenses },
   ] = await Promise.all([
     supabase.from("invoices").select("net_amount").eq("invoice_date", today).neq("status", "void"),
     supabase.from("deliveries").select("id, delivery_no, customer_id, rider_id, status, amount_collected, created_at, customers(name, zones(name)), profiles!deliveries_rider_id_fkey(full_name), delivery_items(delivered_qty, returned_qty)").eq("delivery_date", today),
     supabase.from("expenses").select("amount").eq("expense_date", today).in("status", ["approved", "paid"]),
-    supabase.from("v_customer_balance").select("balance"),
+    // One balance-view scan powers both the total outstanding KPI and the
+    // overdue-customer list. This view is one of the database's hottest
+    // queries, so avoiding a duplicate scan materially improves dashboard load.
+    supabase.from("v_customer_balance").select("customer_id, name, balance"),
     supabase.from("products").select("id, name, low_stock_threshold"),
     // widened to 13 days back so the same fetch covers both the 7-day trend chart
     // and a prior-week comparison for the AI insights card; also carries zone info
@@ -118,8 +119,9 @@ export default async function DashboardPage({ searchParams }) {
     supabase.from("v_customer_bottle_balance").select("customer_id, name, bottles_with_customer"),
     supabase.from("v_supplier_balance").select("balance"),
     supabase.from("product_prices").select("product_id, price"),
-    supabase.from("customers").select("id", { count: "exact", head: true }).eq("is_active", true),
-    supabase.from("v_customer_balance").select("customer_id, name, balance").gt("balance", 1000).order("balance", { ascending: false }).limit(5),
+    // A single bounded customer-master read replaces four separate queries
+    // (active count, yesterday count, bottle limits and customer types).
+    supabase.from("customers").select("id, bottle_limit, created_at, payment_frequency, is_active"),
     // Previous-period comparisons (yesterday for daily flow metrics; today's own
     // movement, reversed out of the current balance, for point-in-time balances —
     // there's no historical snapshot table, so this is the standard way to derive
@@ -130,7 +132,6 @@ export default async function DashboardPage({ searchParams }) {
     supabase.from("payments").select("amount").eq("payment_date", today).eq("voided", false),
     supabase.from("purchases").select("purchase_date, purchase_items(quantity, rate, discount)").eq("purchase_date", today),
     supabase.from("cash_transactions").select("amount, cash_accounts(type)").eq("txn_date", today),
-    supabase.from("customers").select("id", { count: "exact", head: true }).eq("is_active", true).lt("created_at", `${today}T00:00:00`),
     // AI Business Insights card inputs (Phase 3)
     supabase.from("automation_rules").select("enabled, threshold_value").eq("key", "payment_overdue").maybeSingle(),
     // Only already-past-due invoices can ever count as overdue (the cutoff
@@ -143,7 +144,6 @@ export default async function DashboardPage({ searchParams }) {
     // Ledger page's "Needs Attention" section and refresh_alerts() use.
     // (bottleWithCustomers, fetched above, now carries customer_id/name too
     // and covers this card as well — no second query against the same view.)
-    supabase.from("customers").select("id, bottle_limit"),
     // Date-range business summary (Today/7 Days/This Month/Custom) — a
     // self-contained block, independent of the "today" KPIs above so it
     // doesn't disturb their carefully-tuned yesterday-comparison logic.
@@ -164,7 +164,6 @@ export default async function DashboardPage({ searchParams }) {
       : Promise.resolve({ data: [] }),
     supabase.from("smart_entries").select("id, entry_no, entry_type").eq("status", "failed").order("updated_at", { ascending: false }).limit(20),
     supabase.from("cash_transactions").select("id, amount, description").eq("reference_type", "daily_closing").eq("txn_date", today).limit(1),
-    supabase.from("customers").select("payment_frequency, is_active"),
     supabase.from("deliveries").select("id, delivery_no, delivery_date, status, created_at, customers(name), delivery_items(delivered_qty)").order("created_at", { ascending: false }).limit(5),
     supabase.from("payments").select("id, receipt_no, payment_date, amount, created_at, customers(name)").eq("voided", false).order("created_at", { ascending: false }).limit(5),
     supabase.from("expenses").select("id, expense_date, description, amount, status, created_at, expense_categories(name)").order("created_at", { ascending: false }).limit(5),
@@ -178,6 +177,10 @@ export default async function DashboardPage({ searchParams }) {
   const cashBalance = (cashBalances || []).filter((a) => a.type === "cash").reduce((a, c) => a + Number(c.current_balance), 0);
   const bankBalance = (cashBalances || []).filter((a) => a.type === "bank").reduce((a, c) => a + Number(c.current_balance), 0);
   const receivables = (customerBalances || []).reduce((a, c) => a + Number(c.balance), 0);
+  const overdueCustomers = (customerBalances || [])
+    .filter((c) => Number(c.balance) > 1000)
+    .sort((a, b) => Number(b.balance) - Number(a.balance))
+    .slice(0, 5);
   const payables = (supplierBalances || []).reduce((a, s) => a + Number(s.balance), 0);
 
   const priceMap = {};
@@ -193,7 +196,7 @@ export default async function DashboardPage({ searchParams }) {
   const bottlesDelivered = (todayDeliveries || []).filter((d) => d.status === "delivered").reduce((a, d) => a + (d.delivery_items || []).reduce((b, i) => b + Number(i.delivered_qty), 0), 0);
   const emptiesReturned = (todayDeliveries || []).filter((d) => d.status === "delivered").reduce((a, d) => a + (d.delivery_items || []).reduce((b, i) => b + Number(i.returned_qty), 0), 0);
   const outstanding = receivables;
-  const activeCustomers = activeCustomersRes.count || 0;
+  const activeCustomers = (dashboardCustomers || []).filter((c) => c.is_active).length;
   const grossProfit = salesAmt - bottlesDelivered * 55;
   const completedDeliveries = (todayDeliveries || []).filter((d) => d.status === "delivered").length;
   const missedDeliveries = (todayDeliveries || []).filter((d) => ["missed", "failed", "cancelled"].includes(d.status)).length;
@@ -207,7 +210,7 @@ export default async function DashboardPage({ searchParams }) {
   const yExpAmt = (yesterdayExpenses || []).reduce((a, e) => a + Number(e.amount), 0);
   const yBottlesDelivered = (yesterdayDeliveries || []).filter((d) => d.status === "delivered").reduce((a, d) => a + (d.delivery_items || []).reduce((b, i) => b + Number(i.delivered_qty), 0), 0);
   const yGrossProfit = ySalesAmt - yBottlesDelivered * 55;
-  const yActiveCustomers = yesterdayActiveCustomersRes.count || 0;
+  const yActiveCustomers = (dashboardCustomers || []).filter((c) => c.is_active && c.created_at < `${today}T00:00:00`).length;
 
   const todayPaymentsAmt = (todayPayments || []).reduce((a, p) => a + Number(p.amount), 0);
   const yReceivables = receivables - salesAmt + todayPaymentsAmt;
@@ -238,7 +241,7 @@ export default async function DashboardPage({ searchParams }) {
   const lowStock = (products || []).filter((p) => (stockMap[p.id] || 0) < p.low_stock_threshold);
 
   const bottleLimitMap = {};
-  (bottleLimits || []).forEach((c) => { bottleLimitMap[c.id] = c.bottle_limit ?? 20; });
+  (dashboardCustomers || []).forEach((c) => { bottleLimitMap[c.id] = c.bottle_limit ?? 20; });
   const custBottleTotals = {};
   (bottleWithCustomers || []).forEach((b) => {
     const row = custBottleTotals[b.customer_id] || { name: b.name, total: 0 };
@@ -333,7 +336,7 @@ export default async function DashboardPage({ searchParams }) {
   }));
 
   const customerTypeMap = {};
-  (customerTypes || []).forEach((customer) => {
+  (dashboardCustomers || []).forEach((customer) => {
     const type = customer.is_active === false ? "Inactive" : (customer.payment_frequency || "Other");
     customerTypeMap[type] = (customerTypeMap[type] || 0) + 1;
   });
