@@ -19,6 +19,9 @@ export function EwStatusBadge({ status, label, tone }) {
 export function EwPaper({ children, landscape = false, className = "" }) {
   return (
     <article className={`ew-paper ${landscape ? "ew-paper-landscape" : ""} ${className}`}>
+      {/* Named @page + `page:` forced a stray page break in Chrome, so a
+          landscape document overrides the page size directly instead. */}
+      {landscape ? <style>{"@media print{@page{size:A4 landscape;margin:9mm 10mm 13mm}}"}</style> : null}
       <div className="ew-paper-accent" aria-hidden="true" />
       {children}
     </article>

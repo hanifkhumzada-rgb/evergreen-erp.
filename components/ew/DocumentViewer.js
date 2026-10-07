@@ -16,7 +16,7 @@ const BTN = "ew-tool-btn";
 //   excel        { title, period, filters, sheets } for lib/ew/excel.js
 //   whatsapp     { phone, text } → wa.me link
 //   share        { title, text }
-export default function DocumentViewer({ title, subtitle, fallbackHref = "/dashboard", excel, whatsapp, share, children }) {
+export default function DocumentViewer({ title, subtitle, fallbackHref = "/dashboard", excel, whatsapp, share, controls, children }) {
   const goBack = useErpBack(fallbackHref);
   const stageRef = useRef(null);
   const [fit, setFit] = useState(1);
@@ -73,7 +73,8 @@ export default function DocumentViewer({ title, subtitle, fallbackHref = "/dashb
 
   return (
     <div className="ew-viewer">
-      <div className="ew-toolbar no-print" role="toolbar" aria-label="Document actions">
+      <div className="ew-toolbar-wrap no-print">
+      <div className="ew-toolbar" role="toolbar" aria-label="Document actions">
         <button type="button" onClick={goBack} className={`${BTN} ew-tool-back`} title="Back to previous screen"><ArrowLeft size={16} /><span>Back</span></button>
         <div className="ew-toolbar-title">
           <div className="ew-toolbar-name">{title}</div>
@@ -92,6 +93,8 @@ export default function DocumentViewer({ title, subtitle, fallbackHref = "/dashb
           </span>
           <button type="button" onClick={goBack} className={`${BTN} ew-tool-icon ew-tool-close`} aria-label="Close viewer" title="Close"><X size={17} /></button>
         </div>
+      </div>
+      {controls ? <div className="ew-viewer-controls">{controls}</div> : null}
       </div>
       {note ? <div className="ew-toast no-print" role="status">{note}</div> : null}
       <div ref={stageRef} className="ew-stage">

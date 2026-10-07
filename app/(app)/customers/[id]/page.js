@@ -1,6 +1,6 @@
 import { getCurrentProfile } from "@/lib/session";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileText, BookOpen } from "lucide-react";
 import { pkr, fmtDate } from "@/lib/format";
 import { KPI, Badge, Th, Td, DocumentActionBar } from "@/components/ui";
 import CustomerForm, { EditCustomerTrigger } from "@/components/CustomerForm";
@@ -194,10 +194,10 @@ export default async function CustomerProfilePage({ params }) {
             canManageFinancial={canManageFinancial}
             trigger={<EditCustomerTrigger />}
           />
+<Link href={`/customers/${c.id}/statement`} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold text-ink hover:border-aqua/40 hover:bg-aquaSoft/60 hover:text-aqua"><FileText size={14} /> View Statement</Link>
+          <Link href={`/customers/${c.id}/ledger`} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold text-ink hover:border-aqua/40 hover:bg-aquaSoft/60 hover:text-aqua"><BookOpen size={14} /> Print Ledger</Link>
           <DocumentActionBar
             print
-            pdfHref={`/api/pdf/customer-statement/${c.id}`}
-            pdfLabel="Statement"
             share={{ title: `${c.name} — Customer Profile` }}
           />
           {canDelete && c.status !== "archived" && (

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileText, BookOpen } from "lucide-react";
 import { pkr, fmtDate, refNoFromDescription } from "@/lib/format";
 import { KPI, Badge, DocumentActionBar, Th, Td } from "@/components/ui";
 import WhatsAppButton from "@/components/WhatsAppButton";
@@ -206,10 +206,10 @@ async function CustomerTimeline({ supabase, customerId, searchParams }) {
         </div>
         <div className="no-print flex gap-2 flex-wrap">
           <WhatsAppButton phone={c.mobile} message={statementMessage} label="WhatsApp Statement" />
+<Link href={`/customers/${c.id}/statement`} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold text-ink hover:border-aqua/40 hover:bg-aquaSoft/60 hover:text-aqua"><FileText size={14} /> View Statement</Link>
+          <Link href={`/customers/${c.id}/ledger`} className="flex items-center gap-1.5 px-3 py-2 rounded-lg border border-line bg-card text-xs font-semibold text-ink hover:border-aqua/40 hover:bg-aquaSoft/60 hover:text-aqua"><BookOpen size={14} /> Print Ledger</Link>
           <DocumentActionBar
             print
-            pdfHref={`/api/pdf/customer-statement/${c.id}`}
-            pdfLabel="Statement"
             excel={{ rows: exportRows, sheetName: "Statement", reportTitle: `${c.name} — Statement`, branding }}
             share={{ title: `${c.name} — Account Statement` }}
           />
