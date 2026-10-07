@@ -1,5 +1,5 @@
 "use client";
-import { AreaChart, Area, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { AreaChart, Area, LineChart, Line, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { pkr } from "@/lib/format";
 
 // Pulled straight from tailwind.config.js / lib/pdf/theme.js so charts read
@@ -26,6 +26,37 @@ export function SalesTrendChart({ data }) {
         <Tooltip formatter={(v) => pkr(v)} contentStyle={TOOLTIP_STYLE} />
         <Area type="monotone" dataKey="sales" stroke={AQUA} fill="url(#g1)" strokeWidth={2.5} />
       </AreaChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function BusinessFlowChart({ data }) {
+  return (
+    <ResponsiveContainer width="100%" height={250}>
+      <LineChart data={data} margin={{ top: 5, right: 8, left: 0, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#E2EAEA" vertical={false} />
+        <XAxis dataKey="day" tick={AXIS_TICK} axisLine={false} tickLine={false} minTickGap={18} />
+        <YAxis tick={AXIS_TICK} axisLine={false} tickLine={false} width={58} tickFormatter={(v) => v >= 1000 ? `${Math.round(v / 1000)}k` : v} />
+        <Tooltip formatter={(v, name) => [pkr(v), name]} contentStyle={TOOLTIP_STYLE} />
+        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+        <Line type="monotone" dataKey="sales" name="Sales" stroke={AQUA} strokeWidth={2.5} dot={false} />
+        <Line type="monotone" dataKey="collections" name="Collections" stroke={GREEN} strokeWidth={2.5} dot={false} />
+        <Line type="monotone" dataKey="expenses" name="Expenses" stroke={CORAL} strokeWidth={2.5} dot={false} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}
+
+export function CustomerTypeChart({ data }) {
+  return (
+    <ResponsiveContainer width="100%" height={250}>
+      <PieChart>
+        <Pie data={data} dataKey="value" nameKey="name" innerRadius={52} outerRadius={84} paddingAngle={2}>
+          {data.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
+        </Pie>
+        <Tooltip formatter={(v) => [`${v} customers`, "Customers"]} contentStyle={TOOLTIP_STYLE} />
+        <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11 }} />
+      </PieChart>
     </ResponsiveContainer>
   );
 }

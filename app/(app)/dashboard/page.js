@@ -2,11 +2,12 @@ import Link from "@/components/ErpNavLink";
 import { getCurrentProfile } from "@/lib/session";
 import { pkr } from "@/lib/format";
 import { KPI } from "@/components/ui";
-import { SalesTrendChart, ExpensePie, DeliveriesTrendChart, ZoneRevenueChart } from "@/components/LazyCharts";
+import { BusinessFlowChart, CustomerTypeChart, SalesTrendChart, ExpensePie, DeliveriesTrendChart, ZoneRevenueChart } from "@/components/LazyCharts";
 import PendingApprovals from "@/components/PendingApprovals";
 import DashboardSectionTabs from "@/components/DashboardSectionTabs";
+import TodayRouteTabs from "@/components/TodayRouteTabs";
 import {
-  AlertTriangle, UserPlus, Truck, ShoppingCart, Receipt, Wallet, Upload, BarChart3, Sparkles, ClipboardPlus, Droplets,
+  AlertTriangle, UserPlus, Truck, ShoppingCart, Receipt, Wallet, Upload, BarChart3, Sparkles, ClipboardPlus, Droplets, PackagePlus, UserCog, RotateCcw,
 } from "lucide-react";
 
 // Rendered server-side (often UTC on Vercel, not the business's own
@@ -29,12 +30,18 @@ function lastMonthRange() {
   return { from: start.toISOString().slice(0, 10), to: end.toISOString().slice(0, 10) };
 }
 const BOTTLE_COST = 800;
+function activityStamp(value) {
+  if (!value) return "—";
+  return new Date(value).toLocaleString("en-PK", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Karachi" });
+}
 
 export const dynamic = "force-dynamic"; // always fetch fresh — this is a live multi-user dashboard
 
 function rangeFor(key, custom) {
   const today = todayISO();
   if (key === "7d") return { from: daysAgo(6), to: today };
+  if (key === "14d") return { from: daysAgo(13), to: today };
+  if (key === "30d") return { from: daysAgo(29), to: today };
   if (key === "month") return { from: monthStartISO(), to: today };
   if (key === "custom" && custom?.from && custom?.to) return { from: custom.from, to: custom.to };
   return { from: today, to: today };
@@ -57,11 +64,12 @@ const QUICK_ACTIONS = [
   { label: "Smart Entry", href: "/smart-entry", icon: ClipboardPlus, tone: "green" },
   { label: "New Customer", href: "/customers", icon: UserPlus, tone: "aqua" },
   { label: "New Delivery", href: "/deliveries", icon: Truck, tone: "navy" },
-  { label: "New Sale", href: "/sales", icon: ShoppingCart, tone: "green" },
+  { label: "Create Invoice", href: "/sales?quick=new", icon: ShoppingCart, tone: "green" },
   { label: "Receive Payment", href: "/payments", icon: Receipt, tone: "amber" },
   { label: "Add Expense", href: "/expenses", icon: Wallet, tone: "coral" },
-  { label: "Import Excel", href: "/sales", icon: Upload, tone: "aqua" },
-  { label: "View Reports", href: "/reports", icon: BarChart3, tone: "navy" },
+  { label: "Bottle Issue / Return", href: "/bottle-ledger", icon: RotateCcw, tone: "aqua" },
+  { label: "Add Purchase", href: "/inventory?quick=new", icon: PackagePlus, tone: "amber" },
+  { label: "Add Employee", href: "/employees?quick=new", icon: UserCog, tone: "navy" },
 ];
 const TONE_BG = { aqua: "bg-aquaSoft text-aqua", navy: "bg-navy/10 text-navy", green: "bg-greenSoft text-green", amber: "bg-amberSoft text-amber", coral: "bg-coralSoft text-coral" };
 
@@ -86,9 +94,10 @@ export default async function DashboardPage({ searchParams }) {
     { data: bottleLimits },
     { data: rangeInvoices }, { data: rangeDeliveriesRaw }, { data: rangeExpensesRaw }, { data: rangePaymentsRaw }, { data: rangeRiderDeliveriesRaw },
     { data: weekDeliveries }, { data: pendingApprovals }, { data: failedEntries }, { data: todayClosings },
+    { data: customerTypes }, { data: recentDeliveries }, { data: recentPayments }, { data: recentExpenses },
   ] = await Promise.all([
     supabase.from("invoices").select("net_amount").eq("invoice_date", today).neq("status", "void"),
-    supabase.from("deliveries").select("rider_id, status, amount_collected, profiles!deliveries_rider_id_fkey(full_name), delivery_items(delivered_qty, returned_qty)").eq("delivery_date", today),
+    supabase.from("deliveries").select("id, delivery_no, customer_id, rider_id, status, amount_collected, created_at, customers(name, zones(name)), profiles!deliveries_rider_id_fkey(full_name), delivery_items(delivered_qty, returned_qty)").eq("delivery_date", today),
     supabase.from("expenses").select("amount").eq("expense_date", today).in("status", ["approved", "paid"]),
     supabase.from("v_customer_balance").select("balance"),
     supabase.from("products").select("id, name, low_stock_threshold"),
@@ -140,10 +149,10 @@ export default async function DashboardPage({ searchParams }) {
     // doesn't disturb their carefully-tuned yesterday-comparison logic.
     // When the range is exactly today, this would be an identical query to
     // todayInvoices above — reused instead of fetched twice (see below).
-    rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("invoices").select("net_amount").gte("invoice_date", range.from).lte("invoice_date", range.to).neq("status", "void"),
-    rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("deliveries").select("status, delivery_items(delivered_qty, returned_qty)").gte("delivery_date", range.from).lte("delivery_date", range.to),
-    rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("expenses").select("amount").in("status", ["approved", "paid"]).gte("expense_date", range.from).lte("expense_date", range.to),
-    rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("payments").select("amount").gte("payment_date", range.from).lte("payment_date", range.to).eq("voided", false),
+    rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("invoices").select("net_amount, invoice_date").gte("invoice_date", range.from).lte("invoice_date", range.to).neq("status", "void"),
+    rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("deliveries").select("status, delivery_date, delivery_items(delivered_qty, returned_qty)").gte("delivery_date", range.from).lte("delivery_date", range.to),
+    rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("expenses").select("amount, expense_date").in("status", ["approved", "paid"]).gte("expense_date", range.from).lte("expense_date", range.to),
+    rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("payments").select("amount, payment_date").gte("payment_date", range.from).lte("payment_date", range.to).eq("voided", false),
     // Employee performance leaderboard for the same range.
     rangeKey === "today" ? Promise.resolve({ data: null }) : supabase.from("deliveries").select("rider_id, status, amount_collected, profiles!deliveries_rider_id_fkey(full_name)").gte("delivery_date", range.from).lte("delivery_date", range.to),
     // Deliveries trend chart — always a fixed last-7-days window (like the
@@ -155,6 +164,10 @@ export default async function DashboardPage({ searchParams }) {
       : Promise.resolve({ data: [] }),
     supabase.from("smart_entries").select("id, entry_no, entry_type").eq("status", "failed").order("updated_at", { ascending: false }).limit(20),
     supabase.from("cash_transactions").select("id, amount, description").eq("reference_type", "daily_closing").eq("txn_date", today).limit(1),
+    supabase.from("customers").select("payment_frequency, is_active"),
+    supabase.from("deliveries").select("id, delivery_no, delivery_date, status, created_at, customers(name), delivery_items(delivered_qty)").order("created_at", { ascending: false }).limit(5),
+    supabase.from("payments").select("id, receipt_no, payment_date, amount, created_at, customers(name)").eq("voided", false).order("created_at", { ascending: false }).limit(5),
+    supabase.from("expenses").select("id, expense_date, description, amount, status, created_at, expense_categories(name)").order("created_at", { ascending: false }).limit(5),
   ]);
 
   const rangeDeliveries = rangeKey === "today" ? todayDeliveries : rangeDeliveriesRaw;
@@ -305,6 +318,38 @@ export default async function DashboardPage({ searchParams }) {
   const rangeDeliveryCount = (rangeDeliveries || []).length;
   const rangeNet = rangeSales - rangeExpAmt;
 
+  const seriesDays = [];
+  const seriesCursor = new Date(`${range.from}T00:00:00Z`);
+  const seriesEnd = new Date(`${range.to}T00:00:00Z`);
+  while (seriesCursor <= seriesEnd && seriesDays.length < 32) {
+    seriesDays.push(seriesCursor.toISOString().slice(0, 10));
+    seriesCursor.setUTCDate(seriesCursor.getUTCDate() + 1);
+  }
+  const analyticsTrend = seriesDays.map((date) => ({
+    day: date.slice(5),
+    sales: (rangeKey === "today" ? todayInvoices || [] : rangeInvoices || []).filter((row) => (row.invoice_date || today) === date).reduce((sum, row) => sum + Number(row.net_amount || 0), 0),
+    collections: (rangePayments || []).filter((row) => (row.payment_date || today) === date).reduce((sum, row) => sum + Number(row.amount || 0), 0),
+    expenses: (rangeExpenses || []).filter((row) => (row.expense_date || today) === date).reduce((sum, row) => sum + Number(row.amount || 0), 0),
+  }));
+
+  const customerTypeMap = {};
+  (customerTypes || []).forEach((customer) => {
+    const type = customer.is_active === false ? "Inactive" : (customer.payment_frequency || "Other");
+    customerTypeMap[type] = (customerTypeMap[type] || 0) + 1;
+  });
+  const customerTypeData = Object.entries(customerTypeMap).map(([name, value]) => ({ name, value }));
+
+  const todayRouteRows = (todayDeliveries || []).map((delivery) => ({
+    id: delivery.id,
+    reference: delivery.delivery_no || "Delivery",
+    customerId: delivery.customer_id,
+    customer: delivery.customers?.name || "Customer",
+    zone: delivery.customers?.zones?.name || "Unassigned",
+    status: delivery.status,
+    qty: (delivery.delivery_items || []).reduce((sum, item) => sum + Number(item.delivered_qty || 0), 0),
+    time: delivery.created_at ? new Date(delivery.created_at).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Karachi" }) : "—",
+  }));
+
   const leaderboard = Object.values(
     (rangeRiderDeliveries || []).reduce((acc, d) => {
       if (!d.rider_id) return acc;
@@ -361,7 +406,7 @@ export default async function DashboardPage({ searchParams }) {
           <div><h3 className="font-display text-lg font-semibold">Daily command shortcuts</h3><p className="text-xs text-slate">Record work or open the report you need.</p></div>
           <Link href="/smart-entry" className="hidden text-xs font-bold text-aqua hover:underline sm:block">Open Smart Entry →</Link>
         </div>
-      <div className="no-print grid grid-cols-2 gap-2.5 sm:grid-cols-4 xl:grid-cols-8">
+      <div className="no-print grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
         {QUICK_ACTIONS.map((a) => {
           const Icon = a.icon;
           return (
@@ -380,7 +425,7 @@ export default async function DashboardPage({ searchParams }) {
       <section className="dashboard-anchor" aria-labelledby="business-summary-title">
       <div className="erp-toolbar no-print flex flex-wrap items-center gap-2 mb-4">
         <span id="business-summary-title" className="text-xs font-semibold text-slate">Business summary:</span>
-        {[["today", "Today"], ["7d", "Last 7 Days"], ["month", "This Month"]].map(([k, label]) => (
+        {[["today", "Today"], ["7d", "7 Days"], ["14d", "14 Days"], ["30d", "30 Days"], ["month", "This Month"]].map(([k, label]) => (
           <Link key={k} href={`/dashboard?range=${k}`}
             className={`px-3 py-1.5 rounded-lg text-xs font-semibold border ${rangeKey === k ? "bg-navy text-white border-navy" : "border-line bg-card"}`}>
             {label}
@@ -403,6 +448,17 @@ export default async function DashboardPage({ searchParams }) {
         <KPI label="EXPENSES" value={pkr(rangeExpAmt)} tone="amber" />
         <KPI label="NET PROFIT" value={pkr(rangeNet)} tone={rangeNet >= 0 ? "green" : "coral"} sub="revenue − expenses" />
         <KPI label="OVERDUE CUSTOMERS" value={overdueCustomerCount ?? 0} tone={overdueCustomerCount > 0 ? "coral" : "slate"} sub={overdueDays != null ? `> ${overdueDays} days` : "rule disabled"} href="/payments" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 mb-6 xl:grid-cols-[minmax(0,1.7fr)_minmax(300px,0.8fr)]">
+        <div className="rounded-2xl border border-line bg-card p-4">
+          <div className="mb-2 flex items-start justify-between gap-3"><div><h4 className="text-sm font-bold">Sales, collections and expenses</h4><p className="mt-0.5 text-[11px] text-slate">Actual posted values for the selected period.</p></div><span className="rounded-lg bg-foam px-2 py-1 text-[10px] font-bold text-slate">{range.from} — {range.to}</span></div>
+          <BusinessFlowChart data={analyticsTrend} />
+        </div>
+        <div className="rounded-2xl border border-line bg-card p-4">
+          <div className="mb-2"><h4 className="text-sm font-bold">Customer mix</h4><p className="mt-0.5 text-[11px] text-slate">Active customers by payment cycle, plus inactive accounts.</p></div>
+          {customerTypeData.length ? <CustomerTypeChart data={customerTypeData} /> : <p className="py-20 text-center text-sm text-slate">No customer data yet.</p>}
+        </div>
       </div>
 
       </section>
@@ -432,6 +488,24 @@ export default async function DashboardPage({ searchParams }) {
         <KPI label="TODAY'S EXPENSES" value={pkr(expAmt)} tone="amber" trend={calcTrend(expAmt, yExpAmt, true)} href="/expenses" />
         <KPI label="EST. GROSS PROFIT" value={pkr(grossProfit)} tone="navy" sub="revenue − product cost" trend={calcTrend(grossProfit, yGrossProfit)} href="/accounting/profit-loss" />
         <KPI label="ACTIVE CUSTOMERS" value={activeCustomers} tone="aqua" trend={calcTrend(activeCustomers, yActiveCustomers)} href="/customers" />
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 mb-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)]">
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-3"><div><h4 className="text-sm font-bold">Today&apos;s Delivery Route</h4><p className="text-[11px] text-slate">Zone-wise operational list with live delivery status.</p></div><Link href="/deliveries" className="text-xs font-bold text-aqua hover:underline">View all →</Link></div>
+          <TodayRouteTabs deliveries={todayRouteRows} />
+        </div>
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-3"><div><h4 className="text-sm font-bold">Recent Activity</h4><p className="text-[11px] text-slate">Latest posted business records.</p></div><Link href="/audit-logs" className="text-xs font-bold text-aqua hover:underline">Audit history →</Link></div>
+          <div className="rounded-2xl border border-line bg-card p-2">
+            <div className="grid grid-cols-1 gap-1 sm:grid-cols-3 xl:grid-cols-1">
+              {(recentDeliveries || []).slice(0, 2).map((row) => <Link key={`d-${row.id}`} href="/deliveries" className="flex items-center justify-between gap-3 rounded-xl px-3 py-2 hover:bg-foam"><span className="min-w-0"><span className="text-[9px] font-bold uppercase tracking-wide text-aqua">Delivery</span><strong className="block truncate text-xs">{row.customers?.name || row.delivery_no}</strong><span className="text-[10px] text-slate">{activityStamp(row.created_at)} · {(row.delivery_items || []).reduce((sum, item) => sum + Number(item.delivered_qty || 0), 0)} bottles</span></span><span className="text-[10px] font-bold capitalize text-aqua">{row.status}</span></Link>)}
+              {(recentPayments || []).slice(0, 2).map((row) => <Link key={`p-${row.id}`} href="/payments" className="flex items-center justify-between gap-3 rounded-xl px-3 py-2 hover:bg-foam"><span className="min-w-0"><span className="text-[9px] font-bold uppercase tracking-wide text-green">Payment</span><strong className="block truncate text-xs">{row.customers?.name || row.receipt_no}</strong><span className="text-[10px] text-slate">{activityStamp(row.created_at)} · {row.receipt_no}</span></span><span className="text-xs font-bold text-green">{pkr(row.amount)}</span></Link>)}
+              {(recentExpenses || []).slice(0, 2).map((row) => <Link key={`e-${row.id}`} href="/expenses" className="flex items-center justify-between gap-3 rounded-xl px-3 py-2 hover:bg-foam"><span className="min-w-0"><span className="text-[9px] font-bold uppercase tracking-wide text-coral">Expense</span><strong className="block truncate text-xs">{row.expense_categories?.name || row.description || "Expense"}</strong><span className="text-[10px] text-slate">{activityStamp(row.created_at)} · {row.status}</span></span><span className="text-xs font-bold text-coral">{pkr(row.amount)}</span></Link>)}
+              {!recentDeliveries?.length && !recentPayments?.length && !recentExpenses?.length && <p className="col-span-full py-8 text-center text-xs text-slate">No recent activity yet.</p>}
+            </div>
+          </div>
+        </div>
       </div>
 
       </section>

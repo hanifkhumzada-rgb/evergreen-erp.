@@ -15,6 +15,16 @@ export const SalesTrendChart = dynamic(() => import("./DashboardCharts").then((m
   loading: ChartSkeleton,
 });
 
+export const BusinessFlowChart = dynamic(() => import("./DashboardCharts").then((m) => m.BusinessFlowChart), {
+  ssr: false,
+  loading: ChartSkeleton,
+});
+
+export const CustomerTypeChart = dynamic(() => import("./DashboardCharts").then((m) => m.CustomerTypeChart), {
+  ssr: false,
+  loading: ChartSkeleton,
+});
+
 export const ExpensePie = dynamic(() => import("./DashboardCharts").then((m) => m.ExpensePie), {
   ssr: false,
   loading: ChartSkeleton,
