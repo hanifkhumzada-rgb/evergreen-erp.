@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { FileText } from "lucide-react";
 import { fetchAll } from "@/lib/fetchAll";
 import { createClient } from "@/lib/supabase/server";
 import { pkr, fmtDate } from "@/lib/format";
@@ -271,11 +272,11 @@ export default async function PaymentsPage({ searchParams }) {
             {paymentRows.map((p) => (
               <tr key={p.id} className={`hover:bg-foam ${p.voided ? "opacity-60" : ""}`}>
                 {canVoid && <Td className="no-print">{!p.voided ? <RowCheckbox id={p.id} label={p.receipt_no || p.customers?.name} /> : null}</Td>}
-                <Td>{fmtDate(p.payment_date)}</Td><Td className="font-mono-num text-xs text-slate">{p.receipt_no}</Td><Td>{p.customers?.name}</Td><Td>{pkr(p.amount)}</Td><Td>{p.method}</Td><Td>{p.profiles?.full_name || "—"}</Td><Td className="text-slate">{p.reference || "—"}</Td>
+                <Td>{fmtDate(p.payment_date)}</Td><Td className="font-mono-num text-xs"><Link href={`/payments/receipt/${p.id}`} className="font-semibold text-navy hover:text-aqua">{p.receipt_no || "View"}</Link></Td><Td>{p.customers?.name}</Td><Td>{pkr(p.amount)}</Td><Td>{p.method}</Td><Td>{p.profiles?.full_name || "—"}</Td><Td className="text-slate">{p.reference || "—"}</Td>
                 <Td>{p.voided ? <><Badge text="Voided" tone="coral" />{p.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{p.void_reason}</div>}</> : <Badge text="Active" tone="green" />}</Td>
                 <Td><RecordStamp date={p.created_at} user={p.profiles?.full_name} /></Td>
                 <Td><RowActionMenu label={`Actions for ${p.receipt_no || "payment"}`}>
-                    <DocumentActionBar compact pdfHref={`/api/pdf/payment-receipt/${p.id}`} pdfLabel="Receipt" />
+                    <Link href={`/payments/receipt/${p.id}`} title="View Receipt" className="flex items-center gap-1.5 text-xs font-semibold"><FileText size={14} /></Link>
                     {p.method === "bank" && <DocumentActionBar compact pdfHref={`/api/pdf/bank-payment-voucher/payments/${p.id}`} pdfLabel="BPV" />}
                     {canVoid && !p.voided && <ReasonConfirmButton action={voidPayment} id={p.id} confirmText={`Void payment of ${pkr(p.amount)} from ${p.customers?.name}?`} />}
                 </RowActionMenu></Td>

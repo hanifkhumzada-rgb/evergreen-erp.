@@ -1,4 +1,5 @@
 import "./globals.css";
+import "./ew-documents.css";
 import ServiceWorkerRegister from "@/components/ServiceWorkerRegister";
 import Script from "next/script";
 

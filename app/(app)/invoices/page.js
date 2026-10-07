@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
+import { FileText } from "lucide-react";
 import { pkr, fmtDate } from "@/lib/format";
 import { Badge, KPI, DocumentActionBar, RecordStamp, RowActionMenu, Th, Td } from "@/components/ui";
 import AddSaleForm from "@/components/AddSaleForm";
@@ -117,6 +118,7 @@ export default async function InvoicesPage({ searchParams }) {
                   <Td><Badge text={statusLabel} tone={STATUS_TONE[s.status] || "slate"} />{s.status === "void" && s.void_reason && <div className="text-[10px] text-slate mt-1 max-w-[140px]">{s.void_reason}</div>}</Td>
                   <Td><RecordStamp date={s.created_at} user={s.creator?.full_name} /></Td>
                   <Td className="no-print"><RowActionMenu label={`Actions for invoice ${s.invoice_no}`}>
+                      <Link href={`/sales/${s.id}`} title="View Invoice" className="flex items-center gap-1.5 text-xs font-semibold"><FileText size={14} /></Link>
                       <RecordPreview iconOnly title={`${s.invoice_no} · ${s.customers?.name || "Invoice"}`} subtitle="Read-only invoice preview" fields={previewFields} excelRows={previewExcel} excelTitle={s.invoice_no || "Invoice"} openHref={`/sales/${s.id}`} openLabel="Open Invoice" />
                       {canVoidThis && <ReasonConfirmButton action={voidInvoice} id={s.id} confirmText={`Void invoice ${s.invoice_no}?`} />}
                   </RowActionMenu></Td>
