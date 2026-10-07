@@ -8,6 +8,17 @@ export async function middleware(request) {
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-pathname", request.nextUrl.pathname);
   let response = NextResponse.next({ request: { headers: requestHeaders } });
+  const pathname = request.nextUrl.pathname;
+
+  // These screens are intentionally public and statically rendered. Calling
+  // Supabase Auth before serving them added a full network round-trip even
+  // when there was no session cookie (the common login case), making the
+  // first screen feel several seconds slower. Protected staff/portal routes
+  // still go through the verified getUser() check below, and their layouts
+  // verify identity again before reading any business data.
+  if (pathname.startsWith("/login") || pathname.startsWith("/reset-password") || pathname === "/portal/login") {
+    return response;
+  }
   const remembered = request.cookies.get(REMEMBER_ME_COOKIE)?.value === "1";
 
   const supabase = createServerClient(
@@ -42,7 +53,6 @@ export async function middleware(request) {
   // lookup. Some deployments still use a signing setup where getClaims()
   // cannot initialize in the Edge runtime.
   const { data: { user } } = await supabase.auth.getUser();
-  const pathname = request.nextUrl.pathname;
   const isAuthRoute = pathname.startsWith("/login");
   // The password-recovery email link lands here with a token that only the
   // browser (not this server-side check) can see and exchange for a
