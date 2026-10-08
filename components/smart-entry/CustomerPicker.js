@@ -1,65 +1,74 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Search, X, ChevronDown } from "lucide-react";
 
-// Search Customer by ID, name or phone — debounced client-side filter over
-// the customers list the server already fetched (this business rarely has
-// more than a few hundred customers, so no round trip is needed).
-export default function CustomerPicker({ customers, value, onChange, error }) {
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { Check, Loader2, Search, X, ChevronDown } from "lucide-react";
+import { searchCustomerSuggestions } from "@/app/actions";
+import { rankSmartOptions } from "@/lib/smartMatch";
+
+const cache = new Map();
+
+export default function CustomerPicker({ customers = [], value, onChange, onSelect, error, placeholder = "Search ID, name, phone, building or flat…" }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [debounced, setDebounced] = useState("");
+  const [remoteRows, setRemoteRows] = useState([]);
+  const [active, setActive] = useState(0);
+  const [isPending, startTransition] = useTransition();
   const rootRef = useRef(null);
+  const selected = useMemo(() => [...customers, ...remoteRows].find((c) => c.id === value), [customers, remoteRows, value]);
 
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(query.trim().toLowerCase()), 150);
-    return () => clearTimeout(t);
-  }, [query]);
-
-  useEffect(() => {
-    const close = (e) => { if (!rootRef.current?.contains(e.target)) setOpen(false); };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
+    const close = (event) => { if (!rootRef.current?.contains(event.target)) setOpen(false); };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
   }, []);
 
-  const selected = useMemo(() => customers.find((c) => c.id === value), [customers, value]);
+  useEffect(() => {
+    const term = query.trim();
+    setActive(0);
+    if (!term) { setRemoteRows([]); return undefined; }
+    const timer = setTimeout(() => {
+      const key = term.toLowerCase();
+      if (cache.has(key)) { setRemoteRows(cache.get(key)); return; }
+      startTransition(async () => {
+        const result = await searchCustomerSuggestions(term, 12);
+        if (!result?.error) { cache.set(key, result.rows || []); setRemoteRows(result.rows || []); }
+      });
+    }, 180);
+    return () => clearTimeout(timer);
+  }, [query]);
 
   const filtered = useMemo(() => {
-    if (!debounced) return customers.slice(0, 40);
-    return customers.filter((c) =>
-      [c.code, c.name, c.mobile, c.zone_name].filter(Boolean).join(" ").toLowerCase().includes(debounced)
-    ).slice(0, 40);
-  }, [customers, debounced]);
+    if (!query.trim()) return customers.slice(0, 12);
+    const merged = new Map([...remoteRows, ...customers].map((row) => [row.id, row]));
+    return rankSmartOptions([...merged.values()], query, ["code", "mobile", "name", "building", "address", "zone_name"], 12);
+  }, [customers, remoteRows, query]);
 
-  return (
-    <div ref={rootRef} className="relative">
-      <button type="button" onClick={() => setOpen((o) => !o)}
-        className={`in flex items-center justify-between text-left ${error ? "border-coral" : ""}`}>
-        <span className={selected ? "" : "text-slate"}>
-          {selected ? `${selected.name} — ${selected.code || selected.mobile}` : "Search by ID, name or phone…"}
-        </span>
-        <ChevronDown size={14} className="flex-shrink-0 text-slate" />
-      </button>
-      {open && (
-        <div className="absolute z-30 mt-1 w-full max-h-72 overflow-y-auto rounded-xl border border-line bg-card shadow-xl">
-          <div className="sticky top-0 flex items-center gap-1.5 border-b border-line bg-card p-2">
-            <Search size={13} className="text-slate flex-shrink-0" />
-            <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)}
-              placeholder="Type ID, name or phone…" className="w-full text-xs outline-none bg-transparent" />
-            {query && <button type="button" onClick={() => setQuery("")}><X size={13} className="text-slate" /></button>}
-          </div>
-          {filtered.length === 0 && <div className="p-3 text-xs text-slate text-center">No matching customer.</div>}
-          {filtered.map((c) => (
-            <button key={c.id} type="button"
-              onClick={() => { onChange(c.id); setOpen(false); setQuery(""); }}
-              className={`flex w-full flex-col items-start px-3 py-2 text-left text-xs hover:bg-foam ${c.id === value ? "bg-aquaSoft" : ""}`}>
-              <span className="font-semibold">{c.name}</span>
-              <span className="text-slate">{c.code || "—"} · {c.mobile || "no phone"} {c.zone_name ? `· ${c.zone_name}` : ""}{!c.is_active ? " · Inactive" : ""}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      {error && <p className="text-coral text-[11px] mt-1">{error}</p>}
-    </div>
-  );
+  const choose = (customer) => {
+    onChange(customer.id);
+    onSelect?.(customer);
+    setOpen(false); setQuery("");
+  };
+  const onKeyDown = (event) => {
+    if (event.key === "ArrowDown") { event.preventDefault(); setActive((index) => Math.min(index + 1, filtered.length - 1)); }
+    if (event.key === "ArrowUp") { event.preventDefault(); setActive((index) => Math.max(index - 1, 0)); }
+    if (event.key === "Enter" && filtered[active]) { event.preventDefault(); choose(filtered[active]); }
+    if (event.key === "Escape") setOpen(false);
+  };
+
+  return <div ref={rootRef} className="relative">
+    <button type="button" onClick={() => setOpen((state) => !state)} className={`in flex items-center justify-between gap-2 text-left ${error ? "!border-coral" : ""}`}>
+      <span className={`truncate ${selected ? "" : "text-slate"}`}>{selected ? `${selected.code || "—"} | ${selected.name}` : placeholder}</span><ChevronDown size={14} className="shrink-0 text-slate" />
+    </button>
+    {open && <div className="absolute z-50 mt-1 w-full min-w-[300px] overflow-hidden rounded-xl border border-line bg-card shadow-xl">
+      <div className="flex items-center gap-2 border-b border-line p-2"><Search size={14} className="text-slate" /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={onKeyDown} placeholder={placeholder} className="min-w-0 flex-1 bg-transparent text-xs outline-none" />{isPending ? <Loader2 size={13} className="animate-spin text-aqua" /> : query && <button type="button" onClick={() => setQuery("")}><X size={13} /></button>}</div>
+      <div className="max-h-72 overflow-y-auto p-1.5">
+        {!isPending && !filtered.length && <p className="p-3 text-center text-xs text-slate">No matching customer. Check spelling or phone number.</p>}
+        {filtered.map((customer, index) => <button key={customer.id} type="button" onMouseEnter={() => setActive(index)} onClick={() => choose(customer)} className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs ${index === active ? "bg-aquaSoft" : "hover:bg-foam"}`}>
+          <span className="min-w-0 flex-1"><strong className="block truncate">{customer.code || "—"} | {customer.name} | {customer.building || customer.address || "No building"} | {customer.zone_name || customer.zoneName || "No zone"}</strong><span className="block truncate text-[10px] text-slate">{customer.mobile || "No phone"}{customer.payment_frequency ? ` · ${customer.payment_frequency}` : ""}{customer.is_active === false ? " · Inactive" : ""}</span></span>{customer.id === value && <Check size={13} className="shrink-0 text-aqua" />}
+        </button>)}
+      </div>
+      <div className="border-t border-line bg-foam px-3 py-1.5 text-[10px] text-slate">↑↓ navigate · Enter select · Esc close</div>
+    </div>}
+    {error && <p className="mt-1 text-[11px] text-coral">{error}</p>}
+  </div>;
 }

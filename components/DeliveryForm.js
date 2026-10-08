@@ -1,17 +1,17 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Search, Droplets, BadgeDollarSign, RefreshCw } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Plus, Droplets, BadgeDollarSign, RefreshCw } from "lucide-react";
 import { createDelivery } from "@/app/actions";
 import { pkr } from "@/lib/format";
 import Toast from "@/components/Toast";
 import { useOfflineSubmit } from "@/lib/useOfflineSubmit";
 import { EntryFormActions, EntryFormHeader, EntrySection, EntrySummary, useUnsavedForm } from "@/components/ProfessionalEntryForm";
+import CustomerPicker from "@/components/smart-entry/CustomerPicker";
 
 export default function DeliveryForm({ customers, products, riders = [], currentUserId, initialCustomerId, initialOpen = false }) {
   const [open, setOpen] = useState(initialOpen);
   const [error, setError] = useState("");
   const [toast, setToast] = useState(null);
-  const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(null);
   const [productId, setProductId] = useState(products?.[0]?.id || "");
   const [requestId, setRequestId] = useState("");
@@ -29,27 +29,17 @@ export default function DeliveryForm({ customers, products, riders = [], current
     if (!c) return;
     setSelected(c);
     setRequestId(crypto.randomUUID());
-    setQuery(c.name);
     if (c.default_product_id) setProductId(c.default_product_id);
     setOpen(true);
   }, [initialCustomerId, customers]);
 
-  const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q || selected) return [];
-    return customers
-      .filter((c) => [c.code, c.name, c.mobile, c.zoneName, c.route].filter(Boolean).join(" ").toLowerCase().includes(q))
-      .slice(0, 8);
-  }, [query, customers, selected]);
-
-  const currentBottleBalance = Number(selected?.bottleBalancesByProduct?.[productId] ?? (selected?.default_product_id === productId ? selected?.bottleBalance : 0) ?? 0);
+  const currentBottleBalance = Number(selected?.bottleBalancesByProduct?.[productId] ?? (selected?.default_product_id === productId ? (selected?.bottleBalance ?? selected?.bottle_balance) : 0) ?? 0);
   const currentRate = Number(selected?.ratesByProduct?.[productId] ?? (selected?.default_product_id === productId ? selected?.rate : 0) ?? 0);
   const projectedBottleBalance = Math.max(0, currentBottleBalance + Number(deliveredQty || 0) - Number(returnedQty || 0));
   const maxReturn = currentBottleBalance + Number(deliveredQty || 0);
 
   const pickCustomer = (c) => {
     setSelected(c);
-    setQuery(c.name);
     setDeliveredQty(1);
     setReturnedQty(0);
     if (c.default_product_id) setProductId(c.default_product_id);
@@ -57,7 +47,6 @@ export default function DeliveryForm({ customers, products, riders = [], current
 
   const reset = () => {
     setSelected(null);
-    setQuery("");
     setProductId(products?.[0]?.id || "");
     setRequestId(crypto.randomUUID());
     setDeliveredQty(1);
@@ -99,28 +88,15 @@ export default function DeliveryForm({ customers, products, riders = [], current
             <EntrySection title="Customer & Main Information" description="Search by name, customer ID, phone, zone or route.">
             <label className="block mb-2 relative">
               <span className="text-xs font-semibold text-slate block mb-1">Customer *</span>
-              <div className="relative">
-                <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate" />
-                <input value={query} onChange={(e) => { setQuery(e.target.value); setSelected(null); }} placeholder="Search name, ID, phone, zone, route…" className="in pl-8" autoComplete="off" required />
-                <input type="hidden" name="customer_id" value={selected?.id || ""} required />
-              </div>
-              {matches.length > 0 && (
-                <div className="absolute z-10 top-full mt-1 left-0 right-0 bg-card border border-line rounded-xl shadow-lg max-h-56 overflow-y-auto">
-                  {matches.map((c) => (
-                    <div key={c.id} onClick={() => pickCustomer(c)} className="px-3 py-2 text-xs hover:bg-foam cursor-pointer flex justify-between gap-2">
-                      <span className="font-semibold truncate">{c.name}</span>
-                      <span className="text-slate flex-shrink-0">{c.mobile}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+              <CustomerPicker customers={customers} value={selected?.id || ""} onChange={() => {}} onSelect={pickCustomer} placeholder="Search name, ID, phone, building, flat, zone…" />
+              <input type="hidden" name="customer_id" value={selected?.id || ""} required />
             </label>
 
             {selected && (
               <div className="mb-4 rounded-2xl border border-line bg-foam/70 p-3 sm:col-span-2">
                 <div className="grid grid-cols-2 gap-2 text-[12px]">
                   <div><span className="text-slate">Customer ID</span><div className="font-semibold font-mono-num">{selected.code || "—"}</div></div>
-                  <div><span className="text-slate">Zone / Route</span><div className="font-semibold truncate">{selected.zoneName || "—"} · {selected.route || "—"}</div></div>
+                  <div><span className="text-slate">Zone / Route</span><div className="font-semibold truncate">{selected.zoneName || selected.zone_name || "—"} · {selected.route || "—"}</div></div>
                   <div className="rounded-xl border border-line bg-card p-2.5">
                     <div className="flex items-center gap-1.5 text-slate"><BadgeDollarSign size={13} /> Rate</div>
                     <div className="font-bold text-sm mt-1">{currentRate ? pkr(currentRate) : "Rate not configured"}</div>

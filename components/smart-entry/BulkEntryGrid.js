@@ -3,6 +3,7 @@ import { useMemo, useRef, useState } from "react";
 import { Plus, Copy, Trash2, Eraser, Upload, Download, Search, ArrowUpDown } from "lucide-react";
 import { FIELDS, BULK_COLUMNS, defaultPayload } from "./fieldConfig";
 import CustomerPicker from "./CustomerPicker";
+import SmartAutocomplete from "@/components/SmartAutocomplete";
 import Toast from "@/components/Toast";
 import { bulkSaveDraftSmartEntries, bulkSubmitSmartEntries } from "@/app/(app)/smart-entry/actions";
 
@@ -18,18 +19,13 @@ function newRow(entryType) {
   return { __rowId: (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Math.random())), entryId: null, status: "unsaved", payload: defaultPayload(entryType), errors: {} };
 }
 
-function Cell({ field, value, onChange, error, lookups }) {
+function Cell({ field, value, onChange, onCustomerSelect, error, lookups }) {
   if (field.type === "customer") {
-    return <CustomerPicker customers={lookups.customers} value={value} onChange={onChange} error={error} />;
+    return <CustomerPicker customers={lookups.customers} value={value} onChange={onChange} onSelect={onCustomerSelect} error={error} />;
   }
   if (field.type === "select") {
     const options = field.options || lookups[field.optionsKey] || [];
-    return (
-      <select value={value ?? ""} onChange={(e) => onChange(e.target.value)} className={`in !py-1.5 !text-xs ${error ? "border-coral" : ""}`}>
-        <option value="">—</option>
-        {options.map((o) => <option key={o.value || o.id} value={o.value || o.id}>{o.label || o.name}</option>)}
-      </select>
-    );
+    return <SmartAutocomplete options={options} value={value ?? ""} onChange={onChange} placeholder={`Search ${field.label.toLowerCase()}…`} labelKey={options.some((o) => o.label) ? "label" : "name"} error={error} />;
   }
   return (
     <input type={field.type === "number" ? "number" : field.type === "date" ? "date" : "text"} step="any"
@@ -79,6 +75,7 @@ export default function BulkEntryGrid({ entryType, lookups, onDone }) {
   }, [rows, search, sortBy, showFailedOnly, lookups]);
 
   const updateCell = (rowId, name, value) => setRows((rs) => rs.map((r) => (r.__rowId === rowId ? { ...r, payload: { ...r.payload, [name]: value }, errors: { ...r.errors, [name]: undefined } } : r)));
+  const autoFillCustomer = (rowId, customer) => setRows((current) => current.map((row) => row.__rowId === rowId ? { ...row, payload: { ...row.payload, customer_id: customer.id, product_id: row.payload.product_id || customer.default_product_id || "", unit_price: row.payload.unit_price || customer.rate || "", zone_id: row.payload.zone_id || customer.zone_id || "" }, errors: { ...row.errors, customer_id: undefined } } : row));
   const addRow = () => setRows((rs) => rs.length >= 100 ? rs : [...rs, newRow(entryType)]);
   const duplicateRow = (rowId) => setRows((rs) => { const r = rs.find((x) => x.__rowId === rowId); if (!r) return rs; return [...rs, { ...newRow(entryType), payload: { ...r.payload } }]; });
   const clearRow = (rowId) => setRows((rs) => rs.map((r) => (r.__rowId === rowId ? { ...newRow(entryType), __rowId: rowId } : r)));
@@ -224,7 +221,7 @@ export default function BulkEntryGrid({ entryType, lookups, onDone }) {
                       {locked ? (
                         <span className="text-[11px]">{c.type === "customer" ? customerName(row.payload[c.name]) : String(row.payload[c.name] ?? "—")}</span>
                       ) : (
-                        <Cell field={c} value={row.payload[c.name]} onChange={(v) => updateCell(row.__rowId, c.name, v)} error={row.errors?.[c.name]} lookups={lookups} />
+                        <Cell field={c} value={row.payload[c.name]} onChange={(v) => updateCell(row.__rowId, c.name, v)} onCustomerSelect={(customer) => autoFillCustomer(row.__rowId, customer)} error={row.errors?.[c.name]} lookups={lookups} />
                       )}
                       {row.errors?.[c.name] && <p className="text-coral text-[10px] mt-0.5">{row.errors[c.name]}</p>}
                     </td>

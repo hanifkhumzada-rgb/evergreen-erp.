@@ -3,6 +3,7 @@ import { useState, useRef, useEffect } from "react";
 import { Plus, X } from "lucide-react";
 import { createSale } from "@/app/actions";
 import Toast from "@/components/Toast";
+import CustomerPicker from "@/components/smart-entry/CustomerPicker";
 
 export default function AddSaleForm({ customers, products, initialCustomerId, initialOpen = false }) {
   const [open, setOpen] = useState(initialOpen);
@@ -10,6 +11,7 @@ export default function AddSaleForm({ customers, products, initialCustomerId, in
   const [toast, setToast] = useState(null);
   const [busy, setBusy] = useState(false);
   const [productId, setProductId] = useState(products?.[0]?.id || "");
+  const [customerId, setCustomerId] = useState(initialCustomerId || "");
   const formRef = useRef();
 
   // "Create Invoice" quick action elsewhere links here with ?customer=<id>
@@ -32,6 +34,7 @@ export default function AddSaleForm({ customers, products, initialCustomerId, in
       setOpen(false);
       formRef.current?.reset();
       setProductId(products?.[0]?.id || "");
+      setCustomerId("");
       setToast({ type: "success", message: "Sale saved & invoice generated." });
     } catch {
       setBusy(false);
@@ -41,8 +44,9 @@ export default function AddSaleForm({ customers, products, initialCustomerId, in
 
   // Picking a customer defaults the bottle size to whatever they're usually
   // billed for (Customer Master's default_product_id), staff can still change it.
-  const handleCustomerChange = (customerId) => {
-    const c = customers.find((x) => x.id === customerId);
+  const handleCustomerChange = (nextCustomerId, selectedCustomer) => {
+    setCustomerId(nextCustomerId);
+    const c = selectedCustomer || customers.find((x) => x.id === nextCustomerId);
     if (c?.default_product_id) setProductId(c.default_product_id);
   };
 
@@ -61,9 +65,8 @@ export default function AddSaleForm({ customers, products, initialCustomerId, in
             {error && <p className="text-coral text-xs mb-3">{error}</p>}
             <label className="block mb-3">
               <span className="text-xs font-semibold text-slate block mb-1">Customer</span>
-              <select name="customer_id" required defaultValue={initialCustomerId || undefined} className="in" onChange={(e) => handleCustomerChange(e.target.value)}>
-                {customers.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </select>
+              <CustomerPicker customers={customers} value={customerId} onChange={(id) => handleCustomerChange(id)} onSelect={(customer) => handleCustomerChange(customer.id, customer)} />
+              <input type="hidden" name="customer_id" value={customerId} required />
             </label>
             <label className="block mb-3">
               <span className="text-xs font-semibold text-slate block mb-1">Product / bottle size</span>

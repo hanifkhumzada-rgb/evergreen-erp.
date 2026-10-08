@@ -3,28 +3,36 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, Copy, Trash2, AlertTriangle, CheckCircle2, FileClock } from "lucide-react";
 import { FIELDS, defaultPayload } from "./fieldConfig";
 import CustomerPicker from "./CustomerPicker";
+import SmartAutocomplete from "@/components/SmartAutocomplete";
+import SpellingAssistInput from "@/components/SpellingAssistInput";
 import Toast from "@/components/Toast";
 import { createAndSubmitSmartEntry, saveDraftSmartEntry, updateAndRetrySmartEntry } from "@/app/(app)/smart-entry/actions";
 
-function Field({ field, value, onChange, error, lookups }) {
+const REMEMBER_KEYS = new Set(["zone_id", "payment_method", "method", "category_id", "product_id"]);
+function freshPayload(entryType) {
+  const base = defaultPayload(entryType);
+  if (typeof window === "undefined") return base;
+  for (const key of REMEMBER_KEYS) {
+    const remembered = localStorage.getItem(`ew-entry-default:${entryType}:${key}`);
+    if (remembered && key in base) base[key] = remembered;
+  }
+  return base;
+}
+
+function Field({ field, value, onChange, onCustomerSelect, error, lookups }) {
   const common = { value: value ?? "", onChange: (e) => onChange(field.name, e.target.value) };
   if (field.type === "customer") {
-    return <CustomerPicker customers={lookups.customers} value={value} onChange={(id) => onChange(field.name, id)} error={error} />;
+    return <CustomerPicker customers={lookups.customers} value={value} onChange={(id) => onChange(field.name, id)} onSelect={onCustomerSelect} error={error} />;
   }
   if (field.type === "select") {
     const options = field.options || lookups[field.optionsKey] || [];
-    return (
-      <select {...common} className={`in ${error ? "border-coral" : ""}`}>
-        <option value="">— select —</option>
-        {options.map((o) => <option key={o.value || o.id} value={o.value || o.id}>{o.label || o.name}</option>)}
-      </select>
-    );
+    return <SmartAutocomplete options={options} value={value} onChange={(next) => onChange(field.name, next)} placeholder={`Search ${field.label.toLowerCase()}…`} labelKey={options.some((o) => o.label) ? "label" : "name"} error={error} />;
   }
   if (field.type === "textarea") return <textarea {...common} rows={2} className={`in ${error ? "border-coral" : ""}`} />;
   if (field.type === "number") return <input type="number" step="any" min={field.min} max={field.max} {...common} className={`in ${error ? "border-coral" : ""}`} />;
   if (field.type === "date") return <input type="date" {...common} className={`in ${error ? "border-coral" : ""}`} />;
   if (field.type === "month") return <input type="month" {...common} onChange={(e) => onChange(field.name, e.target.value ? `${e.target.value}-01` : "")} className={`in ${error ? "border-coral" : ""}`} />;
-  return <input type="text" {...common} className={`in ${error ? "border-coral" : ""}`} />;
+  return <SpellingAssistInput value={value} onChange={(next) => onChange(field.name, next)} className={`in ${error ? "border-coral" : ""}`} />;
 }
 
 function ItemsField({ field, value, onChange, lookups }) {
@@ -45,10 +53,7 @@ function ItemsField({ field, value, onChange, lookups }) {
               {field.itemFields.map((f) => (
                 <td key={f.name} className="px-2 py-1.5">
                   {f.type === "select" ? (
-                    <select value={row[f.name] || ""} onChange={(e) => updateRow(i, f.name, e.target.value)} className="in !py-1 !text-xs">
-                      <option value="">—</option>
-                      {(lookups[f.optionsKey] || []).map((o) => <option key={o.value || o.id} value={o.value || o.id}>{o.label || o.name}</option>)}
-                    </select>
+                    <SmartAutocomplete options={lookups[f.optionsKey] || []} value={row[f.name] || ""} onChange={(next) => updateRow(i, f.name, next)} placeholder={`Search ${f.label.toLowerCase()}…`} />
                   ) : (
                     <input type={f.type === "number" ? "number" : "text"} step="any" value={row[f.name] ?? ""} onChange={(e) => updateRow(i, f.name, e.target.value)} className="in !py-1 !text-xs" />
                   )}
@@ -69,7 +74,7 @@ function ItemsField({ field, value, onChange, lookups }) {
 
 export default function SingleEntryForm({ entryType, lookups, editEntry, onDone }) {
   const fields = FIELDS[entryType] || [];
-  const [payload, setPayload] = useState(() => (editEntry ? { ...defaultPayload(entryType), ...editEntry.payload } : defaultPayload(entryType)));
+  const [payload, setPayload] = useState(() => (editEntry ? { ...freshPayload(entryType), ...editEntry.payload } : freshPayload(entryType)));
   const [errors, setErrors] = useState(editEntry?.validation_errors || {});
   const [warnings, setWarnings] = useState([]);
   const [busy, setBusy] = useState(false);
@@ -77,11 +82,22 @@ export default function SingleEntryForm({ entryType, lookups, editEntry, onDone 
   const [idempotencyKey] = useState(() => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()));
 
   useEffect(() => {
-    setPayload(editEntry ? { ...defaultPayload(entryType), ...editEntry.payload } : defaultPayload(entryType));
+    setPayload(editEntry ? { ...freshPayload(entryType), ...editEntry.payload } : freshPayload(entryType));
     setErrors(editEntry?.validation_errors || {});
   }, [entryType, editEntry]);
 
-  const update = (name, value) => { setPayload((p) => ({ ...p, [name]: value })); setErrors((e) => (e[name] ? { ...e, [name]: undefined } : e)); };
+  const update = (name, value) => {
+    setPayload((p) => ({ ...p, [name]: value }));
+    setErrors((e) => (e[name] ? { ...e, [name]: undefined } : e));
+    if (REMEMBER_KEYS.has(name) && value && typeof window !== "undefined") localStorage.setItem(`ew-entry-default:${entryType}:${name}`, value);
+  };
+  const autoFillCustomer = (customer) => setPayload((current) => ({
+    ...current,
+    customer_id: customer.id,
+    product_id: current.product_id || customer.default_product_id || "",
+    unit_price: current.unit_price || customer.rate || "",
+    zone_id: current.zone_id || customer.zone_id || "",
+  }));
 
   const visibleFields = useMemo(() => fields.filter((f) => !f.showIf || f.showIf(payload)), [fields, payload]);
   const summary = useMemo(() => {
@@ -123,12 +139,12 @@ export default function SingleEntryForm({ entryType, lookups, editEntry, onDone 
     } else {
       setToast({ type: "success", message: `${entry.entry_no} posted successfully.` });
     }
-    setPayload(defaultPayload(entryType));
+    setPayload(freshPayload(entryType));
     setErrors({});
     onDone?.(entry);
   };
 
-  const clearForm = () => { setPayload(defaultPayload(entryType)); setErrors({}); setWarnings([]); };
+  const clearForm = () => { setPayload(freshPayload(entryType)); setErrors({}); setWarnings([]); };
 
   return (
     <div className="erp-entry-form rounded-2xl p-5">
@@ -148,7 +164,7 @@ export default function SingleEntryForm({ entryType, lookups, editEntry, onDone 
             <span className="text-xs font-semibold text-slate block mb-1">{f.label}{f.required && <span className="text-coral"> *</span>}</span>
             {f.type === "items"
               ? <ItemsField field={f} value={payload[f.name]} onChange={update} lookups={lookups} />
-              : <Field field={f} value={payload[f.name]} onChange={update} error={errors[f.name]} lookups={lookups} />}
+              : <Field field={f} value={payload[f.name]} onChange={update} onCustomerSelect={autoFillCustomer} error={errors[f.name]} lookups={lookups} />}
             {errors[f.name] && f.type !== "customer" && <p className="text-coral text-[11px] mt-1">{errors[f.name]}</p>}
           </label>
         ))}

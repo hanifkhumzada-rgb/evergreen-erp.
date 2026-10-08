@@ -5,11 +5,13 @@ import { createPayment } from "@/app/actions";
 import Toast from "@/components/Toast";
 import { useOfflineSubmit } from "@/lib/useOfflineSubmit";
 import { EntryFormActions, EntryFormHeader, EntrySection, EntrySummary, useUnsavedForm } from "@/components/ProfessionalEntryForm";
+import CustomerPicker from "@/components/smart-entry/CustomerPicker";
 
 export default function AddPaymentForm({ customers, collectors = [], initialCustomerId, initialOpen = false }) {
   const [open, setOpen] = useState(initialOpen);
   const [toast, setToast] = useState(null);
   const [customerId, setCustomerId] = useState(initialCustomerId || "");
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
   const formRef = useRef();
   const { submit, busy } = useOfflineSubmit("payment", createPayment, {
     label: (payload) => `Payment — ${customers.find((c) => c.id === payload.customer_id)?.name || "Customer"}`,
@@ -22,7 +24,7 @@ export default function AddPaymentForm({ customers, collectors = [], initialCust
     if (initialCustomerId) { setOpen(true); setCustomerId(initialCustomerId); }
   }, [initialCustomerId]);
 
-  const selected = useMemo(() => customers.find((c) => c.id === customerId), [customers, customerId]);
+  const selected = useMemo(() => selectedCustomer || customers.find((c) => c.id === customerId), [customers, customerId, selectedCustomer]);
 
   const handleSubmit = async (formData) => {
     const saveAndNew = formData.get("submit_intent") === "save_new";
@@ -33,6 +35,7 @@ export default function AddPaymentForm({ customers, collectors = [], initialCust
       setOpen(saveAndNew);
       formRef.current?.reset();
       setCustomerId("");
+      setSelectedCustomer(null);
       setToast({ type: "success", message: res?.offline ? "Saved offline — will sync when back online." : saveAndNew ? "Payment recorded. Ready for the next receipt." : "Payment recorded." });
     } catch {
       setToast({ type: "error", message: "Something went wrong — please try again." });
@@ -47,10 +50,8 @@ export default function AddPaymentForm({ customers, collectors = [], initialCust
             <EntryFormHeader title="Record Payment" subtitle="Customer receipt and ledger posting" status="New" onClose={() => unsaved.requestClose(() => setOpen(false))} onRefresh={() => formRef.current?.reset()} actions={[{ label: "Clear form", onClick: () => formRef.current?.reset() }]} />
             <EntrySection title="Main Information" description="Select the customer and receipt details.">
             <label className="block mb-1"><span className="text-xs font-semibold text-slate block mb-1">Customer</span>
-              <select name="customer_id" required value={customerId} onChange={(e) => setCustomerId(e.target.value)} className="in">
-                <option value="" disabled>— select —</option>
-                {customers.map((c) => <option key={c.id} value={c.id}>{c.name} — outstanding {Math.round(c.balance || 0)}</option>)}
-              </select>
+              <CustomerPicker customers={customers} value={customerId} onChange={setCustomerId} onSelect={setSelectedCustomer} />
+              <input type="hidden" name="customer_id" value={customerId} required />
             </label>
             {selected?.frequency && <p className="text-[11px] text-slate mb-3">Billing frequency: <strong className="text-ink">{selected.frequency}</strong></p>}
             <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Amount (PKR)</span><input name="amount" type="number" required className="in" /></label>

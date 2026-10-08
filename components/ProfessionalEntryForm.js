@@ -69,11 +69,12 @@ export function EntrySummary({ items }) {
   return <section className="erp-form-summary">{items.map((item) => <div key={item.label}><span>{item.label}</span><strong className={item.tone || ""}>{item.value}</strong></div>)}</section>;
 }
 
-export function EntryFormActions({ busy, primaryLabel, onCancel, allowSaveAndNew = true }) {
+export function EntryFormActions({ busy, primaryLabel, onCancel, allowSaveAndNew = true, allowSaveAndView = false }) {
   return (
     <div className="erp-form-actions sticky -bottom-5 sm:-bottom-6 z-20 -mx-5 sm:-mx-6 -mb-5 sm:-mb-6 mt-5 flex flex-wrap justify-end gap-2 border-t border-line bg-card/95 px-5 sm:px-6 py-3 backdrop-blur">
       <button type="button" onClick={onCancel} disabled={busy} className="rounded-xl px-4 py-2.5 text-xs font-bold text-slate hover:bg-foam">Cancel</button>
       {allowSaveAndNew && <button type="submit" name="submit_intent" value="save_new" disabled={busy} className="rounded-xl border border-aqua px-4 py-2.5 text-xs font-bold text-aqua disabled:opacity-50">Save &amp; New</button>}
+      {allowSaveAndView && <button type="submit" name="submit_intent" value="save_view" disabled={busy} className="rounded-xl border border-navy/20 px-4 py-2.5 text-xs font-bold text-navy disabled:opacity-50">Save &amp; View</button>}
       <button type="submit" name="submit_intent" value="save" disabled={busy} className="inline-flex min-w-32 items-center justify-center gap-2 rounded-xl bg-aqua px-4 py-2.5 text-xs font-bold text-white shadow-sm disabled:opacity-50">
         {busy ? <RefreshCw size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}{busy ? "Saving…" : primaryLabel}
       </button>

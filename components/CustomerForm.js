@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Plus, Pencil, AlertTriangle } from "lucide-react";
 import { createCustomer, updateCustomer, checkDuplicateCustomer } from "@/app/actions";
 import Toast from "@/components/Toast";
@@ -29,6 +30,7 @@ export default function CustomerForm({ mode = "create", customer, zones, product
   const [busy, setBusy] = useState(false);
   const [duplicates, setDuplicates] = useState(null); // { matches, formData } while the Cancel/Use Existing/Create Anyway dialog is open
   const formRef = useRef();
+  const router = useRouter();
   const c = customer || {};
   const unsaved = useUnsavedForm(open);
 
@@ -54,12 +56,19 @@ export default function CustomerForm({ mode = "create", customer, zones, product
   // crash.
   const saveCustomer = async (formData) => {
     const saveAndNew = mode === "create" && formData.get("submit_intent") === "save_new";
+    const saveAndView = mode === "create" && formData.get("submit_intent") === "save_view";
     setBusy(true);
     try {
       const res = mode === "edit" ? await updateCustomer(c.id, formData) : await createCustomer(formData);
       setBusy(false);
       if (res?.error) { setError(res.error); return; }
       unsaved.resetDirty();
+      if (saveAndView && res.id) {
+        setDuplicates(null);
+        setOpen(false);
+        router.push(`/customers/${res.id}`);
+        return;
+      }
       setOpen(saveAndNew);
       setDuplicates(null);
       if (mode === "create") formRef.current?.reset();
@@ -75,7 +84,7 @@ export default function CustomerForm({ mode = "create", customer, zones, product
     if (mode === "create") {
       setBusy(true);
       try {
-        const duplicateResult = await checkDuplicateCustomer(formData.get("phone"), formData.get("name"));
+        const duplicateResult = await checkDuplicateCustomer(formData.get("phone"), formData.get("name"), formData.get("building"));
         setBusy(false);
         if (duplicateResult?.error) { setError(duplicateResult.error); return; }
         const { matches } = duplicateResult;
@@ -243,7 +252,7 @@ export default function CustomerForm({ mode = "create", customer, zones, product
             </Section>
 
             <EntrySummary items={[{ label: "Customer ID", value: c.code || "Auto-generated" }, { label: "Customer Type", value: c.customer_type || "Home" }, { label: "Status", value: c.status || "Active" }, { label: "Posting", value: "Customer Master" }]} />
-            <EntryFormActions busy={busy} primaryLabel={mode === "edit" ? "Save Changes" : "Save Customer"} allowSaveAndNew={mode === "create"} onCancel={() => unsaved.requestClose(() => setOpen(false))} />
+            <EntryFormActions busy={busy} primaryLabel={mode === "edit" ? "Save Changes" : "Save Customer"} allowSaveAndNew={mode === "create"} allowSaveAndView={mode === "create"} onCancel={() => unsaved.requestClose(() => setOpen(false))} />
           </form>
         </div>
       )}

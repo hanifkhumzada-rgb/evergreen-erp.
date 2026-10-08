@@ -17,6 +17,22 @@ async function requireUser() {
   return { supabase, user };
 }
 
+// Shared by every customer autocomplete. The database function is
+// SECURITY INVOKER, tenant-scoped by RLS and returns at most 12 verified
+// rows; entry screens no longer need a full customer-table request for
+// every keystroke.
+export async function searchCustomerSuggestions(query, limit = 12) {
+  const { supabase } = await requireUser();
+  const term = String(query || "").trim().slice(0, 80);
+  if (term.length < 1) return { rows: [] };
+  const { data, error } = await supabase.rpc("fn_customer_autocomplete", {
+    p_query: term,
+    p_limit: Math.min(Math.max(Number(limit) || 12, 1), 20),
+  });
+  if (error) return { error: error.message, rows: [] };
+  return { rows: data || [] };
+}
+
 async function getUserBusinessId(supabase, userId) {
   const { data } = await supabase.from("profiles").select("business_id").eq("id", userId).maybeSingle();
   return data?.business_id || null;
@@ -248,30 +264,37 @@ function customerFinancialsFromForm(formData) {
 // exact case-insensitive name match (with a different number, e.g. a
 // second line) is a softer signal — both are returned so the UI can offer
 // Cancel / Use Existing / Create Anyway rather than silently blocking.
-export async function checkDuplicateCustomer(mobile, name) {
+export async function checkDuplicateCustomer(mobile, name, building = "") {
   const { supabase } = await requireUser();
   const trimmedMobile = (mobile || "").toString().trim();
   const trimmedName = (name || "").toString().trim();
+  const trimmedBuilding = (building || "").toString().trim();
   if (!trimmedMobile && !trimmedName) return { matches: [] };
 
   const [mobileResult, nameResult] = await Promise.all([
-    trimmedMobile
-      ? supabase.from("customers").select("id, code, name, mobile, area, status").eq("mobile", trimmedMobile).limit(5)
-      : Promise.resolve({ data: [], error: null }),
-    trimmedName
-      ? supabase.from("customers").select("id, code, name, mobile, area, status").ilike("name", trimmedName).limit(5)
-      : Promise.resolve({ data: [], error: null }),
+    trimmedMobile ? supabase.rpc("fn_customer_autocomplete", { p_query: trimmedMobile, p_limit: 8 }) : Promise.resolve({ data: [], error: null }),
+    trimmedName ? supabase.rpc("fn_customer_autocomplete", { p_query: trimmedName, p_limit: 8 }) : Promise.resolve({ data: [], error: null }),
   ]);
   const queryError = mobileResult.error || nameResult.error;
   if (queryError) return { error: queryError.message, matches: [] };
   const byId = new Map();
   [...(mobileResult.data || []), ...(nameResult.data || [])].forEach((row) => byId.set(row.id, row));
-  const data = [...byId.values()].slice(0, 5);
+  const normalize = (value) => String(value || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const digits = (value) => String(value || "").replace(/\D/g, "").slice(-10);
+  const phoneKey = digits(trimmedMobile);
+  const nameKey = normalize(trimmedName);
+  const buildingKey = normalize(trimmedBuilding);
+  const data = [...byId.values()].filter((row) => {
+    if (phoneKey && digits(row.mobile) === phoneKey) return true;
+    const sameName = nameKey && normalize(row.name) === nameKey;
+    const sameBuilding = !buildingKey || normalize(row.building || row.address).includes(buildingKey);
+    return sameName && sameBuilding;
+  }).slice(0, 5);
 
   return {
     matches: (data || []).map((c) => ({
       ...c,
-      matchReason: c.mobile === trimmedMobile ? "mobile" : "name",
+      matchReason: phoneKey && digits(c.mobile) === phoneKey ? "mobile" : buildingKey ? "name + building" : "name",
     })),
   };
 }
