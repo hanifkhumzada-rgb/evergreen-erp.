@@ -6,14 +6,20 @@
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#F4FAF8",
-  "theme_color": "#073B3A",
+  "background_color": "#EAF6FB",
+  "theme_color": "#103B64",
   "orientation": "portrait-primary",
   "icons": [
     {
       "src": "/ew-mark.svg",
       "sizes": "any",
       "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png",
       "purpose": "any"
     },
     {

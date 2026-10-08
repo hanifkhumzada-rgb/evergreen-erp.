@@ -1,0 +1,9 @@
+<svg width="720" height="180" viewBox="0 0 720 180" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="180" height="180" rx="45" fill="#103B64"/>
+  <path d="M20 61H88V78H41V88H83V105H41V116H90V133H20V61Z" fill="white"/>
+  <path d="M82 61H104L115 102L126 69H144L155 102L165 61H180L161 133H142L133 107L124 133H104L82 61Z" fill="white"/>
+  <path d="M141 18C125 37 118 49 118 61C118 75 128 85 141 85C153 85 164 75 164 61C164 49 156 37 141 18Z" fill="#00A6C8"/>
+  <path d="M128 60C130 68 134 72 142 73" stroke="white" stroke-width="5" stroke-linecap="round"/>
+  <text x="215" y="92" fill="#103B64" font-family="Inter,Arial,sans-serif" font-size="48" font-weight="700">Evergreen Water</text>
+  <text x="216" y="125" fill="#087DA8" font-family="Inter,Arial,sans-serif" font-size="17" font-weight="600" letter-spacing="2">PURE WATER · SMART SERVICE</text>
+</svg>

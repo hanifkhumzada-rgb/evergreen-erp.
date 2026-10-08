@@ -65,7 +65,7 @@ export function DocumentPrintFooter() {
     setGenerated(new Date().toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }));
   }, []);
   return (
-    <div className="hidden print:flex mt-6 items-center justify-between rounded-lg bg-[#073B3A] px-4 py-2" style={PRINT_EXACT}>
+    <div className="hidden print:flex mt-6 items-center justify-between rounded-lg bg-[#103B64] px-4 py-2" style={PRINT_EXACT}>
       <p className="text-[8px] font-bold text-[#9EF0D0]">{generated ? `Generated ${generated}` : "Generated when printed"}</p>
       <p className="text-[7.5px] text-[#D7EFEC]">Computer-generated document · does not require a signature unless noted</p>
     </div>

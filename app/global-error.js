@@ -22,7 +22,7 @@ export default function GlobalError({ error, reset }) {
             {error?.digest && <p style={{ fontSize: 11, color: "#5C7D78", marginBottom: 20 }}>Reference: {error.digest}</p>}
             <button type="button"
               onClick={() => reset()}
-              style={{ padding: "10px 20px", borderRadius: 12, background: "#059669", color: "#fff", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer" }}
+              style={{ padding: "10px 20px", borderRadius: 12, background: "#00A6C8", color: "#fff", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer" }}
             >
               Try again
             </button>
