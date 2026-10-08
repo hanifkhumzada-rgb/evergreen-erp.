@@ -160,7 +160,7 @@ function NavList({ entries, pathname, unreadNotifications, onNavigate }) {
           if (entry.type === "link") {
             const Icon = entry.icon;
             const active = pathname.startsWith(entry.href);
-            return <Link key={entry.href} href={entry.href} onClick={onNavigate} aria-current={active ? "page" : undefined} className={`erp-sidebar-link ${active ? "erp-sidebar-link-active" : ""}`}><Icon size={16} strokeWidth={2} /><span className="flex-1">{entry.label}</span></Link>;
+            return <Link key={entry.href} href={entry.href} onClick={onNavigate} aria-current={active ? "page" : undefined} className={`erp-sidebar-link ${active ? "erp-sidebar-link-active" : ""}`}><Icon size={18} strokeWidth={2.2} /><span className="flex-1">{entry.label}</span></Link>;
           }
           const active = isEntryActive(entry, pathname);
           const expanded = Boolean(query.trim()) || opened.has(entry.key);
@@ -168,12 +168,12 @@ function NavList({ entries, pathname, unreadNotifications, onNavigate }) {
           return (
             <div key={entry.key} className="mt-1.5">
               <button type="button" aria-expanded={expanded} onClick={() => setOpened(prev => { const next = new Set(prev); if (next.has(entry.key)) next.delete(entry.key); else next.add(entry.key); return next; })} className={`erp-sidebar-group ${active ? "is-active" : ""}`}>
-                <GroupIcon size={15} /><span className="flex-1 text-left">{entry.label}</span><ChevronDown size={14} className={`transition-transform ${expanded ? "rotate-180" : ""}`} />
+                <GroupIcon size={18} strokeWidth={2.2} /><span className="flex-1 text-left">{entry.label}</span><ChevronDown size={14} className={`transition-transform ${expanded ? "rotate-180" : ""}`} />
               </button>
               {expanded && <div className="erp-sidebar-subnav flex flex-col gap-0.5">{entry.items.map((item) => {
                 const Icon = item.icon;
                 const itemActive = pathname.startsWith(item.href);
-                return <Link key={item.href} href={item.href} onClick={onNavigate} aria-current={itemActive ? "page" : undefined} className={`erp-sidebar-link ${itemActive ? "erp-sidebar-link-active" : ""}`}><Icon size={15} strokeWidth={2} /><span className="flex-1">{item.label}</span>{item.href === "/notifications" && <NotifBadge count={unreadNotifications} />}</Link>;
+                return <Link key={item.href} href={item.href} onClick={onNavigate} aria-current={itemActive ? "page" : undefined} className={`erp-sidebar-link ${itemActive ? "erp-sidebar-link-active" : ""}`}><Icon size={16} strokeWidth={2.2} /><span className="flex-1">{item.label}</span>{item.href === "/notifications" && <NotifBadge count={unreadNotifications} />}</Link>;
               })}</div>}
             </div>
           );
