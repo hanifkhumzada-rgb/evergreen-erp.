@@ -13,17 +13,22 @@ export default async function DeliveryCorrectionsPage({ searchParams }) {
   const sp = (await searchParams) || {};
   const q = (sp.q || "").trim();
   const month = /^\d{4}-\d{2}$/.test(sp.month || "") ? sp.month : new Date().toISOString().slice(0, 7);
-  const from = `${month}-01`;
-  const untilDate = new Date(`${from}T00:00:00Z`);
+  const monthStart = `${month}-01`;
+  const untilDate = new Date(`${monthStart}T00:00:00Z`);
   untilDate.setUTCMonth(untilDate.getUTCMonth() + 1);
-  const until = untilDate.toISOString().slice(0, 10);
+  const monthUntil = untilDate.toISOString().slice(0, 10);
+  const from = /^\d{4}-\d{2}-\d{2}$/.test(sp.from || "") ? sp.from : monthStart;
+  const to = /^\d{4}-\d{2}-\d{2}$/.test(sp.to || "") ? sp.to : null;
 
   const { supabase, profile, permissions } = await getCurrentProfile();
-  const { data: deliveries } = await supabase.from("deliveries")
+  let deliveryQuery = supabase.from("deliveries")
     .select("id, delivery_no, delivery_date, status, amount, amount_collected, rider_remarks, customers(id,name,code,mobile), profiles!deliveries_rider_id_fkey(full_name), delivery_items(product_id,delivered_qty,returned_qty,unit_price,products(name,sku))")
-    .gte("delivery_date", from).lt("delivery_date", until)
-    .in("status", ["delivered", "partially_delivered"])
-    .order("delivery_date", { ascending: false }).limit(1000);
+    .gte("delivery_date", from)
+    .in("status", ["delivered", "partially_delivered"]);
+  deliveryQuery = to
+    ? deliveryQuery.lte("delivery_date", to)
+    : deliveryQuery.lt("delivery_date", monthUntil);
+  const { data: deliveries } = await deliveryQuery.order("delivery_date", { ascending: false }).limit(1000);
 
   const canEdit = (permissions || []).includes("deliveries.edit") && profile?.roles?.key === "owner";
   const rows = (deliveries || []).filter((d) => {
@@ -38,7 +43,7 @@ export default async function DeliveryCorrectionsPage({ searchParams }) {
     </div>
 
     <div className="no-print flex flex-wrap gap-2.5 mb-4 items-start">
-      <ListFilterBar className="!mb-0" placeholder="Search customer, ID, phone, delivery no…" dateFilters={[{ name: "month", label: "Month", type: "month" }]} />
+      <ListFilterBar className="!mb-0" placeholder="Search customer, ID, phone, delivery no…" defaults={{ month }} dateFilters={[{ name: "month", label: "Month", type: "month" }, { name: "from", label: "From" }, { name: "to", label: "To" }]} />
       <div className="flex-1" />
       <DocumentActionBar
         print

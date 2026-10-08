@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, X, Loader2 } from "lucide-react";
+import { Search, X, Loader2, CalendarDays, SlidersHorizontal } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
@@ -20,7 +20,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 //   dateFilters   [{ name, label, type? }] date inputs (type "month" for a month picker)
 //   pageParam     URL param holding the page number (default "page")
 export default function ListFilterBar({
-  searchParam = "q", placeholder = "Search…", filters = [], dateFilters = [], pageParam = "page", className = "",
+  searchParam = "q", placeholder = "Search…", filters = [], dateFilters = [], pageParam = "page", className = "", quickDates = true, defaults = {},
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -58,11 +58,32 @@ export default function ListFilterBar({
 
   const managed = [searchParam, ...filters.map((f) => f.name), ...dateFilters.map((f) => f.name)].filter(Boolean);
   const hasActive = managed.some((k) => searchParams.get(k));
+  const monthFilter = dateFilters.find((f) => f.type === "month");
+  const selectedMonth = monthFilter ? (searchParams.get(monthFilter.name) || defaults[monthFilter.name] || "") : "";
+  const monthLabel = selectedMonth && /^\d{4}-\d{2}$/.test(selectedMonth)
+    ? new Intl.DateTimeFormat("en-PK", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${selectedMonth}-01T00:00:00Z`))
+    : null;
+  const fromFilter = dateFilters.find((f) => f.name === "from");
+  const toFilter = dateFilters.find((f) => f.name === "to");
+  const showQuickDates = quickDates && fromFilter && toFilter;
+  const iso = (date) => date.toISOString().slice(0, 10);
+  const setQuickRange = (kind) => {
+    const now = new Date();
+    let from = new Date(now); let to = new Date(now);
+    if (kind === "last7") from.setDate(now.getDate() - 6);
+    if (kind === "month") { from = new Date(now.getFullYear(), now.getMonth(), 1); to = new Date(now.getFullYear(), now.getMonth() + 1, 0); }
+    apply({ [fromFilter.name]: iso(from), [toFilter.name]: iso(to), ...(monthFilter ? { [monthFilter.name]: "" } : {}) });
+  };
 
   return (
-    <div className={`no-print mb-4 flex flex-wrap items-center gap-2.5 ${className}`} role="search">
+    <div className={`no-print mb-4 rounded-2xl border border-line bg-card p-3 shadow-sm ${className}`} role="search">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[.14em] text-slate"><SlidersHorizontal size={13} /> Search &amp; filters</span>
+        {monthLabel ? <span className="inline-flex items-center gap-1.5 rounded-full bg-aquaSoft px-2.5 py-1 text-[11px] font-bold text-navy"><CalendarDays size={13}/>{monthLabel}</span> : null}
+      </div>
+      <div className="flex flex-wrap items-center gap-2.5">
       {searchParam && (
-        <div className="relative w-full sm:w-72">
+        <div className="relative w-full sm:min-w-[300px] sm:flex-1">
           {pending
             ? <Loader2 size={16} aria-hidden="true" className="absolute left-3 top-1/2 -translate-y-1/2 animate-spin text-aqua" />
             : <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate" />}
@@ -84,25 +105,31 @@ export default function ListFilterBar({
         </div>
       )}
       {filters.map((f) => (
-        <select key={f.name} aria-label={f.label} value={searchParams.get(f.name) || ""} onChange={(e) => apply({ [f.name]: e.target.value })}
+        <select key={f.name} aria-label={f.label} value={searchParams.get(f.name) || defaults[f.name] || ""} onChange={(e) => apply({ [f.name]: e.target.value })}
           className="min-h-[38px] rounded-xl border border-line bg-card px-3 py-2 text-xs">
           <option value="">{f.label}</option>
           {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       ))}
       {dateFilters.map((f) => (
-        <label key={f.name} className="flex items-center gap-1.5 text-xs text-slate">
-          {f.label}
-          <input type={f.type || "date"} value={searchParams.get(f.name) || ""} onChange={(e) => apply({ [f.name]: e.target.value })}
-            className="min-h-[38px] rounded-xl border border-line bg-card px-3 py-2 text-xs text-ink" />
+        <label key={f.name} className={`flex items-center gap-1.5 text-xs text-slate ${f.type === "month" ? "min-w-[210px]" : ""}`}>
+          <span className="shrink-0 font-semibold">{f.label}</span>
+          <input type={f.type || "date"} value={searchParams.get(f.name) || defaults[f.name] || ""} onChange={(e) => apply({ [f.name]: e.target.value })}
+            className="min-h-[38px] min-w-0 flex-1 rounded-xl border border-line bg-white px-3 py-2 text-xs font-semibold text-ink" />
         </label>
       ))}
+      {showQuickDates ? <div className="flex w-full flex-wrap items-center gap-1.5 border-t border-line pt-2 sm:w-auto sm:border-l sm:border-t-0 sm:pl-2 sm:pt-0">
+        <button type="button" onClick={() => setQuickRange("today")} className="rounded-lg px-2.5 py-2 text-[11px] font-semibold text-slate hover:bg-aquaSoft hover:text-aqua">Today</button>
+        <button type="button" onClick={() => setQuickRange("last7")} className="rounded-lg px-2.5 py-2 text-[11px] font-semibold text-slate hover:bg-aquaSoft hover:text-aqua">Last 7 Days</button>
+        <button type="button" onClick={() => setQuickRange("month")} className="rounded-lg px-2.5 py-2 text-[11px] font-semibold text-slate hover:bg-aquaSoft hover:text-aqua">This Month</button>
+      </div> : null}
       {hasActive && (
         <button type="button" onClick={() => { setQuery(""); lastApplied.current = ""; apply(Object.fromEntries(managed.map((k) => [k, ""]))); }}
           className="min-h-[38px] rounded-xl px-2 text-xs text-slate hover:text-aqua">
           Clear filters
         </button>
       )}
+      </div>
     </div>
   );
 }

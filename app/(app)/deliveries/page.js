@@ -250,10 +250,11 @@ export default async function DeliveriesPage({ searchParams }) {
   const fromDate = sp.from || "";
   const toDate = sp.to || "";
   const historyRider = sp.hrider || "";
-  const historyQuery = (sp.hq || "").trim().toLowerCase();
+  // One module-wide search drives both today's route cards and history.
+  const historyQuery = q;
   const allRows = (deliveries || []);
   const historyRows = allRows.filter((d) => {
-    if (historyQuery && !`${d.customers?.name || ""} ${d.customers?.code || ""} ${d.customers?.mobile || ""}`.toLowerCase().includes(historyQuery)) return false;
+    if (historyQuery && !`${d.delivery_no || ""} ${d.customers?.name || ""} ${d.customers?.code || ""} ${d.customers?.mobile || ""}`.toLowerCase().includes(historyQuery)) return false;
     if (statusFilter && d.status !== statusFilter) return false;
     if (historyRider && d.rider_id !== historyRider) return false;
     if (fromDate && d.delivery_date < fromDate) return false;
@@ -320,7 +321,7 @@ export default async function DeliveriesPage({ searchParams }) {
       </div>
 
       <ListFilterBar
-        placeholder="Search today's customers: name, ID, phone…"
+        placeholder="Search deliveries by customer, ID, phone or reference…"
         filters={[
           { name: "zone", label: "All zones", options: (zones || []).map((z) => ({ value: z.id, label: z.name })) },
           { name: "route", label: "All routes", options: (routes || []).map((r) => ({ value: r.id, label: r.name })) },
@@ -392,9 +393,8 @@ export default async function DeliveriesPage({ searchParams }) {
           <div className="erp-toolbar no-print flex flex-wrap gap-2.5 mb-3 items-start">
             <ListFilterBar
               className="!mb-0"
-              searchParam="hq"
+              searchParam={null}
               pageParam="hpage"
-              placeholder="Search history: customer name, ID, phone…"
               filters={[
                 { name: "hrider", label: "All delivery boys", options: (riders || []).map((r) => ({ value: r.id, label: r.full_name })) },
                 { name: "status", label: "All statuses", options: [["delivered", "Delivered"], ["pending", "Pending"], ["missed", "Missed"], ["rescheduled", "Rescheduled"], ["cancelled", "Cancelled"], ["void", "Voided"]].map(([value, label]) => ({ value, label })) },
