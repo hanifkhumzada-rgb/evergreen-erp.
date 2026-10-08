@@ -127,13 +127,17 @@ export async function requestPortalOtp(customerCode, customerName, mobile) {
     });
   } catch {}
 
-  // Temporary owner-approved testing mode: the customer ID + registered
-  // mobile match above is used to start the isolated Supabase customer
-  // session while SMS is unavailable. Remove this fallback when Twilio
-  // goes live so OTP becomes mandatory again.
+  // A passwordless testing fallback is disabled by default. It can only be
+  // enabled deliberately in a non-production environment; missing Twilio
+  // credentials must never silently weaken production portal authentication.
   if (!configured) {
-    const session = await startPortalSession(admin, customerId);
-    return session.ok ? { ...session, testingMode: true } : session;
+    const allowVerifiedTestLogin = process.env.NODE_ENV !== "production"
+      && process.env.PORTAL_ALLOW_VERIFIED_TEST_LOGIN === "true";
+    if (allowVerifiedTestLogin) {
+      const session = await startPortalSession(admin, customerId);
+      return session.ok ? { ...session, testingMode: true } : session;
+    }
+    return { ok: false, error: "SMS verification is temporarily unavailable. Please contact Evergreen Water." };
   }
   if (!sendResult.ok) return { ok: false, error: "Couldn't send the verification code. Please try again shortly." };
   return { ok: true };
