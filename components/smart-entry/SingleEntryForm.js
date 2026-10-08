@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Trash2, AlertTriangle } from "lucide-react";
+import { Plus, Copy, Trash2, AlertTriangle, CheckCircle2, FileClock } from "lucide-react";
 import { FIELDS, defaultPayload } from "./fieldConfig";
 import CustomerPicker from "./CustomerPicker";
 import Toast from "@/components/Toast";
@@ -31,11 +31,14 @@ function ItemsField({ field, value, onChange, lookups }) {
   const rows = value?.length ? value : [];
   const addRow = () => onChange(field.name, [...rows, {}]);
   const removeRow = (i) => onChange(field.name, rows.filter((_, idx) => idx !== i));
+  const duplicateRow = (i) => onChange(field.name, [...rows.slice(0, i + 1), { ...rows[i] }, ...rows.slice(i + 1)]);
   const updateRow = (i, key, v) => onChange(field.name, rows.map((r, idx) => (idx === i ? { ...r, [key]: v } : r)));
+  const rowAmount = (row) => (Number(row.quantity || 0) * Number(row.rate || 0)) - Number(row.discount || 0);
+  const total = rows.reduce((sum, row) => sum + rowAmount(row), 0);
   return (
     <div className="rounded-xl border border-line overflow-x-auto">
       <table className="w-full text-xs border-collapse min-w-[480px]">
-        <thead><tr className="bg-foam">{field.itemFields.map((f) => <th key={f.name} className="text-left px-2 py-1.5 font-semibold text-slate">{f.label}</th>)}<th className="w-8" /></tr></thead>
+        <thead><tr className="bg-foam">{field.itemFields.map((f) => <th key={f.name} className="text-left px-2 py-1.5 font-semibold text-slate">{f.label}</th>)}<th className="px-2 text-right font-semibold text-slate">Amount</th><th className="w-16" /></tr></thead>
         <tbody>
           {rows.map((row, i) => (
             <tr key={i} className="border-t border-line">
@@ -51,11 +54,13 @@ function ItemsField({ field, value, onChange, lookups }) {
                   )}
                 </td>
               ))}
-              <td><button type="button" onClick={() => removeRow(i)}><Trash2 size={13} className="text-coral" /></button></td>
+              <td className="px-2 text-right font-bold">{rowAmount(row).toLocaleString()}</td>
+              <td><div className="flex gap-2"><button type="button" title="Duplicate row" onClick={() => duplicateRow(i)}><Copy size={13} className="text-slate" /></button><button type="button" title="Remove row" onClick={() => removeRow(i)}><Trash2 size={13} className="text-coral" /></button></div></td>
             </tr>
           ))}
-          {rows.length === 0 && <tr><td colSpan={field.itemFields.length + 1} className="text-center py-3 text-slate">No items yet.</td></tr>}
+          {rows.length === 0 && <tr><td colSpan={field.itemFields.length + 2} className="text-center py-3 text-slate">No items yet.</td></tr>}
         </tbody>
+        {rows.length > 0 && <tfoot><tr className="border-t border-line bg-foam"><td colSpan={field.itemFields.length} className="px-2 py-2 text-right font-bold text-slate">Grand Total</td><td className="px-2 py-2 text-right font-extrabold">PKR {total.toLocaleString()}</td><td /></tr></tfoot>}
       </table>
       <button type="button" onClick={addRow} className="flex items-center gap-1 px-2 py-1.5 text-[11px] font-semibold text-aqua"><Plus size={12} /> Add item</button>
     </div>
@@ -79,6 +84,16 @@ export default function SingleEntryForm({ entryType, lookups, editEntry, onDone 
   const update = (name, value) => { setPayload((p) => ({ ...p, [name]: value })); setErrors((e) => (e[name] ? { ...e, [name]: undefined } : e)); };
 
   const visibleFields = useMemo(() => fields.filter((f) => !f.showIf || f.showIf(payload)), [fields, payload]);
+  const summary = useMemo(() => {
+    const itemTotal = (payload.items || []).reduce((sum, row) => sum + (Number(row.quantity || 0) * Number(row.rate || 0)) - Number(row.discount || 0), 0);
+    if (entryType === "delivery") return [{ label: "Amount", value: `PKR ${(Number(payload.delivered_qty || 0) * Number(payload.unit_price || 0)).toLocaleString()}` }, { label: "Issued", value: payload.delivered_qty || 0 }, { label: "Empty Return", value: payload.empty_received || 0 }];
+    if (entryType === "payment") return [{ label: "Payment", value: `PKR ${Number(payload.amount || 0).toLocaleString()}` }, { label: "Mode", value: payload.method || "—" }];
+    if (entryType === "expense") return [{ label: "Expense", value: `PKR ${Number(payload.amount || 0).toLocaleString()}` }, { label: "Posting", value: "Expense Ledger" }];
+    if (entryType === "bottle") return [{ label: "Net Movement", value: Number(payload.delivered_qty || 0) - Number(payload.returned_qty || 0) + Number(payload.adjustment_qty || 0) }, { label: "Damaged / Lost", value: Number(payload.damaged_qty || 0) + Number(payload.lost_qty || 0) }];
+    if (entryType === "employee_salary") return [{ label: "Net Payable", value: `PKR ${Number(payload.net_paid || 0).toLocaleString()}` }, { label: "Period", value: payload.period_month || "—" }];
+    if (payload.items) return [{ label: "Lines", value: payload.items.length }, { label: "Subtotal", value: `PKR ${itemTotal.toLocaleString()}` }, { label: "Grand Total", value: `PKR ${Math.max(0, itemTotal - Number(payload.discount || 0) + Number(payload.tax || 0)).toLocaleString()}` }];
+    return [{ label: "Status", value: editEntry ? "Edit & Retry" : "Unsaved" }, { label: "Audit", value: "User + Date + Time" }];
+  }, [entryType, payload, editEntry]);
 
   const handleSaveDraft = async () => {
     setBusy(true);
@@ -116,7 +131,11 @@ export default function SingleEntryForm({ entryType, lookups, editEntry, onDone 
   const clearForm = () => { setPayload(defaultPayload(entryType)); setErrors({}); setWarnings([]); };
 
   return (
-    <div className="rounded-2xl border border-line bg-card p-5">
+    <div className="erp-entry-form rounded-2xl p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 border-b border-line pb-4">
+        <div><h3 className="font-display text-base font-semibold">{FIELDS[entryType] ? entryType.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "Smart Entry"}</h3><p className="text-[11px] text-slate">Single transaction entry · related modules update after valid posting</p></div>
+        <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold uppercase ${editEntry ? "bg-amberSoft text-amber" : "bg-aquaSoft text-aqua"}`}>{editEntry ? "Edit & Retry" : "New"}</span>
+      </div>
       {warnings.length > 0 && (
         <div className="mb-4 rounded-xl border border-amber/40 bg-amberSoft p-3 text-xs text-amber flex gap-2">
           <AlertTriangle size={15} className="flex-shrink-0 mt-0.5" />
@@ -134,12 +153,13 @@ export default function SingleEntryForm({ entryType, lookups, editEntry, onDone 
           </label>
         ))}
       </div>
+      <div className="erp-form-summary">{summary.map((item) => <div key={item.label}><span>{item.label}</span><strong>{item.value}</strong></div>)}</div>
       <div className="flex flex-wrap gap-2 mt-5">
         <button type="button" disabled={busy} onClick={handleSubmit} className="px-4 py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">
-          {busy ? "Saving…" : editEntry ? "Save & Retry" : "Submit"}
+          <span className="inline-flex items-center gap-1.5">{editEntry ? <CheckCircle2 size={14} /> : <CheckCircle2 size={14} />}{busy ? "Saving…" : editEntry ? "Save & Retry" : "Submit"}</span>
         </button>
         {!editEntry && (
-          <button type="button" disabled={busy} onClick={handleSaveDraft} className="px-4 py-2.5 rounded-xl border border-line font-semibold text-sm disabled:opacity-60">Save Draft</button>
+          <button type="button" disabled={busy} onClick={handleSaveDraft} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-line font-semibold text-sm disabled:opacity-60"><FileClock size={14} /> Save Draft</button>
         )}
         <button type="button" disabled={busy} onClick={clearForm} className="px-4 py-2.5 rounded-xl text-slate font-semibold text-sm">Clear</button>
       </div>

@@ -482,6 +482,18 @@ table tr.hover\:bg-foam:hover {
 }
 
 /* Dashboard and Customer workspace v3 — staff-only responsive structure. */
+
+/* Shared enterprise entry forms: compact, consistent and theme-aware. */
+.erp-entry-form { background: var(--card); border: 1px solid var(--line); box-shadow: 0 24px 70px rgb(5 42 57 / 18%); }
+.erp-form-icon { display: grid; width: 2.25rem; height: 2.25rem; flex: 0 0 auto; place-items: center; border: 1px solid var(--line); border-radius: .75rem; color: var(--slate); background: var(--card); transition: .15s ease; }
+.erp-form-icon:hover { color: var(--aqua); background: var(--aqua-soft); border-color: color-mix(in srgb, var(--aqua) 35%, var(--line)); }
+.erp-form-section { margin-bottom: .85rem; border: 1px solid var(--line); border-radius: .9rem; background: color-mix(in srgb, var(--card) 82%, var(--foam)); padding: .9rem; }
+.erp-form-summary { display: grid; grid-template-columns: repeat(auto-fit,minmax(120px,1fr)); gap: .5rem; margin-top: .75rem; border-radius: .9rem; background: var(--navy); color: white; padding: .85rem 1rem; }
+.erp-form-summary div { display: flex; flex-direction: column; gap: .15rem; }
+.erp-form-summary span { color: rgb(255 255 255 / 68%); font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+.erp-form-summary strong { font-size: .9rem; }
+.erp-entry-form .in:focus { border-color: var(--aqua); box-shadow: 0 0 0 3px color-mix(in srgb, var(--aqua) 14%, transparent); }
+@media (max-width: 639px) { .erp-entry-form { border-radius: 1.15rem 1.15rem 0 0; } .erp-form-actions { padding-bottom: calc(.75rem + env(safe-area-inset-bottom)); } }
 .app-shell-bg .dashboard-section-tabs {
   display: flex;
   gap: 6px;

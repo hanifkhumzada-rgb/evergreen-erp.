@@ -1,10 +1,11 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, X, Search, Droplets, BadgeDollarSign, RefreshCw } from "lucide-react";
+import { Plus, Search, Droplets, BadgeDollarSign, RefreshCw } from "lucide-react";
 import { createDelivery } from "@/app/actions";
 import { pkr } from "@/lib/format";
 import Toast from "@/components/Toast";
 import { useOfflineSubmit } from "@/lib/useOfflineSubmit";
+import { EntryFormActions, EntryFormHeader, EntrySection, EntrySummary, useUnsavedForm } from "@/components/ProfessionalEntryForm";
 
 export default function DeliveryForm({ customers, products, riders = [], currentUserId, initialCustomerId, initialOpen = false }) {
   const [open, setOpen] = useState(initialOpen);
@@ -20,6 +21,7 @@ export default function DeliveryForm({ customers, products, riders = [], current
   const { submit, busy } = useOfflineSubmit("delivery", createDelivery, {
     label: (payload) => `Delivery — ${customers.find((c) => c.id === payload.customer_id)?.name || "customer"}`,
   });
+  const unsaved = useUnsavedForm(open);
 
   useEffect(() => {
     if (!initialCustomerId) return;
@@ -64,6 +66,7 @@ export default function DeliveryForm({ customers, products, riders = [], current
   };
 
   const handleSubmit = async (formData) => {
+    const saveAndNew = formData.get("submit_intent") === "save_new";
     setError("");
     if (Number(returnedQty || 0) > maxReturn) {
       setError(`Empty return cannot exceed ${maxReturn} bottles currently available with this customer.`);
@@ -72,9 +75,10 @@ export default function DeliveryForm({ customers, products, riders = [], current
     try {
       const res = await submit(formData);
       if (res?.error) { setError(res.error); return; }
-      setOpen(false);
+      unsaved.resetDirty();
+      setOpen(saveAndNew);
       reset();
-      setToast({ type: "success", message: res?.offline ? "Delivery saved offline — it will sync automatically when internet returns." : "Delivery recorded and bottle balance updated." });
+      setToast({ type: "success", message: res?.offline ? "Delivery saved offline — it will sync automatically when internet returns." : saveAndNew ? "Delivery recorded. Ready for the next delivery." : "Delivery recorded and bottle balance updated." });
     } catch {
       setError("Could not save this delivery. Please try again.");
     }
@@ -86,18 +90,13 @@ export default function DeliveryForm({ customers, products, riders = [], current
         <Plus size={15} /> New Delivery
       </button>
       {open && (
-        <div className="fixed inset-0 bg-navy/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => { setOpen(false); reset(); }}>
-          <form ref={formRef} action={handleSubmit} onClick={(e) => e.stopPropagation()} className="bg-card rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 max-w-lg w-full max-h-[92vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <div>
-                <h3 className="font-display text-lg font-semibold">New Delivery</h3>
-                <p className="text-[11px] text-slate mt-0.5">Customer, bottles, rate and payment frequency stay linked to the live customer record.</p>
-              </div>
-              <button type="button" onClick={() => { setOpen(false); reset(); }}><X size={18} /></button>
-            </div>
+        <div className="fixed inset-0 bg-navy/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => unsaved.requestClose(() => { setOpen(false); reset(); })}>
+          <form ref={formRef} action={handleSubmit} onChange={unsaved.markDirty} onClick={(e) => e.stopPropagation()} className="erp-entry-form rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 max-w-3xl w-full max-h-[94vh] overflow-y-auto">
+            <EntryFormHeader title="New Delivery" subtitle="Customer, bottles, billing and rider posting" status="New" reference={requestId ? `Ref ${requestId.slice(0, 8).toUpperCase()}` : undefined} onClose={() => unsaved.requestClose(() => { setOpen(false); reset(); })} onRefresh={reset} actions={[{ label: "Clear form", onClick: reset }]} />
             {error && <p className="text-coral text-xs mb-3 rounded-lg bg-coralSoft px-3 py-2">{error}</p>}
             <input type="hidden" name="request_id" value={requestId} />
 
+            <EntrySection title="Customer & Main Information" description="Search by name, customer ID, phone, zone or route.">
             <label className="block mb-2 relative">
               <span className="text-xs font-semibold text-slate block mb-1">Customer *</span>
               <div className="relative">
@@ -118,7 +117,7 @@ export default function DeliveryForm({ customers, products, riders = [], current
             </label>
 
             {selected && (
-              <div className="mb-4 rounded-2xl border border-line bg-foam/70 p-3">
+              <div className="mb-4 rounded-2xl border border-line bg-foam/70 p-3 sm:col-span-2">
                 <div className="grid grid-cols-2 gap-2 text-[12px]">
                   <div><span className="text-slate">Customer ID</span><div className="font-semibold font-mono-num">{selected.code || "—"}</div></div>
                   <div><span className="text-slate">Zone / Route</span><div className="font-semibold truncate">{selected.zoneName || "—"} · {selected.route || "—"}</div></div>
@@ -137,7 +136,9 @@ export default function DeliveryForm({ customers, products, riders = [], current
                 </div>
               </div>
             )}
+            </EntrySection>
 
+            <EntrySection title="Delivery & Bottle Details" description="Quantity, rate and bottle movement calculate automatically.">
             <label className="block mb-3">
               <span className="text-xs font-semibold text-slate block mb-1">Bottle size *</span>
               <select name="product_id" required className="in" value={productId} onChange={(e) => { setProductId(e.target.value); setReturnedQty(0); }}>
@@ -171,7 +172,9 @@ export default function DeliveryForm({ customers, products, riders = [], current
                 <div className="mt-1 text-xl font-extrabold text-aqua">{selected ? projectedBottleBalance : "—"}</div>
               </div>
             </div>
+            </EntrySection>
 
+            <EntrySection title="Collection & Assignment" description="Optional cash collection posts with the delivery.">
             <div className="grid grid-cols-2 gap-3 mb-3">
               <label className="block">
                 <span className="text-xs font-semibold text-slate block mb-1">Cash collected (optional)</span>
@@ -190,14 +193,14 @@ export default function DeliveryForm({ customers, products, riders = [], current
                 {riders.map((r) => <option key={r.id} value={r.id}>{r.full_name}</option>)}
               </select>
             </label>
+            </EntrySection>
 
             <div className="mb-3 rounded-xl border border-line bg-foam/60 px-3 py-2 text-[11px] text-slate">
               Saving this delivery automatically updates the customer bottle balance, bottle inventory movement, delivery history and customer outstanding/collection.
             </div>
 
-            <button type="submit" disabled={busy || !selected || !productId} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">
-              {busy ? "Saving…" : "Save Delivery"}
-            </button>
+            <EntrySummary items={[{ label: "Delivery Amount", value: selected ? pkr(currentRate * Number(deliveredQty || 0)) : "—" }, { label: "Bottles Issued", value: selected ? String(deliveredQty || 0) : "—" }, { label: "Empty Returned", value: selected ? String(returnedQty || 0) : "—" }, { label: "New Bottle Balance", value: selected ? String(projectedBottleBalance) : "—" }]} />
+            <EntryFormActions busy={busy || !selected || !productId} primaryLabel="Save Delivery" onCancel={() => unsaved.requestClose(() => { setOpen(false); reset(); })} />
           </form>
         </div>
       )}

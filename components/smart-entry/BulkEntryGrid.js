@@ -79,7 +79,7 @@ export default function BulkEntryGrid({ entryType, lookups, onDone }) {
   }, [rows, search, sortBy, showFailedOnly, lookups]);
 
   const updateCell = (rowId, name, value) => setRows((rs) => rs.map((r) => (r.__rowId === rowId ? { ...r, payload: { ...r.payload, [name]: value }, errors: { ...r.errors, [name]: undefined } } : r)));
-  const addRow = () => setRows((rs) => [...rs, newRow(entryType)]);
+  const addRow = () => setRows((rs) => rs.length >= 100 ? rs : [...rs, newRow(entryType)]);
   const duplicateRow = (rowId) => setRows((rs) => { const r = rs.find((x) => x.__rowId === rowId); if (!r) return rs; return [...rs, { ...newRow(entryType), payload: { ...r.payload } }]; });
   const clearRow = (rowId) => setRows((rs) => rs.map((r) => (r.__rowId === rowId ? { ...newRow(entryType), __rowId: rowId } : r)));
   const removeRow = (rowId) => setRows((rs) => rs.filter((r) => r.__rowId !== rowId || r.status !== "unsaved"));
@@ -135,6 +135,27 @@ export default function BulkEntryGrid({ entryType, lookups, onDone }) {
     e.target.value = "";
   };
 
+  const handleGridPaste = (event) => {
+    const text = event.clipboardData?.getData("text/plain")?.trim();
+    if (!text || !text.includes("\t")) return;
+    event.preventDefault();
+    const pasted = text.split(/\r?\n/).filter(Boolean).slice(0, 100).map((line) => {
+      const values = line.split("\t");
+      const payload = defaultPayload(entryType);
+      columns.forEach((col, index) => {
+        const raw = values[index] ?? "";
+        if (col.type === "customer") {
+          const normalized = String(raw).trim().toLowerCase();
+          const match = lookups.customers.find((c) => c.code?.toLowerCase() === normalized || c.mobile === String(raw).trim() || c.name.toLowerCase() === normalized);
+          payload[col.name] = match?.id || "";
+        } else payload[col.name] = raw;
+      });
+      return { ...newRow(entryType), payload };
+    });
+    setRows((current) => [...current.filter((row) => row.status !== "unsaved" || Object.values(row.payload).some(Boolean)), ...pasted].slice(0, 100));
+    setToast({ type: "success", message: `Pasted ${pasted.length} rows from Excel.` });
+  };
+
   const downloadErrorRows = async () => {
     const failedRows = rows.filter((r) => r.status === "failed");
     if (failedRows.length === 0) { setToast({ type: "error", message: "No failed rows to export." }); return; }
@@ -177,7 +198,7 @@ export default function BulkEntryGrid({ entryType, lookups, onDone }) {
         </label>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-line">
+      <div className="overflow-x-auto rounded-xl border border-line" onPaste={handleGridPaste} title="Paste tab-separated rows directly from Excel">
         <table className="w-full text-xs border-collapse min-w-[900px]">
           <thead className="sticky top-0 z-10">
             <tr className="bg-foam">

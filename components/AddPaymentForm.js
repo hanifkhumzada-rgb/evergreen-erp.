@@ -1,9 +1,10 @@
 "use client";
 import { useState, useRef, useEffect, useMemo } from "react";
-import { Plus, X } from "lucide-react";
+import { Plus } from "lucide-react";
 import { createPayment } from "@/app/actions";
 import Toast from "@/components/Toast";
 import { useOfflineSubmit } from "@/lib/useOfflineSubmit";
+import { EntryFormActions, EntryFormHeader, EntrySection, EntrySummary, useUnsavedForm } from "@/components/ProfessionalEntryForm";
 
 export default function AddPaymentForm({ customers, collectors = [], initialCustomerId, initialOpen = false }) {
   const [open, setOpen] = useState(initialOpen);
@@ -13,6 +14,7 @@ export default function AddPaymentForm({ customers, collectors = [], initialCust
   const { submit, busy } = useOfflineSubmit("payment", createPayment, {
     label: (payload) => `Payment — ${customers.find((c) => c.id === payload.customer_id)?.name || "Customer"}`,
   });
+  const unsaved = useUnsavedForm(open);
 
   // "Collect Payment" quick action elsewhere links here with ?customer=<id>
   // — open pre-selected instead of making the caller duplicate this form.
@@ -23,12 +25,15 @@ export default function AddPaymentForm({ customers, collectors = [], initialCust
   const selected = useMemo(() => customers.find((c) => c.id === customerId), [customers, customerId]);
 
   const handleSubmit = async (formData) => {
+    const saveAndNew = formData.get("submit_intent") === "save_new";
     try {
       const res = await submit(formData);
       if (res?.error) { setToast({ type: "error", message: res.error }); return; }
-      setOpen(false);
+      unsaved.resetDirty();
+      setOpen(saveAndNew);
       formRef.current?.reset();
-      setToast({ type: "success", message: res?.offline ? "Saved offline — will sync when back online." : "Payment recorded." });
+      setCustomerId("");
+      setToast({ type: "success", message: res?.offline ? "Saved offline — will sync when back online." : saveAndNew ? "Payment recorded. Ready for the next receipt." : "Payment recorded." });
     } catch {
       setToast({ type: "error", message: "Something went wrong — please try again." });
     }
@@ -37,9 +42,10 @@ export default function AddPaymentForm({ customers, collectors = [], initialCust
     <>
       <button type="button" onClick={() => setOpen(true)} className="no-print flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-navy text-white text-xs font-semibold"><Plus size={15} /> Collect Payment</button>
       {open && (
-        <div className="fixed inset-0 bg-navy/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setOpen(false)}>
-          <form ref={formRef} action={handleSubmit} onClick={(e) => e.stopPropagation()} className="bg-card rounded-t-2xl sm:rounded-2xl p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4"><h3 className="font-display text-lg font-semibold">Collect Payment</h3><button type="button" onClick={() => setOpen(false)}><X size={18} /></button></div>
+        <div className="fixed inset-0 bg-navy/40 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => unsaved.requestClose(() => setOpen(false))}>
+          <form ref={formRef} action={handleSubmit} onChange={unsaved.markDirty} onClick={(e) => e.stopPropagation()} className="erp-entry-form rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 max-w-2xl w-full max-h-[94vh] overflow-y-auto">
+            <EntryFormHeader title="Record Payment" subtitle="Customer receipt and ledger posting" status="New" onClose={() => unsaved.requestClose(() => setOpen(false))} onRefresh={() => formRef.current?.reset()} actions={[{ label: "Clear form", onClick: () => formRef.current?.reset() }]} />
+            <EntrySection title="Main Information" description="Select the customer and receipt details.">
             <label className="block mb-1"><span className="text-xs font-semibold text-slate block mb-1">Customer</span>
               <select name="customer_id" required value={customerId} onChange={(e) => setCustomerId(e.target.value)} className="in">
                 <option value="" disabled>— select —</option>
@@ -48,8 +54,10 @@ export default function AddPaymentForm({ customers, collectors = [], initialCust
             </label>
             {selected?.frequency && <p className="text-[11px] text-slate mb-3">Billing frequency: <strong className="text-ink">{selected.frequency}</strong></p>}
             <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Amount (PKR)</span><input name="amount" type="number" required className="in" /></label>
+            </EntrySection>
+            <EntrySection title="Payment Details" description="Use the actual receipt or transaction reference where available.">
             <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Method</span>
-              <select name="method" className="in"><option>Cash</option><option>Bank Transfer</option><option>JazzCash</option><option>Easypaisa</option></select>
+              <select name="method" className="in"><option>Cash</option><option>Bank Transfer</option><option>Easypaisa</option><option>JazzCash</option><option>Other</option></select>
             </label>
             <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Collected by *</span>
               <select name="collector_id" required defaultValue="" className="in">
@@ -63,7 +71,9 @@ export default function AddPaymentForm({ customers, collectors = [], initialCust
             <label className="block mb-4"><span className="text-xs font-semibold text-slate block mb-1">Notes (optional)</span>
               <input name="notes" className="in" placeholder="Remarks" />
             </label>
-            <button type="submit" disabled={busy} className="w-full py-2.5 rounded-xl bg-aqua text-white font-bold text-sm disabled:opacity-60">{busy ? "Saving…" : "Save Payment"}</button>
+            </EntrySection>
+            <EntrySummary items={[{ label: "Current Outstanding", value: selected ? `PKR ${Math.round(selected.balance || 0).toLocaleString()}` : "Select customer" }, { label: "Posting", value: "Ledger + Receipt" }, { label: "Bank Sync", value: "Manual / Reference" }]} />
+            <EntryFormActions busy={busy} primaryLabel="Save Payment" onCancel={() => unsaved.requestClose(() => setOpen(false))} />
           </form>
         </div>
       )}
