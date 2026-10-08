@@ -511,15 +511,16 @@ html[data-theme="blue"] .topbar-branded .topbar-dot { box-shadow: 0 0 0 2px #fff
 .app-shell-bg tbody tr {
   transition: background-color .14s ease;
 }
-.app-shell-bg thead:not(.bg-navy) th {
+.app-shell-bg thead:not(.bg-navy) tr:not(.bg-navy) th {
   color: var(--slate);
   font-weight: 700;
   letter-spacing: .01em;
 }
-html[data-theme="blue"] .app-shell-bg thead:not(.bg-navy),
-html[data-theme="blue"] .app-shell-bg thead:not(.bg-navy) tr { background: #DFE7F2; }
-html[data-theme="blue"] .app-shell-bg thead:not(.bg-navy) th { color: #0B2C66; font-weight: 700; }
-.app-shell-bg tbody tr:nth-child(even) {
+html[data-theme="blue"] .app-shell-bg thead:not(.bg-navy) tr:not(.bg-navy) { background: #DFE7F2; }
+html[data-theme="blue"] .app-shell-bg thead:not(.bg-navy) tr:not(.bg-navy) th { color: #0B2C66; font-weight: 700; }
+/* Zebra rows only where the row has no background of its own (selected,
+   subtotal or highlighted rows keep their color). */
+.app-shell-bg tbody tr:nth-child(even):not([class^="bg-"]):not([class*=" bg-"]) {
   background: var(--row-alt);
 }
 .app-shell-bg tbody tr:hover {
@@ -791,11 +792,13 @@ html[data-theme="blue"] .app-shell-bg thead:not(.bg-navy) th { color: #0B2C66; f
 /* ==========================================================================
    Typography + layout polish (all themes)
    ========================================================================== */
-/* The shell never scrolls sideways; wide tables scroll inside their card. */
+/* The ERP never scrolls sideways; wide tables scroll inside their card. */
 .app-shell-bg { overflow-x: clip; }
+html:has(.app-shell-bg), html:has(.app-shell-bg) body { overflow-x: clip; }
+/* Weight only — color is inherited so headings on dark heroes stay white. */
 .app-shell-bg .page-stage h1,
-.app-shell-bg .page-stage h2.font-display { color: var(--ink); font-weight: 700; }
-.app-shell-bg .page-stage label > span.text-xs { font-size: 12.5px; color: var(--slate); }
+.app-shell-bg .page-stage h2.font-display { font-weight: 700; }
+.app-shell-bg .page-stage label > span.text-xs { font-size: 12.5px; }
 /* Modal backdrops: dim + soften the page behind every entry form. */
 .fixed.inset-0.bg-navy\/40,
 .fixed.inset-0.bg-navy\/50 { backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }

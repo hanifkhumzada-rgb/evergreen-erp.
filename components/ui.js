@@ -126,7 +126,7 @@ export function KPI({ label, value, sub, tone = "navy", trend, href }) {
     slate: "bg-card border border-line border-t-2 border-t-slate",
   }[tone];
   const TrendIcon = trend?.direction === "up" ? ArrowUp : trend?.direction === "down" ? ArrowDown : Minus;
-  const trendColor = trend?.favorable === null || trend?.favorable === undefined ? "text-slate" : trend.favorable ? "text-green" : "text-coral";
+  const trendColor = tone === "navy" ? "text-white/85" : trend?.favorable === null || trend?.favorable === undefined ? "text-slate" : trend.favorable ? "text-green" : "text-coral";
   const card = (
     <div className={`premium-kpi card-lift rounded-2xl p-5 flex-1 min-w-[180px] ${style} ${href ? "cursor-pointer" : ""}`}>
       <div className={`text-[11px] font-semibold uppercase tracking-wide ${tone === "navy" ? "text-white/75" : "text-slate"}`}>{label}</div>
