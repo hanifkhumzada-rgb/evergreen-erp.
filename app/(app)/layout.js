@@ -14,6 +14,7 @@ import WorkspaceIdentity from "@/components/WorkspaceIdentity";
 import ErpAppearance from "@/components/ErpAppearance";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import LiveUsers from "@/components/LiveUsers";
+import ErpRefreshButton from "@/components/ErpRefreshButton";
 
 export default async function AppLayout({ children }) {
   const { user, profile, roleKey, permissions: effectivePermissions, unreadNotifications } = await getCurrentProfile();
@@ -61,6 +62,7 @@ export default async function AppLayout({ children }) {
             <StaffLocationTracker />
           </div>
           <div className="flex items-center gap-4">
+            <ErpRefreshButton />
             <OfflineIndicator />
             <div className="topbar-search flex items-center gap-2 rounded-xl px-2 py-1"><Command size={13} className="topbar-muted hidden md:block" /><GlobalSearch /></div>
             <LiveUsers
