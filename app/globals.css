@@ -70,17 +70,17 @@
 
 /* EW Ocean Blue — recommended premium business theme */
 html[data-theme="blue"] {
-  --rgb-navy: 16 59 100;        /* #103B64 Deep Navy */
-  --rgb-navy-light: 21 79 128;  /* #154F80 */
-  --rgb-accent: 8 125 168;      /* #087DA8 Ocean Blue */
-  --rgb-accent-soft: 224 243 249;
+  --rgb-navy: 11 45 79;         /* #0B2D4F Deep Navy */
+  --rgb-navy-light: 19 64 107;  /* #13406B */
+  --rgb-accent: 10 110 153;     /* #0A6E99 Ocean Blue */
+  --rgb-accent-soft: 221 239 247;
   --rgb-highlight: 0 166 200;   /* #00A6C8 Aqua Accent */
-  --rgb-primary: 8 125 168;     /* primary actions in Ocean Blue */
-  --rgb-foam: 234 246 251;      /* #EAF6FB Ice Blue */
+  --rgb-primary: 10 110 153;    /* primary actions in Ocean Blue */
+  --rgb-foam: 232 242 249;      /* #E8F2F9 Ice Blue */
   --rgb-card: 255 255 255;
-  --rgb-ink: 23 50 77;          /* #17324D */
-  --rgb-slate: 100 116 139;     /* #64748B */
-  --rgb-line: 220 232 240;      /* #DCE8F0 */
+  --rgb-ink: 20 44 69;          /* #142C45 */
+  --rgb-slate: 94 110 132;      /* #5E6E84 */
+  --rgb-line: 213 227 238;      /* #D5E3EE */
   --rgb-mist: 238 243 248;
   --rgb-amber: 217 144 33;      /* #D99021 */
   --rgb-amber-soft: 253 243 225;
@@ -88,37 +88,37 @@ html[data-theme="blue"] {
   --rgb-coral-soft: 252 232 234;
   --rgb-green: 22 133 104;      /* #168568 */
   --rgb-green-soft: 225 244 238;
-  --accent-text: #06698E;
-  --row-alt: #F7FBFD;
+  --accent-text: #075C82;
+  --row-alt: #F5F9FC;
 
-  --sb-bg: #103B64;
+  --sb-bg: linear-gradient(180deg, #0B2D4F 0%, #0A2846 100%);
   --sb-border: rgba(255,255,255,.07);
-  --sb-text: #D3E2F0;
-  --sb-muted: #93AECB;
-  --sb-heading: #8FB0CE;
+  --sb-text: #CFDDEC;
+  --sb-muted: #8EA9C6;
+  --sb-heading: #87A6C6;
   --sb-hover: rgba(255,255,255,.07);
-  --sb-active-bg: rgba(0,166,200,.18);
+  --sb-active-bg: rgba(0,166,200,.2);
   --sb-active-text: #FFFFFF;
   --sb-active-bar: #00A6C8;
   --sb-input-bg: rgba(255,255,255,.06);
 
   --tb-bg: #FFFFFF;
-  --tb-text: #17324D;
-  --tb-muted: #64748B;
-  --tb-control-bg: #F5FAFD;
-  --tb-control-border: #DCE8F0;
-  --tb-hover-bg: #EAF6FB;
-  --tb-hover-text: #087DA8;
-  --tb-border: #DCE8F0;
-  --tb-shadow: 0 1px 2px rgba(16,59,100,.04), 0 6px 20px rgba(16,59,100,.05);
+  --tb-text: #142C45;
+  --tb-muted: #5E6E84;
+  --tb-control-bg: #F3F8FC;
+  --tb-control-border: #D5E3EE;
+  --tb-hover-bg: #E8F2F9;
+  --tb-hover-text: #0A6E99;
+  --tb-border: #D5E3EE;
+  --tb-shadow: 0 1px 0 #D5E3EE, 0 6px 20px rgba(11,45,79,.06);
 
-  --hero-bg: linear-gradient(110deg, #103B64 0%, #0F4F7E 100%);
-  --hero-border: #1D5486;
+  --hero-bg: linear-gradient(110deg, #0B2D4F 0%, #0E4673 100%);
+  --hero-border: #174A78;
   --hero-label: #9FDCEC;
   --hero-sub: #D6E8F4;
 
   --surface-raised: rgba(255,255,255,.88);
-  --navy-rgb: 16,59,100;
+  --navy-rgb: 11,45,79;
   color-scheme: light;
 }
 
@@ -166,7 +166,7 @@ html.dark {
 html[data-theme="blue"] .text-amber { color: #9A5E0A; }
 html[data-theme="blue"] .text-coral { color: #B8323E; }
 html[data-theme="blue"] .text-green { color: #10705A; }
-html[data-theme="blue"] .bg-aquaSoft.text-aqua { color: #06698E; }
+html[data-theme="blue"] .bg-aquaSoft.text-aqua { color: #075C82; }
 
 body {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
