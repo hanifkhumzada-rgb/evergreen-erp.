@@ -22,6 +22,7 @@ import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components
 export const dynamic = "force-dynamic";
 
 const HISTORY_PAGE_SIZE = 100;
+const TODAY_PAGE_SIZE = 30;
 const HISTORY_COLUMNS = "id, delivery_no, customer_id, rider_id, delivery_date, status, amount, amount_collected, rider_remarks, void_reason, created_at, updated_at, customers(name, code, mobile, zone_id), profiles!deliveries_rider_id_fkey(id, full_name), creator:profiles!deliveries_created_by_fkey(full_name), delivery_items(product_id, expected_qty, delivered_qty, returned_qty)";
 
 // The month view used to fetch with .limit(1000), so any month with more
@@ -225,6 +226,16 @@ export default async function DeliveriesPage({ searchParams }) {
       status, deliveredToday: todayRow, lastDelivery: lastDeliveryMap[c.id],
     };
   });
+  const todayPageCount = Math.max(1, Math.ceil(todayCustomers.length / TODAY_PAGE_SIZE));
+  const todayPage = Math.min(Math.max(1, Number.parseInt(sp.tpage, 10) || 1), todayPageCount);
+  const todayOffset = (todayPage - 1) * TODAY_PAGE_SIZE;
+  const todayPageRows = todayCustomers.slice(todayOffset, todayOffset + TODAY_PAGE_SIZE);
+  const todayPageHref = (page) => {
+    const params = new URLSearchParams();
+    for (const [key, value] of Object.entries(sp)) if (key !== "tpage" && typeof value === "string" && value) params.set(key, value);
+    if (page > 1) params.set("tpage", String(page));
+    return `/deliveries${params.size ? `?${params}` : ""}`;
+  };
 
   // KPI ROW
   const bottlesDeliveredToday = (todayDeliveries || []).filter((d) => d.status === "delivered")
@@ -315,11 +326,11 @@ export default async function DeliveriesPage({ searchParams }) {
           { name: "route", label: "All routes", options: (routes || []).map((r) => ({ value: r.id, label: r.name })) },
           { name: "rider", label: "All delivery boys", options: (riders || []).map((r) => ({ value: r.id, label: r.full_name })) },
         ]}
-        pageParam="hpage"
+        pageParam="tpage"
       />
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 mb-8">
         {todayCustomers.length === 0 && <p className="text-sm text-slate col-span-full text-center py-8 border border-line rounded-2xl">No customers due today match these filters.</p>}
-        {todayCustomers.map((c) => (
+        {todayPageRows.map((c) => (
           <div key={c.id} className="card-lift border border-line rounded-2xl p-4 bg-card flex flex-col gap-2.5">
             <div className="flex justify-between items-start gap-2">
               <div className="min-w-0">
@@ -367,6 +378,13 @@ export default async function DeliveriesPage({ searchParams }) {
           </div>
         ))}
       </div>
+      {todayPageCount > 1 && (
+        <nav className="no-print -mt-4 mb-8 flex items-center justify-between gap-3" aria-label="Today's delivery pages">
+          {todayPage > 1 ? <Link href={todayPageHref(todayPage - 1)} className="inline-flex min-h-[40px] items-center rounded-xl border border-line bg-card px-3.5 text-xs font-semibold text-navy hover:bg-foam">← Previous</Link> : <span />}
+          <span className="text-center text-xs text-slate">Customers {todayOffset + 1}–{Math.min(todayOffset + TODAY_PAGE_SIZE, todayCustomers.length)} of {todayCustomers.length}</span>
+          {todayPage < todayPageCount ? <Link href={todayPageHref(todayPage + 1)} className="inline-flex min-h-[40px] items-center rounded-xl border border-line bg-card px-3.5 text-xs font-semibold text-navy hover:bg-foam">Next →</Link> : <span />}
+        </nav>
+      )}
 
       <section className="mb-4">
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2"><div><h3 className="font-display text-lg font-semibold">Delivery History</h3><p className="text-xs text-slate">Har delivery apni original date aur quantity ke saath separate record hai.</p></div><Badge text={historyMonth} tone="aqua" /></div>

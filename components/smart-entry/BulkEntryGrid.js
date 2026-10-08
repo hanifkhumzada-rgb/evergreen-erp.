@@ -15,8 +15,9 @@ const STATUS_BADGE = {
   failed: { text: "Failed", tone: "bg-coralSoft text-coral" },
 };
 
-function newRow(entryType) {
-  return { __rowId: (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Math.random())), entryId: null, status: "unsaved", payload: defaultPayload(entryType), errors: {} };
+function newRow(entryType, stableId) {
+  const rowId = stableId || (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`);
+  return { __rowId: rowId, entryId: null, status: "unsaved", payload: defaultPayload(entryType), errors: {} };
 }
 
 function Cell({ field, value, onChange, onCustomerSelect, error, lookups }) {
@@ -35,7 +36,7 @@ function Cell({ field, value, onChange, onCustomerSelect, error, lookups }) {
 
 export default function BulkEntryGrid({ entryType, lookups, onDone }) {
   const columns = (BULK_COLUMNS[entryType] || []).map((name) => (FIELDS[entryType] || []).find((f) => f.name === name)).filter(Boolean);
-  const [rows, setRows] = useState(() => Array.from({ length: 5 }, () => newRow(entryType)));
+  const [rows, setRows] = useState(() => Array.from({ length: 5 }, (_, index) => newRow(entryType, `initial-${entryType}-${index}`)));
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState(null);
   const [summary, setSummary] = useState(null);

@@ -21,6 +21,11 @@ function greeting() {
 }
 
 function todayISO() { return new Date().toISOString().slice(0, 10); }
+function isCustomerDueToday(customer, weekday) {
+  if (customer.delivery_frequency === "daily") return true;
+  if (!Array.isArray(customer.preferred_days) || customer.preferred_days.length === 0) return true;
+  return customer.preferred_days.includes(weekday);
+}
 function daysAgo(n) { const d = new Date(); d.setDate(d.getDate() - n); return d.toISOString().slice(0, 10); }
 function monthStartISO() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10); }
 function lastMonthRange() {
@@ -121,7 +126,7 @@ export default async function DashboardPage({ searchParams }) {
     supabase.from("product_prices").select("product_id, price"),
     // A single bounded customer-master read replaces four separate queries
     // (active count, yesterday count, bottle limits and customer types).
-    supabase.from("customers").select("id, bottle_limit, created_at, payment_frequency, is_active"),
+    supabase.from("customers").select("id, code, name, bottle_limit, created_at, payment_frequency, is_active, status, delivery_frequency, preferred_days, regular_qty, zones(name)"),
     // Previous-period comparisons (yesterday for daily flow metrics; today's own
     // movement, reversed out of the current balance, for point-in-time balances —
     // there's no historical snapshot table, so this is the standard way to derive
@@ -200,7 +205,10 @@ export default async function DashboardPage({ searchParams }) {
   const grossProfit = salesAmt - bottlesDelivered * 55;
   const completedDeliveries = (todayDeliveries || []).filter((d) => d.status === "delivered").length;
   const missedDeliveries = (todayDeliveries || []).filter((d) => ["missed", "failed", "cancelled"].includes(d.status)).length;
-  const pendingDeliveries = (todayDeliveries || []).filter((d) => !["delivered", "missed", "failed", "cancelled"].includes(d.status)).length;
+  const weekday = new Date().toLocaleDateString("en-US", { weekday: "short", timeZone: "Asia/Karachi" });
+  const scheduledCustomers = (dashboardCustomers || []).filter((customer) => customer.is_active !== false && !["inactive", "blacklisted"].includes(customer.status) && isCustomerDueToday(customer, weekday));
+  const decidedCustomerIds = new Set((todayDeliveries || []).filter((delivery) => ["delivered", "missed", "failed", "cancelled"].includes(delivery.status)).map((delivery) => delivery.customer_id));
+  const pendingDeliveries = scheduledCustomers.filter((customer) => !decidedCustomerIds.has(customer.id)).length;
   const failedEntryCount = (failedEntries || []).length;
   const cashDifference = Number(todayClosings?.[0]?.amount || 0);
   const pendingApprovalCount = (pendingApprovals || []).length;
@@ -342,16 +350,25 @@ export default async function DashboardPage({ searchParams }) {
   });
   const customerTypeData = Object.entries(customerTypeMap).map(([name, value]) => ({ name, value }));
 
-  const todayRouteRows = (todayDeliveries || []).map((delivery) => ({
-    id: delivery.id,
-    reference: delivery.delivery_no || "Delivery",
-    customerId: delivery.customer_id,
-    customer: delivery.customers?.name || "Customer",
-    zone: delivery.customers?.zones?.name || "Unassigned",
-    status: delivery.status,
-    qty: (delivery.delivery_items || []).reduce((sum, item) => sum + Number(item.delivered_qty || 0), 0),
-    time: delivery.created_at ? new Date(delivery.created_at).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Karachi" }) : "—",
-  }));
+  const todayDeliveryByCustomer = new Map();
+  (todayDeliveries || []).forEach((delivery) => {
+    const rank = { delivered: 3, missed: 2, failed: 2, cancelled: 2, pending: 1, rescheduled: 1 };
+    const existing = todayDeliveryByCustomer.get(delivery.customer_id);
+    if (!existing || (rank[delivery.status] || 0) >= (rank[existing.status] || 0)) todayDeliveryByCustomer.set(delivery.customer_id, delivery);
+  });
+  const todayRouteRows = scheduledCustomers.map((customer) => {
+    const delivery = todayDeliveryByCustomer.get(customer.id);
+    return {
+    id: delivery?.id || `scheduled-${customer.id}`,
+    reference: delivery?.delivery_no || customer.code || "Scheduled",
+    customerId: customer.id,
+    customer: delivery?.customers?.name || customer.name || "Customer",
+    zone: delivery?.customers?.zones?.name || customer.zones?.name || "Unassigned",
+    status: delivery?.status || "pending",
+    qty: delivery ? (delivery.delivery_items || []).reduce((sum, item) => sum + Number(item.delivered_qty || 0), 0) : Number(customer.regular_qty || 0),
+    time: delivery?.created_at ? new Date(delivery.created_at).toLocaleTimeString("en-PK", { hour: "2-digit", minute: "2-digit", timeZone: "Asia/Karachi" }) : "—",
+  };
+  });
 
   const leaderboard = Object.values(
     (rangeRiderDeliveries || []).reduce((acc, d) => {

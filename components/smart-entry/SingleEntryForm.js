@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { Plus, Copy, Trash2, AlertTriangle, CheckCircle2, FileClock } from "lucide-react";
 import { FIELDS, defaultPayload } from "./fieldConfig";
 import CustomerPicker from "./CustomerPicker";
@@ -73,13 +73,14 @@ function ItemsField({ field, value, onChange, lookups }) {
 }
 
 export default function SingleEntryForm({ entryType, lookups, editEntry, onDone }) {
+  const stableFormId = useId();
   const fields = FIELDS[entryType] || [];
   const [payload, setPayload] = useState(() => (editEntry ? { ...freshPayload(entryType), ...editEntry.payload } : freshPayload(entryType)));
   const [errors, setErrors] = useState(editEntry?.validation_errors || {});
   const [warnings, setWarnings] = useState([]);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState(null);
-  const [idempotencyKey] = useState(() => (typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random()));
+  const [idempotencyKey] = useState(() => `smart-${stableFormId.replaceAll(":", "")}`);
 
   useEffect(() => {
     setPayload(editEntry ? { ...freshPayload(entryType), ...editEntry.payload } : freshPayload(entryType));

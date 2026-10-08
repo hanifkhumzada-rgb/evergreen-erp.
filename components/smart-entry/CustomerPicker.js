@@ -59,7 +59,7 @@ export default function CustomerPicker({ customers = [], value, onChange, onSele
     <button type="button" onClick={() => setOpen((state) => !state)} className={`in flex items-center justify-between gap-2 text-left ${error ? "!border-coral" : ""}`}>
       <span className={`truncate ${selected ? "" : "text-slate"}`}>{selected ? `${selected.code || "—"} | ${selected.name}` : placeholder}</span><ChevronDown size={14} className="shrink-0 text-slate" />
     </button>
-    {open && <div className="absolute z-50 mt-1 w-full min-w-[300px] overflow-hidden rounded-xl border border-line bg-card shadow-xl">
+    {open && <div className="absolute left-0 z-50 mt-1 w-full min-w-0 overflow-hidden rounded-xl border border-line bg-card shadow-xl sm:min-w-[300px]">
       <div className="flex items-center gap-2 border-b border-line p-2"><Search size={14} className="text-slate" /><input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} onKeyDown={onKeyDown} placeholder={placeholder} className="min-w-0 flex-1 bg-transparent text-xs outline-none" />{isPending ? <Loader2 size={13} className="animate-spin text-aqua" /> : query && <button type="button" onClick={() => setQuery("")}><X size={13} /></button>}</div>
       <div className="max-h-72 overflow-y-auto p-1.5">
         {!isPending && !filtered.length && <p className="p-3 text-center text-xs text-slate">No matching customer. Check spelling or phone number.</p>}

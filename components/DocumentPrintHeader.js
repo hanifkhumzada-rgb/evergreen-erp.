@@ -1,3 +1,7 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
 // The on-screen/printed counterpart to lib/pdf/DocumentChrome.js — the same
 // Evergreen document design every generated PDF uses: a teal→emerald
 // gradient band with a water-wave edge, the logo on a white tile + company
@@ -56,10 +60,13 @@ export default function DocumentPrintHeader({ branding, title, meta, printOnly =
 // Matching footer — dark brand bar with the generated date/time and the
 // same "computer-generated" note every PDF carries.
 export function DocumentPrintFooter() {
-  const generated = new Date().toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  const [generated, setGenerated] = useState("");
+  useEffect(() => {
+    setGenerated(new Date().toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }));
+  }, []);
   return (
     <div className="hidden print:flex mt-6 items-center justify-between rounded-lg bg-[#073B3A] px-4 py-2" style={PRINT_EXACT}>
-      <p className="text-[8px] font-bold text-[#9EF0D0]">{`Generated ${generated}`}</p>
+      <p className="text-[8px] font-bold text-[#9EF0D0]">{generated ? `Generated ${generated}` : "Generated when printed"}</p>
       <p className="text-[7.5px] text-[#D7EFEC]">Computer-generated document · does not require a signature unless noted</p>
     </div>
   );

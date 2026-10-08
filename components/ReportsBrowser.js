@@ -1,5 +1,5 @@
 "use client";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Badge, DocumentActionBar, Th, Td } from "@/components/ui";
@@ -27,11 +27,13 @@ function summaryFor(name, rows) {
 export default function ReportsBrowser({ selected, rows = [], displayLimit = 300, baseParams = {}, branding, period }) {
   const pathname = usePathname(); const router = useRouter();
   const [query,setQuery] = useState(""); const [detail,setDetail] = useState(null);
+  const [generatedAt, setGeneratedAt] = useState("");
+  useEffect(() => { setGeneratedAt(new Date().toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"})); }, []);
   const columns = rows.length ? Object.keys(rows[0]) : [];
   const filtered = useMemo(()=>{ const q=query.trim().toLowerCase(); return q ? rows.filter((row)=>columns.some((c)=>String(row[c]??"").toLowerCase().includes(q))) : rows; },[columns,query,rows]);
   const numeric = columns.filter((c)=>filtered.some((row)=>typeof row[c] === "number"));
   const totals = Object.fromEntries(numeric.map((c)=>[c,sum(filtered,c)])); const shown=filtered.slice(0,displayLimit);
-  const today = new Date().toLocaleString("en-GB",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+  const today = generatedAt || "Just now";
   const hrefFor=(name)=>`${pathname}?${new URLSearchParams({...baseParams,report:name})}`;
   return <div className="flex flex-col gap-5 lg:flex-row">
     <aside className="no-print h-fit flex-shrink-0 rounded-2xl border border-line bg-card p-3 lg:sticky lg:top-20 lg:w-64">{REPORT_GROUPS.map((g)=><div key={g.label} className="mb-3 last:mb-0"><div className="mb-1 px-2 text-[10px] font-bold tracking-wider text-slate">{g.label.toUpperCase()}</div><div className="flex flex-col gap-0.5">{g.reports.map((name)=><Link key={name} href={hrefFor(name)} scroll={false} className={`flex items-center gap-2 rounded-lg px-2.5 py-2 text-[13px] font-semibold ${selected===name?"bg-aquaSoft text-aqua":"text-ink hover:bg-foam"}`}><FileSpreadsheet size={14}/><span className="flex-1">{name}</span>{selected===name&&<ChevronRight size={13}/>}</Link>)}</div></div>)}</aside>
