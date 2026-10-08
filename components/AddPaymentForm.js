@@ -49,11 +49,11 @@ export default function AddPaymentForm({ customers, collectors = [], initialCust
           <form ref={formRef} action={handleSubmit} onChange={unsaved.markDirty} onClick={(e) => e.stopPropagation()} className="erp-entry-form rounded-t-2xl sm:rounded-2xl p-5 sm:p-6 max-w-2xl w-full max-h-[94vh] overflow-y-auto">
             <EntryFormHeader title="Record Payment" subtitle="Customer receipt and ledger posting" status="New" onClose={() => unsaved.requestClose(() => setOpen(false))} onRefresh={() => formRef.current?.reset()} actions={[{ label: "Clear form", onClick: () => formRef.current?.reset() }]} />
             <EntrySection title="Main Information" description="Select the customer and receipt details.">
-            <label className="block mb-1"><span className="text-xs font-semibold text-slate block mb-1">Customer</span>
+            <label className="block mb-1 sm:col-span-2"><span className="text-xs font-semibold text-slate block mb-1">Customer</span>
               <CustomerPicker customers={customers} value={customerId} onChange={setCustomerId} onSelect={setSelectedCustomer} />
               <input type="hidden" name="customer_id" value={customerId} required />
             </label>
-            {selected?.frequency && <p className="text-[11px] text-slate mb-3">Billing frequency: <strong className="text-ink">{selected.frequency}</strong></p>}
+            {selected?.frequency && <p className="text-xs text-slate mb-3 sm:col-span-2">Billing frequency: <strong className="text-ink">{selected.frequency}</strong></p>}
             <label className="block mb-3"><span className="text-xs font-semibold text-slate block mb-1">Amount (PKR)</span><input name="amount" type="number" required className="in" /></label>
             </EntrySection>
             <EntrySection title="Payment Details" description="Use the actual receipt or transaction reference where available.">

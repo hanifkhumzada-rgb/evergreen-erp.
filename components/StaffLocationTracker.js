@@ -1,4 +1,5 @@
 "use client";
+import { MapPinOff } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { reportStaffLocation } from "@/app/actions";
 
@@ -61,5 +62,6 @@ export default function StaffLocationTracker() {
   // line in the header area so someone who declined understands why
   // "Live Tracking" won't show them, without it reading like an error.
   if (!denied) return null;
-  return <p className="topbar-muted no-print text-[10.5px]">Location sharing is off (permission declined) — you won&apos;t appear on Live Tracking.</p>;
+  const note = "Location sharing is off (permission declined) — you won't appear on Live Tracking.";
+  return <span className="topbar-muted no-print hidden md:inline-flex h-8 w-8 items-center justify-center rounded-lg" title={note} aria-label={note} role="img"><MapPinOff size={16} /></span>;
 }

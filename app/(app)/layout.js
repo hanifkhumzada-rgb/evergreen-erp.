@@ -53,15 +53,15 @@ export default async function AppLayout({ children }) {
     <div className="min-h-screen app-shell-bg flex">
       <Sidebar role={roleKey} permissions={effectivePermissions} unreadNotifications={unreadNotifications} profileName={profile.full_name} roleLabel={roleLabel} />
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="workspace-topbar topbar-branded no-print sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 py-3">
+        <header className="workspace-topbar topbar-branded no-print sticky top-0 z-30 flex min-w-0 items-center justify-between gap-3 px-4 sm:px-6 py-3">
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <SidebarToggleButton />
             <NavigationControls />
             <WorkspaceIdentity />
-            <div className="topbar-muted hidden xl:flex items-center gap-2 text-xs"><span className="topbar-live-dot w-2 h-2 rounded-full animate-pulse" /> Live workspace</div>
+            <div className="topbar-muted hidden 2xl:flex items-center gap-2 whitespace-nowrap text-xs"><span className="topbar-live-dot w-2 h-2 rounded-full animate-pulse" /> Live workspace</div>
             <StaffLocationTracker />
           </div>
-          <div className="flex items-center gap-1 sm:gap-3">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2 xl:gap-3">
             <div className="topbar-search flex items-center gap-2 rounded-xl px-2 py-1"><Command size={13} className="topbar-muted hidden md:block" /><GlobalSearch /></div>
             <ErpRefreshButton />
             <OfflineIndicator />

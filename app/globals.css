@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -172,6 +172,12 @@ html[data-theme="blue"] .bg-aquaSoft.text-aqua { color: #144C93; }
 
 body {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  font-feature-settings: "cv11", "ss03";
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   color: var(--ink);
   background: var(--foam);
   transition: background-color 0.2s ease, color 0.2s ease;
@@ -194,7 +200,10 @@ body {
 /* Keep the route transition opacity-only. A transformed ancestor becomes the
    containing block for position:fixed descendants; on mobile that pushed
    Customer/Delivery and every other modal outside the viewport. */
-.page-stage { animation: page-stage-in .22s ease-out both; }
+/* `backwards` (not `both`): once the fade ends nothing stays applied, so
+   .page-stage never becomes a stacking context that would trap modal
+   overlays (z-50) underneath the sticky header and sidebar. */
+.page-stage { animation: page-stage-in .22s ease-out backwards; }
 @keyframes page-stage-in { from { opacity: 0; } to { opacity: 1; } }
 
 .erp-nav-controls { padding: 3px; border: 1px solid var(--line); border-radius: 13px; background: color-mix(in srgb, var(--card) 82%, transparent); box-shadow: 0 5px 18px rgb(var(--rgb-navy) / .06); }
@@ -778,3 +787,24 @@ html[data-theme="blue"] .app-shell-bg thead:not(.bg-navy) th { color: #0B2C66; f
   .app-shell-bg .in { min-height: 44px; font-size: 16px; }
   .app-shell-bg .overflow-x-auto { -webkit-overflow-scrolling: touch; }
 }
+
+/* ==========================================================================
+   Typography + layout polish (all themes)
+   ========================================================================== */
+/* The shell never scrolls sideways; wide tables scroll inside their card. */
+.app-shell-bg { overflow-x: clip; }
+.app-shell-bg .page-stage h1,
+.app-shell-bg .page-stage h2.font-display { color: var(--ink); font-weight: 700; }
+.app-shell-bg .page-stage label > span.text-xs { font-size: 12.5px; color: var(--slate); }
+/* Modal backdrops: dim + soften the page behind every entry form. */
+.fixed.inset-0.bg-navy\/40,
+.fixed.inset-0.bg-navy\/50 { backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+.erp-entry-form { border-radius: 1.25rem; }
+.erp-entry-form .erp-form-section { background: var(--card); border-color: var(--line); padding: 1rem 1.1rem; }
+.erp-form-summary strong { font-size: 1rem; font-variant-numeric: tabular-nums; }
+/* Entry-form modals: the sticky header/footer sit flush with the modal
+   edges, so no scrolled content peeks above the header or below the footer. */
+.erp-entry-form:has(> .erp-form-header) { padding-top: 0; }
+.erp-entry-form > .erp-form-header { margin-top: 0; }
+.erp-entry-form:has(> .erp-form-actions) { padding-bottom: 0; }
+.erp-entry-form > .erp-form-actions { margin-bottom: 0; }

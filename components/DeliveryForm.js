@@ -85,7 +85,7 @@ export default function DeliveryForm({ customers, products, riders = [], current
             {error && <p className="text-coral text-xs mb-3 rounded-lg bg-coralSoft px-3 py-2">{error}</p>}
             <input type="hidden" name="request_id" value={requestId} />
 
-            <EntrySection title="Customer & Main Information" description="Search by name, customer ID, phone, zone or route.">
+            <EntrySection columns={1} title="Customer & Main Information" description="Search by name, customer ID, phone, zone or route.">
             <label className="block mb-2 relative">
               <span className="text-xs font-semibold text-slate block mb-1">Customer *</span>
               <CustomerPicker customers={customers} value={selected?.id || ""} onChange={() => {}} onSelect={pickCustomer} placeholder="Search name, ID, phone, building, flat, zone…" />
@@ -93,7 +93,7 @@ export default function DeliveryForm({ customers, products, riders = [], current
             </label>
 
             {selected && (
-              <div className="mb-4 rounded-2xl border border-line bg-foam/70 p-3 sm:col-span-2">
+              <div className="mt-1 rounded-2xl border border-line bg-foam/70 p-3">
                 <div className="grid grid-cols-2 gap-2 text-[12px]">
                   <div><span className="text-slate">Customer ID</span><div className="font-semibold font-mono-num">{selected.code || "—"}</div></div>
                   <div><span className="text-slate">Zone / Route</span><div className="font-semibold truncate">{selected.zoneName || selected.zone_name || "—"} · {selected.route || "—"}</div></div>
@@ -114,16 +114,15 @@ export default function DeliveryForm({ customers, products, riders = [], current
             )}
             </EntrySection>
 
-            <EntrySection title="Delivery & Bottle Details" description="Quantity, rate and bottle movement calculate automatically.">
-            <label className="block mb-3">
-              <span className="text-xs font-semibold text-slate block mb-1">Bottle size *</span>
-              <select name="product_id" required className="in" value={productId} onChange={(e) => { setProductId(e.target.value); setReturnedQty(0); }}>
-                {!products?.length && <option value="">No active bottle product configured</option>}
-                {(products || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
-            </label>
-
-            <div className="grid grid-cols-2 gap-3 mb-3">
+            <EntrySection columns={1} title="Delivery & Bottle Details" description="Quantity, rate and bottle movement calculate automatically.">
+            <div className="grid grid-cols-1 gap-3 mb-3 sm:grid-cols-3">
+              <label className="block">
+                <span className="text-xs font-semibold text-slate block mb-1">Bottle size *</span>
+                <select name="product_id" required className="in" value={productId} onChange={(e) => { setProductId(e.target.value); setReturnedQty(0); }}>
+                  {!products?.length && <option value="">No active bottle product configured</option>}
+                  {(products || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </label>
               <label className="block">
                 <span className="text-xs font-semibold text-slate block mb-1">Bottle delivered *</span>
                 <input name="delivered_qty" type="number" min={1} value={deliveredQty} onChange={(e) => setDeliveredQty(Math.max(1, Number(e.target.value || 1)))} required className="in" />
@@ -134,24 +133,24 @@ export default function DeliveryForm({ customers, products, riders = [], current
               </label>
             </div>
 
-            <div className="mb-4 grid grid-cols-3 gap-2 rounded-2xl border border-aqua/20 bg-aquaSoft/60 p-3 text-center">
-              <div>
-                <div className="text-[10px] uppercase tracking-wide text-slate">Before</div>
-                <div className="mt-1 text-lg font-bold">{selected ? currentBottleBalance : "—"}</div>
+            <div className="mb-3 grid grid-cols-3 gap-2 sm:gap-3">
+              <div className="rounded-xl border border-line bg-card px-3 py-2.5 text-center">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate">Before</div>
+                <div className="mt-1 font-mono-num text-xl font-bold text-ink">{selected ? currentBottleBalance : "—"}</div>
               </div>
-              <div>
-                <div className="text-[10px] uppercase tracking-wide text-slate">Net change</div>
-                <div className="mt-1 text-lg font-bold">{selected ? `${Number(deliveredQty || 0) - Number(returnedQty || 0) >= 0 ? "+" : ""}${Number(deliveredQty || 0) - Number(returnedQty || 0)}` : "—"}</div>
+              <div className="rounded-xl border border-line bg-card px-3 py-2.5 text-center">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-slate">Net change</div>
+                <div className="mt-1 font-mono-num text-xl font-bold text-ink">{selected ? `${Number(deliveredQty || 0) - Number(returnedQty || 0) >= 0 ? "+" : ""}${Number(deliveredQty || 0) - Number(returnedQty || 0)}` : "—"}</div>
               </div>
-              <div className="rounded-xl bg-card border border-aqua/20 py-1.5">
-                <div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wide text-slate"><Droplets size={11} /> Total bottles</div>
-                <div className="mt-1 text-xl font-extrabold text-aqua">{selected ? projectedBottleBalance : "—"}</div>
+              <div className="rounded-xl border border-aqua/30 bg-aquaSoft px-3 py-2.5 text-center">
+                <div className="flex items-center justify-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-aqua"><Droplets size={12} /> Total bottles</div>
+                <div className="mt-1 font-mono-num text-xl font-bold text-aqua">{selected ? projectedBottleBalance : "—"}</div>
               </div>
             </div>
             </EntrySection>
 
-            <EntrySection title="Collection & Assignment" description="Optional cash collection posts with the delivery.">
-            <div className="grid grid-cols-2 gap-3 mb-3">
+            <EntrySection columns={1} title="Collection & Assignment" description="Optional cash collection posts with the delivery.">
+            <div className="grid grid-cols-1 gap-3 mb-3 sm:grid-cols-3">
               <label className="block">
                 <span className="text-xs font-semibold text-slate block mb-1">Cash collected (optional)</span>
                 <input name="cash_collected" type="number" min={0} step="0.01" className="in" placeholder="0" />
@@ -160,27 +159,25 @@ export default function DeliveryForm({ customers, products, riders = [], current
                 <span className="text-xs font-semibold text-slate block mb-1">Date</span>
                 <input name="delivery_date" type="date" required defaultValue={new Date().toISOString().slice(0, 10)} className="in" />
               </label>
+              <label className="block">
+                <span className="text-xs font-semibold text-slate block mb-1">Delivery boy *</span>
+                <select name="rider_id" defaultValue={currentUserId || ""} required className="in">
+                  {!riders.some((r) => r.id === currentUserId) && <option value={currentUserId}>Me</option>}
+                  {riders.map((r) => <option key={r.id} value={r.id}>{r.full_name}</option>)}
+                </select>
+              </label>
             </div>
-
-            <label className="block mb-4">
-              <span className="text-xs font-semibold text-slate block mb-1">Delivery boy *</span>
-              <select name="rider_id" defaultValue={currentUserId || ""} required className="in">
-                {!riders.some((r) => r.id === currentUserId) && <option value={currentUserId}>Me</option>}
-                {riders.map((r) => <option key={r.id} value={r.id}>{r.full_name}</option>)}
-              </select>
-            </label>
             </EntrySection>
 
-            <div className="mb-3 rounded-xl border border-line bg-foam/60 px-3 py-2 text-[11px] text-slate">
+            <div className="mb-3 rounded-xl border border-line bg-foam px-3.5 py-2.5 text-xs leading-relaxed text-slate">
               Saving this delivery automatically updates the customer bottle balance, bottle inventory movement, delivery history and customer outstanding/collection.
             </div>
 
             <EntrySummary items={[{ label: "Delivery Amount", value: selected ? pkr(currentRate * Number(deliveredQty || 0)) : "—" }, { label: "Bottles Issued", value: selected ? String(deliveredQty || 0) : "—" }, { label: "Empty Returned", value: selected ? String(returnedQty || 0) : "—" }, { label: "New Bottle Balance", value: selected ? String(projectedBottleBalance) : "—" }]} />
-            <EntryFormActions busy={busy || !selected || !productId} primaryLabel="Save Delivery" onCancel={() => unsaved.requestClose(() => { setOpen(false); reset(); })} />
+            <EntryFormActions busy={busy} disabled={!selected || !productId} primaryLabel="Save Delivery" onCancel={() => unsaved.requestClose(() => { setOpen(false); reset(); })} />
           </form>
         </div>
       )}
-      <style jsx global>{`.in { width:100%; padding:9px 11px; border-radius:9px; border:1px solid var(--line); background: var(--card); color: var(--ink); font-size:13.5px; outline:none; }`}</style>
       {toast && <Toast message={toast.message} type={toast.type} onDismiss={() => setToast(null)} />}
     </>
   );
