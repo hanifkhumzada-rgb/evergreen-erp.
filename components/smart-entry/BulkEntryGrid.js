@@ -8,8 +8,8 @@ import Toast from "@/components/Toast";
 import { bulkSaveDraftSmartEntries, bulkSubmitSmartEntries } from "@/app/(app)/smart-entry/actions";
 
 const STATUS_BADGE = {
-  unsaved: { text: "Unsaved", tone: "bg-[#EEF2F2] text-slate" },
-  draft: { text: "Draft", tone: "bg-[#EEF2F2] text-slate" },
+  unsaved: { text: "Unsaved", tone: "bg-mist text-slate" },
+  draft: { text: "Draft", tone: "bg-mist text-slate" },
   pending_approval: { text: "Pending Approval", tone: "bg-amberSoft text-amber" },
   approved: { text: "Saved", tone: "bg-greenSoft text-green" },
   failed: { text: "Failed", tone: "bg-coralSoft text-coral" },

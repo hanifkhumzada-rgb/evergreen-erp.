@@ -24,7 +24,10 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body>
-        <Script id="evergreen-theme" strategy="beforeInteractive">{`try{var t=localStorage.getItem('ew-theme')||localStorage.getItem('theme')||'system';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.dataset.theme=t}catch(e){}`}</Script>
+        {/* Applies the saved Appearance (default: EW Ocean Blue) before first
+            paint. The Customer Portal keeps its Evergreen identity: Ocean
+            Blue is a staff-workspace theme. */}
+        <Script id="evergreen-theme" strategy="beforeInteractive">{`try{var t=localStorage.getItem('ew-theme')||localStorage.getItem('theme')||'blue';if(['light','blue','dark','system'].indexOf(t)<0)t='blue';if(t==='blue'&&location.pathname.indexOf('/portal')===0)t='light';var d=t==='dark'||(t==='system'&&matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.classList.toggle('dark',d);document.documentElement.dataset.theme=t}catch(e){}`}</Script>
         {children}
         <ServiceWorkerRegister />
       </body>

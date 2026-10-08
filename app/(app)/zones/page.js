@@ -57,10 +57,10 @@ export default async function ZonesPage({ searchParams }) {
 
   return (
     <div>
-      <div className="mb-5 rounded-3xl border border-aqua/20 bg-gradient-to-r from-[#073F3A] to-[#087C69] p-5 text-white sm:p-6">
-        <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-[#A9DDD7]">Live operations</p>
+      <div className="mb-5 erp-hero rounded-3xl p-5 sm:p-6">
+        <p className="text-[11px] font-bold uppercase tracking-[0.18em] erp-hero-label">Live operations</p>
         <h2 className="font-display text-2xl font-semibold">Route Control Center</h2>
-        <p className="mt-1 text-sm text-[#D7EFEC]">Plan zones, assign riders and monitor today’s route execution.</p>
+        <p className="mt-1 text-sm erp-hero-sub">Plan zones, assign riders and monitor today’s route execution.</p>
       </div>
       <div className="mb-6 flex flex-wrap gap-3.5">
         <KPI label="TODAY'S STOPS" value={(deliveries || []).length} tone="navy" />

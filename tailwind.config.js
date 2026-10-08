@@ -1,25 +1,32 @@
 /** @type {import('tailwindcss').Config} */
+// Every brand color resolves to an RGB-channel token defined per theme in
+// app/globals.css (Evergreen Light, EW Ocean Blue, Evergreen Dark), so a
+// class like `bg-navy/40` or `text-aqua` follows the selected theme across
+// the whole ERP and opacity modifiers keep working.
+const token = (name) => `rgb(var(--rgb-${name}) / <alpha-value>)`;
+
 module.exports = {
   darkMode: "class",
   content: ["./app/**/*.{js,jsx}", "./components/**/*.{js,jsx}"],
   theme: {
     extend: {
       colors: {
-        navy: "var(--erp-navy, #073B3A)",
-        navyLight: "var(--erp-navy-light, #0E4F4D)",
-        aqua: "var(--erp-accent, #059669)",
-        aquaSoft: "var(--erp-accent-soft, var(--aquaSoft))",
-        foam: "var(--foam)",
-        card: "var(--card)",
-        ink: "var(--ink)",
-        slate: "var(--slate)",
-        line: "var(--line)",
-        amber: "#D97706",
-        amberSoft: "var(--amberSoft)",
-        coral: "#DC2626",
-        coralSoft: "var(--coralSoft)",
-        green: "#16A34A",
-        greenSoft: "var(--greenSoft)",
+        navy: token("navy"),
+        navyLight: token("navy-light"),
+        aqua: token("accent"),
+        aquaSoft: token("accent-soft"),
+        foam: token("foam"),
+        card: token("card"),
+        ink: token("ink"),
+        slate: token("slate"),
+        line: token("line"),
+        mist: token("mist"),
+        amber: token("amber"),
+        amberSoft: token("amber-soft"),
+        coral: token("coral"),
+        coralSoft: token("coral-soft"),
+        green: token("green"),
+        greenSoft: token("green-soft"),
       },
       fontFamily: {
         display: ["Inter", "system-ui", "sans-serif"],
@@ -27,7 +34,7 @@ module.exports = {
         mono: ["ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
       },
       boxShadow: {
-        soft: "0 1px 2px rgba(15, 32, 39, 0.04), 0 4px 16px rgba(15, 32, 39, 0.04)",
+        soft: "0 1px 2px rgb(var(--rgb-ink) / 0.04), 0 4px 16px rgb(var(--rgb-ink) / 0.04)",
       },
     },
   },

@@ -147,38 +147,38 @@ function NavList({ entries, pathname, unreadNotifications, onNavigate }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
       <label className="relative block px-0.5">
-        <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#8FB8B3]" />
-        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a workspace…" className="erp-sidebar-search w-full rounded-xl border border-white/10 bg-white/5 py-2.5 pl-8 pr-3 text-xs text-white outline-none placeholder:text-[#8FB8B3] focus:border-aqua/60 focus:bg-white/10" />
+        <Search size={14} className="erp-sidebar-muted pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" />
+        <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Find a workspace…" aria-label="Find a workspace" className="erp-sidebar-search w-full rounded-xl py-2.5 pl-8 pr-3 text-xs outline-none" />
       </label>
-      <div className="flex items-center justify-between px-1 text-[10px] text-[#A8CBC7]">
-        <span>{entries.flatMap(e => e.type === "link" ? [e] : e.items).length} workspaces</span>
-        <button type="button" onClick={() => setOpened(new Set(entries.filter(e => e.type === "group").map(e => e.key)))}>Expand all</button>
-        <button type="button" onClick={() => setOpened(new Set())}>Collapse all</button>
+      <div className="erp-sidebar-muted flex items-center gap-3 px-1.5 text-[10px] font-medium">
+        <span className="flex-1">{entries.flatMap(e => e.type === "link" ? [e] : e.items).length} workspaces</span>
+        <button type="button" className="hover:text-white" onClick={() => setOpened(new Set(entries.filter(e => e.type === "group").map(e => e.key)))}>Expand all</button>
+        <button type="button" className="hover:text-white" onClick={() => setOpened(new Set())}>Collapse</button>
       </div>
-      <div className="nav-scroll flex flex-1 flex-col gap-1.5 overflow-y-auto pr-1">
+      <div className="nav-scroll flex flex-1 flex-col gap-0.5 overflow-y-auto pr-1">
         {filtered.map((entry) => {
           if (entry.type === "link") {
             const Icon = entry.icon;
             const active = pathname.startsWith(entry.href);
-            return <Link key={entry.href} href={entry.href} onClick={onNavigate} className={`erp-sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-[12.5px] font-semibold ${active ? "erp-sidebar-link-active bg-aqua text-white" : "text-[#C7DEDC] hover:bg-white/5"}`}><Icon size={15} /><span className="flex-1">{entry.label}</span></Link>;
+            return <Link key={entry.href} href={entry.href} onClick={onNavigate} aria-current={active ? "page" : undefined} className={`erp-sidebar-link ${active ? "erp-sidebar-link-active" : ""}`}><Icon size={16} strokeWidth={2} /><span className="flex-1">{entry.label}</span></Link>;
           }
           const active = isEntryActive(entry, pathname);
           const expanded = Boolean(query.trim()) || opened.has(entry.key);
           const GroupIcon = entry.icon;
           return (
-            <div key={entry.key}>
-              <button type="button" aria-expanded={expanded} onClick={() => setOpened(prev => { const next = new Set(prev); if (next.has(entry.key)) next.delete(entry.key); else next.add(entry.key); return next; })} className={`erp-sidebar-group w-full flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-xs font-semibold ${active ? "bg-white/10 text-white" : "text-[#A8CBC7] hover:bg-white/5"}`}>
-                <GroupIcon size={16} /><span className="flex-1 text-left">{entry.label}</span><ChevronDown size={14} className={`transition-transform ${expanded ? "rotate-180" : ""}`} />
+            <div key={entry.key} className="mt-1.5">
+              <button type="button" aria-expanded={expanded} onClick={() => setOpened(prev => { const next = new Set(prev); if (next.has(entry.key)) next.delete(entry.key); else next.add(entry.key); return next; })} className={`erp-sidebar-group ${active ? "is-active" : ""}`}>
+                <GroupIcon size={15} /><span className="flex-1 text-left">{entry.label}</span><ChevronDown size={14} className={`transition-transform ${expanded ? "rotate-180" : ""}`} />
               </button>
-              {expanded && <div className="flex flex-col gap-0.5 pl-2 mt-1">{entry.items.map((item) => {
+              {expanded && <div className="erp-sidebar-subnav flex flex-col gap-0.5">{entry.items.map((item) => {
                 const Icon = item.icon;
                 const itemActive = pathname.startsWith(item.href);
-                return <Link key={item.href} href={item.href} onClick={onNavigate} className={`erp-sidebar-link flex items-center gap-2.5 px-2.5 py-2 rounded-xl text-[12.5px] font-semibold ${itemActive ? "erp-sidebar-link-active bg-aqua text-white" : "text-[#C7DEDC] hover:bg-white/5"}`}><Icon size={15} /><span className="flex-1">{item.label}</span>{item.href === "/notifications" && <NotifBadge count={unreadNotifications} />}</Link>;
+                return <Link key={item.href} href={item.href} onClick={onNavigate} aria-current={itemActive ? "page" : undefined} className={`erp-sidebar-link ${itemActive ? "erp-sidebar-link-active" : ""}`}><Icon size={15} strokeWidth={2} /><span className="flex-1">{item.label}</span>{item.href === "/notifications" && <NotifBadge count={unreadNotifications} />}</Link>;
               })}</div>}
             </div>
           );
         })}
-        {!filtered.length && <p className="px-3 py-5 text-center text-xs text-[#8FB8B3]">No workspace found.</p>}
+        {!filtered.length && <p className="erp-sidebar-muted px-3 py-5 text-center text-xs">No workspace found.</p>}
       </div>
     </div>
   );
@@ -191,7 +191,7 @@ function RailNav({ entries, pathname, unreadNotifications }) {
       {flat.map((item) => {
         const Icon = item.icon;
         const active = pathname.startsWith(item.href);
-        return <Link key={item.href} href={item.href} title={item.label} className={`relative w-10 h-10 flex items-center justify-center rounded-xl flex-shrink-0 ${active ? "bg-aqua text-white" : "text-[#C7DEDC] hover:bg-white/10"}`}><Icon size={18} />{item.href === "/notifications" && unreadNotifications > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-coral" />}</Link>;
+        return <Link key={item.href} href={item.href} title={item.label} aria-current={active ? "page" : undefined} className={`erp-sidebar-rail-link relative w-10 h-10 flex items-center justify-center rounded-xl flex-shrink-0 ${active ? "is-active" : ""}`}><Icon size={18} />{item.href === "/notifications" && unreadNotifications > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-coral" />}</Link>;
       })}
     </div>
   );
@@ -201,8 +201,21 @@ function BrandHeader({ onCollapse }) {
   return (
     <div className="flex items-center gap-2 px-1.5 pb-4">
       <Image src="/ew-mark.svg" width={36} height={36} alt="Evergreen Water" className="rounded-xl flex-shrink-0" priority unoptimized />
-      <span className="min-w-0 flex-1"><span className="block font-display text-sm font-semibold leading-tight">Evergreen Water</span><span className="block truncate text-[9px] font-medium text-[#8FCBC4]">Your business in your pocket</span></span>
-      {onCollapse && <button type="button" onClick={onCollapse} title="Collapse sidebar" className="w-7 h-7 flex items-center justify-center rounded-lg text-[#C7DEDC] hover:bg-white/10"><ChevronLeft size={16} /></button>}
+      <span className="min-w-0 flex-1"><span className="block font-display text-sm font-semibold leading-tight">Evergreen Water</span><span className="erp-sidebar-muted block truncate text-[9px] font-medium">Your business in your pocket</span></span>
+      {onCollapse && <button type="button" onClick={onCollapse} title="Collapse sidebar" className="erp-sidebar-icon-btn w-7 h-7 flex items-center justify-center rounded-lg"><ChevronLeft size={16} /></button>}
+    </div>
+  );
+}
+
+function SidebarFooter({ profileName, roleLabel }) {
+  return (
+    <div className="erp-sidebar-divider mt-2 pt-2">
+      <ThemeSelector compact />
+      <div className="flex items-center gap-2.5 px-2.5 pt-2">
+        <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white/10 text-xs font-bold text-white">{profileName?.[0]?.toUpperCase()}</span>
+        <span className="min-w-0 flex-1"><span className="block truncate text-xs font-bold text-white">{profileName}</span><span className="erp-sidebar-muted block text-[10px]">{roleLabel}</span></span>
+        <form action={signOut}><button title="Sign out" aria-label="Sign out" className="erp-sidebar-icon-btn grid h-9 w-9 place-items-center rounded-lg"><LogOut size={16} /></button></form>
+      </div>
     </div>
   );
 }
@@ -233,25 +246,21 @@ export default function Sidebar({ role, permissions = [], unreadNotifications = 
       <div className={`erp-sidebar-surface no-print md:hidden w-[286px] max-w-[86vw] text-white flex flex-col p-3 fixed inset-y-0 left-0 z-50 transform transition-transform duration-200 ${open ? "translate-x-0" : "-translate-x-full"}`}>
         <BrandHeader />
         <NavList entries={entries} pathname={pathname} unreadNotifications={unreadNotifications} onNavigate={() => setOpen(false)} />
-        <ThemeSelector compact />
-        <div className="mt-1 border-t border-white/10 px-2.5 pt-2"><p className="truncate text-xs font-bold text-white">{profileName}</p><p className="text-[10px] text-[#8FCBC4]">{roleLabel}</p></div>
-        <form action={signOut}><button className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-semibold text-[#C7DEDC] w-full mt-2"><LogOut size={16} /> Sign out</button></form>
+        <SidebarFooter profileName={profileName} roleLabel={roleLabel} />
       </div>
 
       {expanded ? (
-        <div className="erp-sidebar-surface no-print hidden md:flex md:flex-col w-[272px] flex-shrink-0 text-white p-3">
+        <div className="erp-sidebar-surface no-print hidden md:flex md:flex-col md:sticky md:top-0 md:h-screen w-[272px] flex-shrink-0 text-white p-3">
           <BrandHeader onCollapse={togglePinned} />
           <NavList entries={entries} pathname={pathname} unreadNotifications={unreadNotifications} onNavigate={() => {}} />
-          <ThemeSelector compact />
-          <div className="mt-1 border-t border-white/10 px-2.5 pt-2"><p className="truncate text-xs font-bold text-white">{profileName}</p><p className="text-[10px] text-[#8FCBC4]">{roleLabel}</p></div>
-          <form action={signOut}><button className="flex items-center gap-2.5 px-2.5 py-2 rounded-lg text-[13px] font-semibold text-[#C7DEDC] w-full mt-2"><LogOut size={16} /> Sign out</button></form>
+          <SidebarFooter profileName={profileName} roleLabel={roleLabel} />
         </div>
       ) : (
-        <div className="erp-sidebar-surface no-print hidden md:flex md:flex-col items-center w-[68px] flex-shrink-0 text-white py-3">
+        <div className="erp-sidebar-surface no-print hidden md:flex md:flex-col md:sticky md:top-0 md:h-screen items-center w-[68px] flex-shrink-0 text-white py-3">
           <Image src="/ew-mark.svg" width={36} height={36} alt="Evergreen Water" className="rounded-xl flex-shrink-0 mb-1.5" priority unoptimized />
-          <button type="button" onClick={togglePinned} title="Pin sidebar open" className="w-8 h-8 flex items-center justify-center rounded-lg text-[#C7DEDC] hover:bg-white/10 mb-3"><ChevronRight size={16} /></button>
+          <button type="button" onClick={togglePinned} title="Pin sidebar open" className="erp-sidebar-icon-btn w-8 h-8 flex items-center justify-center rounded-lg mb-3"><ChevronRight size={16} /></button>
           <RailNav entries={entries} pathname={pathname} unreadNotifications={unreadNotifications} />
-          <div className="flex flex-col items-center gap-1 mt-2"><form action={signOut}><button title="Sign out" className="w-9 h-9 flex items-center justify-center rounded-lg text-[#C7DEDC] hover:bg-white/10"><LogOut size={16} /></button></form></div>
+          <div className="flex flex-col items-center gap-1 mt-2"><form action={signOut}><button title="Sign out" className="erp-sidebar-icon-btn w-9 h-9 flex items-center justify-center rounded-lg"><LogOut size={16} /></button></form></div>
         </div>
       )}
     </>

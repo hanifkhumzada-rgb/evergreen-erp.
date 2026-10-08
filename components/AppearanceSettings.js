@@ -7,7 +7,7 @@ export default function AppearanceSettings() {
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.16em] text-aqua">Workspace</p>
           <h3 id="appearance-title" className="mt-1 font-display text-xl font-semibold">Appearance</h3>
-          <p className="mt-1 text-sm text-slate">Choose Evergreen Light, professional EW Blue, Evergreen Dark, or follow this device. Printed documents remain white and professional.</p>
+          <p className="mt-1 text-sm text-slate">Choose EW Ocean Blue (recommended), Evergreen Light, Evergreen Dark, or follow this device. The choice applies to the whole ERP on this device; printed documents and invoices stay white and professional.</p>
         </div>
       </div>
       <ThemeSelector className="mt-5" />

@@ -115,7 +115,7 @@ export default function GlobalSearch() {
 
   return (
     <div ref={containerRef} className="relative">
-      <div className="hidden md:flex items-center gap-2 px-3 py-1.75 rounded-lg border border-line bg-foam w-52 lg:w-72">
+      <div className="hidden md:flex min-h-[36px] items-center gap-2 px-3 py-1.75 rounded-lg border border-line bg-card w-52 lg:w-72 xl:w-96">
         <Search size={14} className="text-slate flex-shrink-0" />
         <input
           ref={inputRef}

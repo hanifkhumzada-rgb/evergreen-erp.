@@ -132,7 +132,7 @@ export default function LiveUsers({ userId, businessId, name, role, canView }) {
           <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300" />
         </span>
         <span className="hidden lg:inline">Live</span>
-        <span className="grid min-w-5 place-items-center rounded-full bg-white/15 px-1.5 py-0.5 text-[10px] text-white">{onlineCount}</span>
+        <span className="grid min-w-5 place-items-center topbar-chip rounded-full px-1.5 py-0.5 text-[10px]">{onlineCount}</span>
       </button>
 
       {open && (

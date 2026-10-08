@@ -172,14 +172,14 @@ export default async function CustomerProfilePage({ params }) {
       <DocumentPrintHeader branding={branding} title="Customer Profile" meta={`${c.name}\nGenerated ${fmtDate(new Date().toISOString())}`} />
       <Link href="/customers" className="no-print flex items-center gap-2 text-aqua font-semibold text-sm mb-4"><ArrowLeft size={18} /> Back to Customers</Link>
 
-      <div className="mb-5 rounded-3xl border border-aqua/20 bg-gradient-to-r from-[#073F3A] to-[#087C69] p-5 text-white shadow-lg shadow-aqua/10 sm:p-6">
+      <div className="mb-5 erp-hero rounded-3xl p-5 sm:p-6">
       <div className="flex flex-col justify-between gap-4 lg:flex-row lg:items-start">
         <div>
           <div className="flex items-center gap-2.5">
             <h2 className="font-display text-2xl font-semibold">{c.name}</h2>
             <Badge text={statusBadge.text} tone={statusBadge.tone} />
           </div>
-          <p className="text-[#CDE7E4] text-sm mt-1">
+          <p className="erp-hero-sub text-sm mt-1">
             <span className="font-mono-num">{c.code || "—"}</span> · {c.customer_type} · {c.zones?.name || "No zone"} · Customer since {fmtDate(c.created_at)}
           </p>
         </div>
@@ -215,10 +215,10 @@ export default async function CustomerProfilePage({ params }) {
         </div>
       </div>
       <div className="mt-4 grid grid-cols-2 gap-2 border-t border-white/15 pt-4 sm:grid-cols-4">
-        <div><p className="text-[10px] uppercase tracking-wide text-[#A9DDD7]">Outstanding</p><p className="font-mono-num text-lg font-bold">{pkr(balance)}</p></div>
-        <div><p className="text-[10px] uppercase tracking-wide text-[#A9DDD7]">Bottle balance</p><p className="font-mono-num text-lg font-bold">{totalBottleBalance}</p></div>
-        <div><p className="text-[10px] uppercase tracking-wide text-[#A9DDD7]">Last delivery</p><p className="text-sm font-bold">{lastDelivery ? fmtDate(lastDelivery.delivery_date) : "—"}</p></div>
-        <div><p className="text-[10px] uppercase tracking-wide text-[#A9DDD7]">Next scheduled</p><p className="text-sm font-bold">{nextScheduled ? fmtDate(nextScheduled.delivery_date) : "—"}</p></div>
+        <div><p className="text-[10px] uppercase tracking-wide erp-hero-label">Outstanding</p><p className="font-mono-num text-lg font-bold">{pkr(balance)}</p></div>
+        <div><p className="text-[10px] uppercase tracking-wide erp-hero-label">Bottle balance</p><p className="font-mono-num text-lg font-bold">{totalBottleBalance}</p></div>
+        <div><p className="text-[10px] uppercase tracking-wide erp-hero-label">Last delivery</p><p className="text-sm font-bold">{lastDelivery ? fmtDate(lastDelivery.delivery_date) : "—"}</p></div>
+        <div><p className="text-[10px] uppercase tracking-wide erp-hero-label">Next scheduled</p><p className="text-sm font-bold">{nextScheduled ? fmtDate(nextScheduled.delivery_date) : "—"}</p></div>
       </div>
       </div>
 

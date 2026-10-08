@@ -59,7 +59,7 @@ export default function RecoveryReminderTable({ rows, whatsappConfigured, canAut
       {rows.length > 0 && (
         <div className="no-print mb-2.5 flex flex-wrap items-center gap-2.5 rounded-2xl border border-line bg-card px-3 py-2.5">
           <label className="flex min-h-[40px] items-center gap-2 text-xs font-semibold">
-            <input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-4 w-4 accent-[#059669]" aria-label="Select all customers with a balance" />
+            <input type="checkbox" checked={allSelected} onChange={toggleAll} className="h-4 w-4 accent-aqua" aria-label="Select all customers with a balance" />
             {selected.size ? `${selected.size} selected · ${pkr(selectedTotal)}` : `Select all ${selectable.length} in this list`}
           </label>
           <div className="flex-1" />
@@ -68,7 +68,7 @@ export default function RecoveryReminderTable({ rows, whatsappConfigured, canAut
           )}
           <button type="button" disabled={!selected.size || sending || (!autoMode && !withPhone.length)}
             onClick={autoMode ? sendAll : startQueue}
-            className="flex min-h-[40px] items-center gap-2 rounded-xl bg-[#059669] px-3.5 text-xs font-bold text-white shadow-sm disabled:opacity-45">
+            className="flex min-h-[40px] items-center gap-2 rounded-xl bg-aqua px-3.5 text-xs font-bold text-white shadow-sm disabled:opacity-45">
             {sending ? <Loader2 size={15} className="animate-spin" /> : autoMode ? <Send size={15} /> : <MessageCircle size={15} />}
             {autoMode ? "Send Reminders to Selected" : "Remind Selected via WhatsApp"}
           </button>
@@ -112,7 +112,7 @@ export default function RecoveryReminderTable({ rows, whatsappConfigured, canAut
                 <tr key={d.customerId} className={`hover:bg-foam ${selected.has(d.customerId) ? "bg-aquaSoft/50" : ""}`}>
                   <Td className="no-print">
                     <input type="checkbox" checked={selected.has(d.customerId)} onChange={() => toggle(d.customerId)} disabled={d.balance <= 0}
-                      className="h-4 w-4 accent-[#059669]" aria-label={`Select ${d.name}`} />
+                      className="h-4 w-4 accent-aqua" aria-label={`Select ${d.name}`} />
                   </Td>
                   <Td><Badge text={d.priority} tone={priorityTone[d.priority]} /></Td>
                   <Td><Link href={`/customers/${d.customerId}`} className="font-semibold text-navy hover:text-aqua">{d.name}</Link>{d.isHighOutstanding && <div className="text-[10px] text-amber mt-0.5">High outstanding</div>}</Td>
@@ -172,7 +172,7 @@ function ReminderQueue({ queue, setQueue, onFinish }) {
           <button type="button" onClick={onFinish} className="grid h-10 w-10 place-items-center rounded-xl hover:bg-foam" aria-label="Close queue"><X size={18} /></button>
         </div>
         <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-foam">
-          <div className="h-full rounded-full bg-[#059669] transition-all" style={{ width: `${(Math.min(index, items.length) / items.length) * 100}%` }} />
+          <div className="h-full rounded-full bg-aqua transition-all" style={{ width: `${(Math.min(index, items.length) / items.length) * 100}%` }} />
         </div>
 
         {finished ? (
@@ -220,6 +220,6 @@ function HeaderCheckbox({ checked, partial, onChange, count }) {
   return (
     <input ref={ref} type="checkbox" checked={checked} onChange={onChange} disabled={!count}
       aria-label={`Select all ${count} customers in this list`} title={`Select all ${count} in this list`}
-      className="h-4 w-4 cursor-pointer align-middle accent-[#059669] disabled:opacity-40" />
+      className="h-4 w-4 cursor-pointer align-middle accent-aqua disabled:opacity-40" />
   );
 }

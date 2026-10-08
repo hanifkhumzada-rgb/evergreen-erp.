@@ -3,55 +3,170 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   ERP design tokens — the ONE theme system for the whole app.
+   Theme is chosen by ThemeSelector: html[data-theme] = light | blue | dark |
+   system, plus html.dark for dark rendering. Tailwind brand colors
+   (navy, aqua, foam, card, ink, slate, line, amber, coral, green …) read the
+   --rgb-* channel tokens below, so every module re-themes from here.
+   ========================================================================== */
+
+/* Evergreen Light (default tokens) */
 :root {
-  --foam: #F4FAF8;
-  --card: #FFFFFF;
-  --ink: #0B1F1D;
-  --slate: #5C7D78;
-  --line: #DCEAE6;
-  --aquaSoft: #E1F5EE;
-  --amberSoft: #FDF0DD;
-  --coralSoft: #FCE4E2;
-  --greenSoft: #E1F6E8;
+  --rgb-navy: 7 59 58;          /* #073B3A */
+  --rgb-navy-light: 14 79 77;   /* #0E4F4D */
+  --rgb-accent: 5 150 105;      /* #059669 — primary actions, links */
+  --rgb-accent-soft: 225 245 238;
+  --rgb-highlight: 16 185 129;  /* selected-state highlight */
+  --rgb-primary: 7 59 58;       /* .bg-navy action buttons */
+  --rgb-foam: 244 250 248;      /* workspace canvas */
+  --rgb-card: 255 255 255;
+  --rgb-ink: 11 31 29;
+  --rgb-slate: 92 125 120;
+  --rgb-line: 220 234 230;
+  --rgb-mist: 238 242 242;      /* neutral chips */
+  --rgb-amber: 217 119 6;
+  --rgb-amber-soft: 253 240 221;
+  --rgb-coral: 220 38 38;
+  --rgb-coral-soft: 252 228 226;
+  --rgb-green: 22 163 74;
+  --rgb-green-soft: 225 246 232;
+  --accent-text: #087C69;       /* hover/active text on light surfaces */
+  --row-alt: #F9FCFB;
+
+  /* Sidebar */
+  --sb-bg: #073B3A;
+  --sb-border: rgba(255,255,255,.08);
+  --sb-text: #C7DEDC;
+  --sb-muted: #8FB8B3;
+  --sb-heading: #A8CBC7;
+  --sb-hover: rgba(255,255,255,.06);
+  --sb-active-bg: rgb(var(--rgb-accent));
+  --sb-active-text: #FFFFFF;
+  --sb-active-bar: rgba(255,255,255,.58);
+  --sb-input-bg: rgba(255,255,255,.05);
+
+  /* Top navigation */
+  --tb-bg: linear-gradient(100deg, #073F3A 0%, #07564D 62%, color-mix(in srgb, #059669 78%, #073F3A) 100%);
+  --tb-text: #FFFFFF;
+  --tb-muted: #A9DDD7;
+  --tb-control-bg: rgba(255,255,255,.08);
+  --tb-control-border: rgba(255,255,255,.14);
+  --tb-hover-bg: rgba(255,255,255,.12);
+  --tb-hover-text: #FFFFFF;
+  --tb-border: rgba(255,255,255,.08);
+  --tb-shadow: 0 8px 26px rgba(7,59,58,.22);
+
+  /* Page hero banners */
+  --hero-bg: linear-gradient(100deg, #073F3A 0%, #087C69 100%);
+  --hero-border: #17675F;
+  --hero-label: #A9DDD7;
+  --hero-sub: #D7EFEC;
+
   --surface-raised: rgba(255,255,255,.82);
   --navy-rgb: 7,59,58;
-}
-
-.dark {
-  --foam: #071A18;
-  --card: #0E2624;
-  --ink: #EAF6F3;
-  --slate: #86A39D;
-  --line: #1C3835;
-  --aquaSoft: #103A34;
-  --amberSoft: #3A2C14;
-  --coralSoft: #3A1D1B;
-  --greenSoft: #123020;
-}
-
-/* Professional EW Blue — a calm operational workspace with the same
-   accessible contrast and document-friendly white surfaces as Light mode. */
-html[data-theme="blue"] {
-  --foam: #F2F7FC;
-  --card: #FFFFFF;
-  --ink: #10243E;
-  --slate: #60758D;
-  --line: #D8E5F1;
-  --aquaSoft: #E1F3F8;
-  --amberSoft: #FDF0DD;
-  --coralSoft: #FCE6E5;
-  --greenSoft: #E4F5EA;
-  --surface-raised: rgba(255,255,255,.86);
-  --navy-rgb: 15,59,105;
-  --erp-navy: #0F3B69;
-  --erp-navy-light: #15558E;
-  --erp-accent: #078FB3;
-  --erp-accent-soft: #DDF3F8;
   color-scheme: light;
 }
 
-html { color-scheme: light; }
-html.dark { color-scheme: dark; }
+/* EW Ocean Blue — recommended premium business theme */
+html[data-theme="blue"] {
+  --rgb-navy: 16 59 100;        /* #103B64 Deep Navy */
+  --rgb-navy-light: 21 79 128;  /* #154F80 */
+  --rgb-accent: 8 125 168;      /* #087DA8 Ocean Blue */
+  --rgb-accent-soft: 224 243 249;
+  --rgb-highlight: 0 166 200;   /* #00A6C8 Aqua Accent */
+  --rgb-primary: 8 125 168;     /* primary actions in Ocean Blue */
+  --rgb-foam: 234 246 251;      /* #EAF6FB Ice Blue */
+  --rgb-card: 255 255 255;
+  --rgb-ink: 23 50 77;          /* #17324D */
+  --rgb-slate: 100 116 139;     /* #64748B */
+  --rgb-line: 220 232 240;      /* #DCE8F0 */
+  --rgb-mist: 238 243 248;
+  --rgb-amber: 217 144 33;      /* #D99021 */
+  --rgb-amber-soft: 253 243 225;
+  --rgb-coral: 214 69 80;       /* #D64550 */
+  --rgb-coral-soft: 252 232 234;
+  --rgb-green: 22 133 104;      /* #168568 */
+  --rgb-green-soft: 225 244 238;
+  --accent-text: #06698E;
+  --row-alt: #F7FBFD;
+
+  --sb-bg: #103B64;
+  --sb-border: rgba(255,255,255,.07);
+  --sb-text: #D3E2F0;
+  --sb-muted: #93AECB;
+  --sb-heading: #8FB0CE;
+  --sb-hover: rgba(255,255,255,.07);
+  --sb-active-bg: rgba(0,166,200,.18);
+  --sb-active-text: #FFFFFF;
+  --sb-active-bar: #00A6C8;
+  --sb-input-bg: rgba(255,255,255,.06);
+
+  --tb-bg: #FFFFFF;
+  --tb-text: #17324D;
+  --tb-muted: #64748B;
+  --tb-control-bg: #F5FAFD;
+  --tb-control-border: #DCE8F0;
+  --tb-hover-bg: #EAF6FB;
+  --tb-hover-text: #087DA8;
+  --tb-border: #DCE8F0;
+  --tb-shadow: 0 1px 2px rgba(16,59,100,.04), 0 6px 20px rgba(16,59,100,.05);
+
+  --hero-bg: linear-gradient(110deg, #103B64 0%, #0F4F7E 100%);
+  --hero-border: #1D5486;
+  --hero-label: #9FDCEC;
+  --hero-sub: #D6E8F4;
+
+  --surface-raised: rgba(255,255,255,.88);
+  --navy-rgb: 16,59,100;
+  color-scheme: light;
+}
+
+/* Evergreen Dark (also used by System when the device is dark) */
+html.dark {
+  --rgb-accent-soft: 16 58 52;
+  --rgb-foam: 7 26 24;
+  --rgb-card: 14 38 36;
+  --rgb-ink: 234 246 243;
+  --rgb-slate: 134 163 157;
+  --rgb-line: 28 56 53;
+  --rgb-mist: 26 48 46;
+  --rgb-amber-soft: 58 44 20;
+  --rgb-coral-soft: 58 29 27;
+  --rgb-green-soft: 18 48 32;
+  --accent-text: #34D399;
+  --row-alt: rgba(255,255,255,.018);
+  --sb-bg: #06302F;
+  --tb-shadow: 0 8px 26px rgba(0,0,0,.3);
+  --surface-raised: rgba(14,38,36,.86);
+  color-scheme: dark;
+}
+
+/* Legacy full-color aliases kept for existing CSS (do not add new ones). */
+:root, html[data-theme="blue"], html.dark {
+  --foam: rgb(var(--rgb-foam));
+  --card: rgb(var(--rgb-card));
+  --ink: rgb(var(--rgb-ink));
+  --slate: rgb(var(--rgb-slate));
+  --line: rgb(var(--rgb-line));
+  --aquaSoft: rgb(var(--rgb-accent-soft));
+  --amberSoft: rgb(var(--rgb-amber-soft));
+  --coralSoft: rgb(var(--rgb-coral-soft));
+  --greenSoft: rgb(var(--rgb-green-soft));
+  --erp-navy: rgb(var(--rgb-navy));
+  --erp-navy-light: rgb(var(--rgb-navy-light));
+  --erp-accent: rgb(var(--rgb-accent));
+  --erp-accent-soft: rgb(var(--rgb-accent-soft));
+  --erp-highlight: rgb(var(--rgb-highlight));
+}
+
+/* Ocean Blue status colors are used as-is for fills, borders and charts;
+   status TEXT uses a deeper tone of the same hue to keep WCAG AA contrast
+   on white and on the matching *Soft badge backgrounds. */
+html[data-theme="blue"] .text-amber { color: #9A5E0A; }
+html[data-theme="blue"] .text-coral { color: #B8323E; }
+html[data-theme="blue"] .text-green { color: #10705A; }
+html[data-theme="blue"] .bg-aquaSoft.text-aqua { color: #06698E; }
 
 body {
   font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -80,10 +195,10 @@ body {
 .page-stage { animation: page-stage-in .22s ease-out both; }
 @keyframes page-stage-in { from { opacity: 0; } to { opacity: 1; } }
 
-.erp-nav-controls { padding: 3px; border: 1px solid var(--line); border-radius: 13px; background: color-mix(in srgb, var(--card) 82%, transparent); box-shadow: 0 5px 18px rgba(7,59,58,.06); }
+.erp-nav-controls { padding: 3px; border: 1px solid var(--line); border-radius: 13px; background: color-mix(in srgb, var(--card) 82%, transparent); box-shadow: 0 5px 18px rgb(var(--rgb-navy) / .06); }
 .erp-nav-button { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 6px 9px; border-radius: 9px; color: var(--slate); font-size: 11px; font-weight: 700; transition: background-color .16s ease, color .16s ease, transform .16s ease; }
-.erp-nav-button:not(:disabled):hover { background: var(--aquaSoft); color: #087C69; transform: translateY(-1px); }
-.erp-toolbar { padding: 10px; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--card) 84%, transparent); box-shadow: 0 8px 26px rgba(7,59,58,.055); }
+.erp-nav-button:not(:disabled):hover { background: var(--aquaSoft); color: var(--accent-text); }
+.erp-toolbar { padding: 10px; border: 1px solid var(--line); border-radius: 16px; background: color-mix(in srgb, var(--card) 84%, transparent); box-shadow: 0 8px 26px rgb(var(--rgb-navy) / .055); }
 .erp-toolbar input, .erp-toolbar select, .erp-toolbar button, .erp-toolbar a { min-height: 36px; }
 .nav-scroll { scrollbar-width: none; }
 .nav-scroll::-webkit-scrollbar { display: none; }
@@ -109,13 +224,14 @@ table td, table th, .tabular-nums { font-variant-numeric: tabular-nums; }
   border: 1px solid var(--line);
   background: var(--card);
   color: var(--ink);
+  min-height: 40px;
   font-size: 13.5px;
   outline: none;
   transition: border-color .15s ease, box-shadow .15s ease;
 }
 .in:focus {
-  border-color: #087C69;
-  box-shadow: 0 0 0 3px var(--aquaSoft);
+  border-color: rgb(var(--rgb-accent));
+  box-shadow: 0 0 0 3px rgb(var(--rgb-highlight) / .18);
 }
 .in:disabled {
   opacity: .6;
@@ -124,7 +240,7 @@ table td, table th, .tabular-nums { font-variant-numeric: tabular-nums; }
 
 /* Modern card polish — applies to the border+rounded-2xl card pattern used everywhere */
 .rounded-2xl.border {
-  box-shadow: 0 1px 2px rgba(7, 26, 24, 0.04);
+  box-shadow: 0 1px 2px rgb(var(--rgb-navy) / 0.04), 0 2px 10px rgb(var(--rgb-navy) / 0.03);
   transition: border-color 0.16s ease, box-shadow 0.16s ease;
 }
 .dark .rounded-2xl.border {
@@ -140,8 +256,8 @@ table tr.hover\:bg-foam:hover {
 }
 .card-lift:hover {
   transform: none;
-  border-color: color-mix(in srgb, var(--erp-accent, #059669) 24%, var(--line));
-  box-shadow: 0 4px 14px rgba(7, 26, 24, 0.07);
+  border-color: color-mix(in srgb, var(--erp-accent) 24%, var(--line));
+  box-shadow: 0 4px 14px rgb(var(--rgb-navy) / 0.08);
 }
 .dark .card-lift:hover {
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.28);
@@ -179,7 +295,7 @@ table tr.hover\:bg-foam:hover {
   body.report-preview-print .report-preview-screen-row { display: none !important; }
   body.report-preview-print .report-preview-print-row { display: table-row !important; }
   body.report-preview-print table { font-size: 9px !important; }
-  body.report-preview-print thead { position: static !important; background: #073b3a !important; color: #fff !important; }
+  body.report-preview-print thead { position: static !important; background: rgb(var(--rgb-navy)) !important; color: #fff !important; }
   body.report-preview-print tfoot { position: static !important; }
 }
 
@@ -294,33 +410,35 @@ table tr.hover\:bg-foam:hover {
 /* ERP premium shell v2 — scoped to staff workspace so Customer Portal stays unchanged. */
 .app-shell-bg .workspace-topbar {
   min-height: 64px;
-  background: color-mix(in srgb, var(--card) 92%, transparent);
-  box-shadow: 0 1px 0 rgba(7,59,58,.04), 0 10px 30px rgba(7,59,58,.045);
 }
-/* Branded top bar — the same deep teal as the Owner Control Room card, and
-   it follows the owner's chosen accent (ErpAppearance sets --erp-navy*).
-   Same in light and dark mode: light text on dark teal reads well in both. */
+/* Top navigation — every color comes from the --tb-* tokens: a branded
+   teal bar in Evergreen Light/Dark, a clean white bar in EW Ocean Blue. */
 .app-shell-bg .workspace-topbar.topbar-branded {
-  color: #fff;
-  background: linear-gradient(100deg, var(--erp-navy, #073F3A) 0%, var(--erp-navy-light, #07564D) 62%, color-mix(in srgb, var(--erp-accent, #087C69) 78%, #073F3A) 100%);
-  border-bottom: 1px solid rgba(255,255,255,.08);
-  box-shadow: 0 8px 26px rgba(7,59,58,.22);
+  color: var(--tb-text);
+  background: var(--tb-bg);
+  border-bottom: 1px solid var(--tb-border);
+  box-shadow: var(--tb-shadow);
 }
-.topbar-branded .topbar-muted { color: #A9DDD7; }
-.topbar-branded .workspace-context-label { color: #A9DDD7; }
-.topbar-branded .workspace-context-title { color: #fff; }
-.topbar-branded .topbar-icon-btn { color: #E6F6F3; }
+.topbar-branded .topbar-muted { color: var(--tb-muted); }
+.app-shell-bg .topbar-branded .workspace-context-label { color: var(--tb-muted); }
+.app-shell-bg .topbar-branded .workspace-context-title { color: var(--tb-text); }
+.topbar-branded .topbar-icon-btn { color: var(--tb-text); opacity: .92; }
 .topbar-branded .topbar-icon-btn:hover,
-.topbar-branded .topbar-icon-btn:focus-visible { background: rgba(255,255,255,.12); color: #fff; }
-.topbar-branded .erp-nav-controls { border-color: rgba(255,255,255,.14); background: rgba(255,255,255,.08); box-shadow: none; }
-.topbar-branded .erp-nav-button { color: #D7EFEC; }
-.topbar-branded .erp-nav-button:not(:disabled):hover { background: rgba(255,255,255,.14); color: #fff; }
-.topbar-branded .topbar-search { border: 1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.08); }
-/* Desktop search field stays a light pill on the dark bar (its dropdown and
-   the full-screen mobile search keep the normal card styling). */
+.topbar-branded .topbar-icon-btn:focus-visible { background: var(--tb-hover-bg); color: var(--tb-hover-text); opacity: 1; }
+.topbar-branded .erp-nav-controls { border-color: var(--tb-control-border); background: var(--tb-control-bg); box-shadow: none; }
+.topbar-branded .erp-nav-button { color: var(--tb-text); opacity: .9; }
+.topbar-branded .erp-nav-button:not(:disabled):hover { background: var(--tb-hover-bg); color: var(--tb-hover-text); opacity: 1; }
+.topbar-branded .topbar-search { border: 1px solid var(--tb-control-border); background: var(--tb-control-bg); transition: border-color .15s ease, box-shadow .15s ease; }
+.topbar-branded .topbar-search:focus-within { border-color: rgb(var(--rgb-highlight) / .6); box-shadow: 0 0 0 3px rgb(var(--rgb-highlight) / .14); }
 .topbar-branded .topbar-search input { color: var(--ink); }
+.topbar-branded .topbar-divider { width: 1px; height: 26px; background: var(--tb-control-border); }
+.topbar-branded .topbar-avatar { background: linear-gradient(135deg, rgb(var(--rgb-highlight)), rgb(var(--rgb-accent))); color: #fff; box-shadow: 0 0 0 2px var(--tb-control-border); }
+.topbar-branded .topbar-dot { box-shadow: 0 0 0 2px var(--tb-text); }
+html[data-theme="blue"] .topbar-branded .topbar-dot { box-shadow: 0 0 0 2px #fff; }
+.topbar-branded .topbar-chip { border: 1px solid var(--tb-control-border); background: var(--tb-control-bg); color: var(--tb-text); }
+.topbar-branded .topbar-live-dot { background: rgb(var(--rgb-highlight)); }
 /* Popovers rendered inside the bar (search results, mobile search sheet)
-   keep normal card text instead of inheriting the bar's white. */
+   keep normal card text instead of inheriting the bar's text color. */
 .topbar-branded .bg-card { color: var(--ink); }
 .app-shell-bg .workspace-context {
   min-width: 0;
@@ -382,8 +500,16 @@ table tr.hover\:bg-foam:hover {
 .app-shell-bg tbody tr {
   transition: background-color .14s ease;
 }
+.app-shell-bg thead:not(.bg-navy) th {
+  color: var(--slate);
+  font-weight: 700;
+  letter-spacing: .01em;
+}
+.app-shell-bg tbody tr:nth-child(even) {
+  background: var(--row-alt);
+}
 .app-shell-bg tbody tr:hover {
-  background: color-mix(in srgb, var(--aquaSoft) 42%, var(--card));
+  background: color-mix(in srgb, var(--aquaSoft) 55%, var(--card));
 }
 .app-shell-bg button,
 .app-shell-bg a {
@@ -391,44 +517,85 @@ table tr.hover\:bg-foam:hover {
 }
 .app-shell-bg button:focus-visible,
 .app-shell-bg a:focus-visible {
-  outline: 2px solid var(--erp-accent, #059669);
+  outline: 2px solid rgb(var(--rgb-highlight));
   outline-offset: 2px;
 }
 .app-shell-bg .in:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--erp-accent, #059669) 38%, var(--line));
+  border-color: color-mix(in srgb, var(--erp-accent) 38%, var(--line));
 }
+/* Sidebar — colors from the --sb-* tokens. */
 .erp-sidebar-surface {
-  background: var(--erp-navy, #073B3A);
-  border-right: 1px solid rgba(255,255,255,.08);
-  box-shadow: 8px 0 24px rgba(5,45,44,.08);
+  color: #fff;
+  background: var(--sb-bg);
+  border-right: 1px solid var(--sb-border);
+  box-shadow: 4px 0 18px rgb(var(--rgb-navy) / .08);
 }
 .erp-sidebar-link {
   position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   min-height: 38px;
-  transition: color .15s ease, background-color .15s ease, transform .15s ease;
-}
-.erp-sidebar-link:hover {
-  transform: none;
-}
-.erp-sidebar-link-active {
-  box-shadow: inset 3px 0 0 rgba(255,255,255,.58);
-}
-.erp-sidebar-group {
-  min-height: 38px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  color: var(--sb-text);
+  font-size: 12.5px;
+  font-weight: 600;
   transition: color .15s ease, background-color .15s ease;
 }
-.erp-sidebar-search {
-  accent-color: var(--erp-accent, #059669);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+.erp-sidebar-link:hover { background: var(--sb-hover); color: #fff; }
+.erp-sidebar-link-active,
+.erp-sidebar-link-active:hover {
+  background: var(--sb-active-bg);
+  color: var(--sb-active-text);
+  box-shadow: inset 3px 0 0 var(--sb-active-bar);
 }
+.erp-sidebar-link-active svg { color: var(--sb-active-bar); }
+html:not([data-theme="blue"]) .erp-sidebar-link-active svg { color: currentColor; }
+.erp-sidebar-group {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  color: var(--sb-heading);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  transition: color .15s ease, background-color .15s ease;
+}
+.erp-sidebar-group:hover { background: var(--sb-hover); color: #fff; }
+.erp-sidebar-group.is-active { color: #fff; }
+.erp-sidebar-subnav { margin: 2px 0 6px 13px; padding-left: 8px; border-left: 1px solid var(--sb-border); }
+.erp-sidebar-muted { color: var(--sb-muted); }
+.erp-sidebar-text { color: var(--sb-text); }
+.erp-sidebar-icon-btn { color: var(--sb-text); transition: background-color .15s ease, color .15s ease; }
+.erp-sidebar-icon-btn:hover { background: var(--sb-hover); color: #fff; }
+.erp-sidebar-rail-link { color: var(--sb-text); transition: background-color .15s ease, color .15s ease; }
+.erp-sidebar-rail-link:hover { background: var(--sb-hover); color: #fff; }
+.erp-sidebar-rail-link.is-active { background: var(--sb-active-bg); color: var(--sb-active-text); box-shadow: inset 0 0 0 1px rgb(var(--rgb-highlight) / .35); }
+.erp-sidebar-divider { border-top: 1px solid var(--sb-border); }
+.erp-sidebar-search {
+  border: 1px solid var(--sb-border);
+  background: var(--sb-input-bg);
+  color: #fff;
+}
+.erp-sidebar-search::placeholder { color: var(--sb-muted); }
 .erp-sidebar-search:focus {
-  box-shadow: 0 0 0 3px rgba(94,234,212,.1);
+  border-color: rgb(var(--rgb-highlight) / .55);
+  box-shadow: 0 0 0 3px rgb(var(--rgb-highlight) / .14);
 }
 .quick-add-root > button {
   min-height: 50px;
-  box-shadow: 0 14px 36px color-mix(in srgb, var(--erp-accent, #059669) 32%, transparent), inset 0 1px 0 rgba(255,255,255,.18);
+  box-shadow: 0 14px 36px color-mix(in srgb, var(--erp-accent) 32%, transparent), inset 0 1px 0 rgba(255,255,255,.18);
 }
 
+@media (max-width: 767px) {
+  .topbar-branded .topbar-search { padding: 0; border-color: transparent; background: transparent; }
+}
 @media (max-width: 639px) {
   .app-shell-bg .workspace-topbar {
     min-height: 58px;
@@ -484,15 +651,15 @@ table tr.hover\:bg-foam:hover {
 /* Dashboard and Customer workspace v3 — staff-only responsive structure. */
 
 /* Shared enterprise entry forms: compact, consistent and theme-aware. */
-.erp-entry-form { background: var(--card); border: 1px solid var(--line); box-shadow: 0 24px 70px rgb(5 42 57 / 18%); }
+.erp-entry-form { background: var(--card); border: 1px solid var(--line); box-shadow: 0 24px 70px rgb(var(--rgb-navy) / 18%); }
 .erp-form-icon { display: grid; width: 2.25rem; height: 2.25rem; flex: 0 0 auto; place-items: center; border: 1px solid var(--line); border-radius: .75rem; color: var(--slate); background: var(--card); transition: .15s ease; }
-.erp-form-icon:hover { color: var(--aqua); background: var(--aqua-soft); border-color: color-mix(in srgb, var(--aqua) 35%, var(--line)); }
+.erp-form-icon:hover { color: var(--erp-accent); background: var(--aquaSoft); border-color: color-mix(in srgb, var(--erp-accent) 35%, var(--line)); }
 .erp-form-section { margin-bottom: .85rem; border: 1px solid var(--line); border-radius: .9rem; background: color-mix(in srgb, var(--card) 82%, var(--foam)); padding: .9rem; }
-.erp-form-summary { display: grid; grid-template-columns: repeat(auto-fit,minmax(120px,1fr)); gap: .5rem; margin-top: .75rem; border-radius: .9rem; background: var(--navy); color: white; padding: .85rem 1rem; }
+.erp-form-summary { display: grid; grid-template-columns: repeat(auto-fit,minmax(120px,1fr)); gap: .5rem; margin-top: .75rem; border-radius: .9rem; background: var(--erp-navy); color: white; padding: .85rem 1rem; }
 .erp-form-summary div { display: flex; flex-direction: column; gap: .15rem; }
 .erp-form-summary span { color: rgb(255 255 255 / 68%); font-size: .65rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
 .erp-form-summary strong { font-size: .9rem; }
-.erp-entry-form .in:focus { border-color: var(--aqua); box-shadow: 0 0 0 3px color-mix(in srgb, var(--aqua) 14%, transparent); }
+.erp-entry-form .in:focus { border-color: var(--erp-accent); box-shadow: 0 0 0 3px rgb(var(--rgb-highlight) / .16); }
 @media (max-width: 639px) { .erp-entry-form { border-radius: 1.15rem 1.15rem 0 0; } .erp-form-actions { padding-bottom: calc(.75rem + env(safe-area-inset-bottom)); } }
 .app-shell-bg .dashboard-section-tabs {
   display: flex;
@@ -503,7 +670,7 @@ table tr.hover\:bg-foam:hover {
   border: 1px solid var(--line);
   border-radius: 16px;
   background: color-mix(in srgb, var(--card) 92%, transparent);
-  box-shadow: 0 8px 24px rgba(7,59,58,.055);
+  box-shadow: 0 8px 24px rgb(var(--rgb-navy) / .055);
 }
 .app-shell-bg .dashboard-section-tab {
   display: inline-flex;
@@ -520,13 +687,13 @@ table tr.hover\:bg-foam:hover {
   transition: background-color .15s ease, color .15s ease, box-shadow .15s ease;
 }
 .app-shell-bg .dashboard-section-tab:hover {
-  color: #087C69;
+  color: var(--accent-text);
   background: var(--aquaSoft);
 }
 .app-shell-bg .dashboard-section-tab.is-active {
   color: #fff;
-  background: linear-gradient(135deg, #073B3A, #087C69);
-  box-shadow: 0 8px 20px rgba(8,124,105,.2);
+  background: rgb(var(--rgb-primary));
+  box-shadow: 0 6px 16px rgb(var(--rgb-primary) / .22);
 }
 .app-shell-bg .dashboard-anchor {
   scroll-margin-top: 84px;
@@ -546,7 +713,7 @@ table tr.hover\:bg-foam:hover {
 .app-shell-bg .customer-mobile-card {
   position: relative;
   overflow: hidden;
-  box-shadow: 0 8px 24px rgba(7,59,58,.065);
+  box-shadow: 0 8px 24px rgb(var(--rgb-navy) / .065);
 }
 .app-shell-bg .customer-mobile-card::after {
   position: absolute;
@@ -554,7 +721,7 @@ table tr.hover\:bg-foam:hover {
   top: -34px;
   width: 88px;
   height: 88px;
-  border: 1px solid rgba(8,124,105,.1);
+  border: 1px solid rgb(var(--rgb-accent) / .1);
   border-radius: 999px;
   content: "";
   pointer-events: none;
@@ -566,4 +733,38 @@ table tr.hover\:bg-foam:hover {
 @media (max-width: 420px) {
   .app-shell-bg .dashboard-section-tab { padding: 8px 11px; }
   .app-shell-bg .dashboard-kpi-grid { gap: 9px; }
+}
+
+/* ==========================================================================
+   Shared ERP components — buttons and page heroes (token-driven).
+   ========================================================================== */
+/* Primary actions: `bg-navy` buttons render in the theme's primary color
+   (Ocean Blue in EW Ocean Blue, deep teal in Evergreen). Overlays use
+   bg-navy/40 etc. and are not affected. */
+.app-shell-bg :is(a, button).bg-navy,
+.app-shell-bg :is(a, button).bg-aqua {
+  background-color: rgb(var(--rgb-primary));
+  transition: background-color .15s ease, box-shadow .15s ease;
+}
+.app-shell-bg :is(a, button).bg-aqua { background-color: rgb(var(--rgb-accent)); }
+.app-shell-bg :is(a, button).bg-navy:not(:disabled):hover,
+.app-shell-bg :is(a, button).bg-aqua:not(:disabled):hover {
+  box-shadow: 0 6px 16px rgb(var(--rgb-primary) / .22);
+  filter: brightness(1.06);
+}
+
+/* Page hero banners (Dashboard, Customer profile, Zones, Reports …). */
+.erp-hero {
+  color: #fff;
+  background: var(--hero-bg);
+  border: 1px solid var(--hero-border);
+  box-shadow: 0 12px 34px rgb(var(--rgb-navy) / .14);
+}
+.erp-hero-label { color: var(--hero-label); }
+.erp-hero-sub { color: var(--hero-sub); }
+
+@media (max-width: 767px) {
+  /* Comfortable touch targets for form controls on phones. */
+  .app-shell-bg .in { min-height: 44px; font-size: 16px; }
+  .app-shell-bg .overflow-x-auto { -webkit-overflow-scrolling: touch; }
 }

@@ -1,7 +1,7 @@
 export default function AppLoading() {
   return (
     <div role="status" aria-label="Loading workspace">
-      <div className="mb-5 overflow-hidden rounded-3xl border border-aqua/15 bg-gradient-to-r from-navy to-[#087C69] p-5 sm:p-7">
+      <div className="mb-5 overflow-hidden erp-hero rounded-3xl p-5 sm:p-7">
         <div className="skeleton-shimmer mb-3 h-3 w-40 rounded-full opacity-40" />
         <div className="skeleton-shimmer mb-2 h-8 w-64 max-w-[75%] rounded-xl opacity-50" />
         <div className="skeleton-shimmer h-4 w-48 max-w-[60%] rounded-lg opacity-35" />

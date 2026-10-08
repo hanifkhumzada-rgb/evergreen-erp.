@@ -9,7 +9,7 @@ import { fmtDateTime } from "@/lib/format";
 export function Badge({ text, tone = "slate" }) {
   const map = {
     green: "bg-greenSoft text-green", amber: "bg-amberSoft text-amber",
-    coral: "bg-coralSoft text-coral", aqua: "bg-aquaSoft text-aqua", slate: "bg-[#EEF2F2] text-slate",
+    coral: "bg-coralSoft text-coral", aqua: "bg-aquaSoft text-aqua", slate: "bg-mist text-slate",
   };
   return <span className={`${map[tone] || map.slate} text-[11.5px] font-semibold px-2.5 py-1 rounded-full border border-black/[0.03]`}>{text}</span>;
 }
@@ -111,7 +111,7 @@ export function Callout({ children, tone = "slate" }) {
   const map = {
     green: "bg-greenSoft text-green border-green/20", amber: "bg-amberSoft text-amber border-amber/20",
     coral: "bg-coralSoft text-coral border-coral/20", aqua: "bg-aquaSoft text-aqua border-aqua/20",
-    slate: "bg-[#EEF2F2] text-slate border-black/[0.04]",
+    slate: "bg-mist text-slate border-line",
   };
   return <p className={`${map[tone] || map.slate} text-xs font-medium px-3.5 py-2.5 rounded-xl border leading-relaxed`}>{children}</p>;
 }
@@ -129,9 +129,9 @@ export function KPI({ label, value, sub, tone = "navy", trend, href }) {
   const trendColor = trend?.favorable === null || trend?.favorable === undefined ? "text-slate" : trend.favorable ? "text-green" : "text-coral";
   const card = (
     <div className={`premium-kpi card-lift rounded-2xl p-5 flex-1 min-w-[180px] ${style} ${href ? "cursor-pointer" : ""}`}>
-      <div className={`text-[11px] font-semibold uppercase tracking-wide ${tone === "navy" ? "text-[#BFE3E0]" : "text-slate"}`}>{label}</div>
+      <div className={`text-[11px] font-semibold uppercase tracking-wide ${tone === "navy" ? "text-white/75" : "text-slate"}`}>{label}</div>
       <div className="premium-kpi-value font-mono-num text-2xl font-semibold mt-2">{value}</div>
-      {sub && <div className={`text-xs mt-1 ${tone === "navy" ? "text-[#9CC9C5]" : "text-slate"}`}>{sub}</div>}
+      {sub && <div className={`text-xs mt-1 ${tone === "navy" ? "text-white/65" : "text-slate"}`}>{sub}</div>}
       {trend && (
         <div className={`flex items-center gap-1 text-[11px] font-semibold mt-1.5 ${trendColor}`}>
           <TrendIcon size={11} /> {trend.pct}% vs yesterday

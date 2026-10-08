@@ -19,9 +19,9 @@ export default async function MarketingPage() {
     { name: "Cash customers", count: cashCustomers || 0, icon: MessageCircle, tone: "bg-foam text-navy", use: "Repeat-order and referral campaign" },
   ];
   return <div>
-    <div className="rounded-[28px] bg-gradient-to-br from-navy to-[#087C69] text-white p-6 sm:p-8 mb-6 relative overflow-hidden">
+    <div className="erp-hero rounded-[28px] p-6 sm:p-8 mb-6 relative overflow-hidden">
       <div className="absolute right-[-40px] top-[-60px] w-60 h-60 rounded-full bg-white/10" />
-      <div className="relative max-w-2xl"><div className="flex items-center gap-2 text-[#9EF0D0] text-xs font-bold uppercase tracking-widest"><Sparkles size={15} /> Growth workspace</div><h2 className="font-display text-3xl font-semibold mt-3">Marketing Studio</h2><p className="text-[#CDE7E3] text-sm mt-2">Plan customer segments, WhatsApp campaigns, offers, and follow-ups all in one place.</p></div>
+      <div className="relative max-w-2xl"><div className="flex items-center gap-2 erp-hero-label text-xs font-bold uppercase tracking-widest"><Sparkles size={15} /> Growth workspace</div><h2 className="font-display text-3xl font-semibold mt-3">Marketing Studio</h2><p className="erp-hero-sub text-sm mt-2">Plan customer segments, WhatsApp campaigns, offers, and follow-ups all in one place.</p></div>
     </div>
     <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">{segments.map(({name,count,icon:Icon,tone,use}) => <div key={name} className="card-lift rounded-2xl border bg-card p-5"><div className={`w-10 h-10 rounded-xl grid place-items-center ${tone}`}><Icon size={19}/></div><p className="font-mono-num text-2xl font-bold mt-4">{count}</p><p className="font-semibold text-sm">{name}</p><p className="text-xs text-slate mt-1">{use}</p></div>)}</div>
     <div className="grid lg:grid-cols-2 gap-5">

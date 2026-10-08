@@ -54,34 +54,37 @@ export default async function AppLayout({ children }) {
       <Sidebar role={roleKey} permissions={effectivePermissions} unreadNotifications={unreadNotifications} profileName={profile.full_name} roleLabel={roleLabel} />
       <div className="flex-1 min-w-0 flex flex-col">
         <header className="workspace-topbar topbar-branded no-print sticky top-0 z-30 flex items-center justify-between px-4 sm:px-6 py-3">
-          <div className="flex items-center gap-3">
+          <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <SidebarToggleButton />
             <NavigationControls />
             <WorkspaceIdentity />
-            <div className="topbar-muted hidden xl:flex items-center gap-2 text-xs"><span className="w-2 h-2 rounded-full bg-[#5EEAD4] animate-pulse" /> Live workspace</div>
+            <div className="topbar-muted hidden xl:flex items-center gap-2 text-xs"><span className="topbar-live-dot w-2 h-2 rounded-full animate-pulse" /> Live workspace</div>
             <StaffLocationTracker />
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1 sm:gap-3">
+            <div className="topbar-search flex items-center gap-2 rounded-xl px-2 py-1"><Command size={13} className="topbar-muted hidden md:block" /><GlobalSearch /></div>
             <ErpRefreshButton />
             <OfflineIndicator />
-            <div className="topbar-search flex items-center gap-2 rounded-xl px-2 py-1"><Command size={13} className="topbar-muted hidden md:block" /><GlobalSearch /></div>
-            <LiveUsers
-              userId={user.id}
-              businessId={profile.business_id}
-              name={profile.full_name}
-              role={roleLabel}
-              canView={["owner", "admin"].includes(roleKey)}
-            />
-            <Link href="/notifications" className="topbar-icon-btn relative grid h-10 w-10 place-items-center -m-2 rounded-lg transition-colors" aria-label="Notifications">
+            <div className="hidden sm:block">
+              <LiveUsers
+                userId={user.id}
+                businessId={profile.business_id}
+                name={profile.full_name}
+                role={roleLabel}
+                canView={["owner", "admin"].includes(roleKey)}
+              />
+            </div>
+            <Link href="/notifications" className="topbar-icon-btn relative grid h-10 w-10 place-items-center rounded-xl transition-colors" aria-label={unreadNotifications > 0 ? `Notifications (${unreadNotifications} unread)` : "Notifications"}>
               <Bell size={17} />
-              {unreadNotifications > 0 && <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-coral ring-2 ring-[#073F3A]" />}
+              {unreadNotifications > 0 && <span className="topbar-dot absolute top-2 right-2 w-2 h-2 rounded-full bg-coral" />}
             </Link>
+            <span className="topbar-divider hidden sm:block" aria-hidden="true" />
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#5EEAD4] to-[#0F9F85] text-[#053B36] flex items-center justify-center text-xs font-bold shadow-sm ring-2 ring-white/25 flex-shrink-0">
+              <div className="topbar-avatar w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
                 {profile.full_name?.[0]?.toUpperCase()}
               </div>
               <div className="text-xs hidden sm:block">
-                <div className="font-semibold leading-tight text-white">{profile.full_name}</div>
+                <div className="max-w-[9rem] truncate whitespace-nowrap font-semibold leading-tight">{profile.full_name}</div>
                 <div className="topbar-muted leading-tight">{roleLabel}</div>
               </div>
             </div>

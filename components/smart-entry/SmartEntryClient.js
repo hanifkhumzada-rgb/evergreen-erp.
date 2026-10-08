@@ -9,7 +9,7 @@ import Toast from "@/components/Toast";
 import { approveSmartEntry, rejectSmartEntry, deleteSmartEntry, reverseSmartEntry } from "@/app/(app)/smart-entry/actions";
 
 const STATUS_TONE = {
-  draft: "bg-[#EEF2F2] text-slate", pending_approval: "bg-amberSoft text-amber",
+  draft: "bg-mist text-slate", pending_approval: "bg-amberSoft text-amber",
   approved: "bg-greenSoft text-green", rejected: "bg-coralSoft text-coral", failed: "bg-coralSoft text-coral",
 };
 const STATUS_LABEL = {
