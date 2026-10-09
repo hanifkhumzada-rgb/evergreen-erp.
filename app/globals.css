@@ -501,6 +501,20 @@ html[data-theme="blue"] .topbar-branded .topbar-dot { box-shadow: 0 0 0 2px #fff
 .app-shell-bg table {
   background: color-mix(in srgb, var(--card) 96%, transparent);
 }
+.app-shell-bg .overflow-x-auto:has(> table) {
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+  -webkit-overflow-scrolling: touch;
+}
+.app-shell-bg table th {
+  white-space: nowrap;
+  color: var(--slate);
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: .035em;
+  text-transform: uppercase;
+}
+.app-shell-bg table td { vertical-align: middle; }
 .app-shell-bg thead {
   position: sticky;
   top: 0;
@@ -637,6 +651,27 @@ html[data-theme="blue"] .app-shell-bg thead:not(.bg-navy) tr:not(.bg-navy) th { 
   .app-shell-bg table td {
     padding-left: 11px;
     padding-right: 11px;
+  }
+  .app-shell-bg .overflow-x-auto:has(> table) {
+    margin-left: -12px;
+    margin-right: -12px;
+    width: calc(100% + 24px);
+    border-left: 0;
+    border-right: 0;
+    border-radius: 0;
+  }
+  .app-shell-bg .overflow-x-auto:has(> table)::after {
+    content: "Swipe to see more";
+    position: sticky;
+    right: 8px;
+    display: block;
+    width: max-content;
+    margin: 5px 8px 7px auto;
+    color: var(--slate);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: .05em;
+    text-transform: uppercase;
   }
 }
 

@@ -17,6 +17,7 @@ import { fetchAll } from "@/lib/fetchAll";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { Phone, MessageCircle } from "lucide-react";
 import ListFilterBar from "@/components/ListFilterBar";
+import ModulePageHeader from "@/components/ModulePageHeader";
 import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
 
 export const dynamic = "force-dynamic";
@@ -295,12 +296,7 @@ export default async function DeliveriesPage({ searchParams }) {
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Today's Deliveries" meta={`${todayCustomers.length} customers due today\n${historyRows.length} of ${allRows.length} in history\nGenerated ${fmtDate(today)}`} />
-      <div className="no-print flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
-        <div>
-          <h2 className="font-display text-2xl font-semibold mb-1">Today&apos;s Deliveries</h2>
-          <p className="text-slate text-sm">{fmtDate(today)} · {todayAbbr}</p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      <ModulePageHeader title="Today's Deliveries" description={`${fmtDate(today)} · ${todayAbbr}`} actions={<>
           <BulkImportButton
             label="Bulk Delivery Import"
             columnsHint="Phone (or Name), Qty, CashCollected, Date, Product (optional), Returned (optional)"
@@ -309,8 +305,7 @@ export default async function DeliveriesPage({ searchParams }) {
             previewType="deliveries"
           />
           <DeliveryForm customers={formCustomers} products={products || []} riders={riders || []} currentUserId={user.id} initialCustomerId={sp.customer || ""} initialOpen={sp.quick === "new"} />
-        </div>
-      </div>
+        </>} />
 
       <div className="no-print flex flex-wrap gap-3.5 mb-5">
         <KPI label="CUSTOMERS TODAY" value={todayCustomers.length} tone="navy" />

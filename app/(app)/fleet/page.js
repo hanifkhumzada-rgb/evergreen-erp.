@@ -10,6 +10,8 @@ import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { AlertTriangle } from "lucide-react";
 import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
+import ModulePageHeader from "@/components/ModulePageHeader";
+import { TableEmptyState } from "@/components/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -69,19 +71,17 @@ export default async function FleetPage({ searchParams }) {
         v.vehicle_type?.toLowerCase().includes(q) ||
         v.profiles?.full_name?.toLowerCase().includes(q))
     : withCosts;
-  const expenseQuery = (sp.eq || "").trim().toLowerCase();
-  const visibleExpenses = expenseQuery
+  const visibleExpenses = q
     ? vehExpenses.filter((e) =>
-        e.vehicles?.registration_no?.toLowerCase().includes(expenseQuery) ||
-        e.category?.toLowerCase().includes(expenseQuery) ||
-        e.notes?.toLowerCase().includes(expenseQuery))
+        e.vehicles?.registration_no?.toLowerCase().includes(q) ||
+        e.category?.toLowerCase().includes(q) ||
+        e.notes?.toLowerCase().includes(q))
     : vehExpenses;
 
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Fleet" meta={`${withCosts.length} vehicles\nGenerated ${fmtDate(new Date().toISOString())}`} />
-      <h2 className="no-print font-display text-2xl font-semibold mb-1">Fleet Management</h2>
-      <p className="no-print text-slate text-sm mb-4">Vehicles, drivers, running costs, and expiry tracking.</p>
+      <ModulePageHeader title="Fleet Management" description="Vehicles, drivers, running costs, and expiry tracking." />
 
       <div className="no-print flex flex-wrap gap-3.5 mb-5">
         <KPI label="TOTAL VEHICLES" value={withCosts.length} tone="navy" />
@@ -130,7 +130,7 @@ export default async function FleetPage({ searchParams }) {
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam">{canDelete && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Vehicle #</Th><Th>Type</Th><Th>Driver</Th><Th>Customers</Th><Th>Fuel Cost</Th><Th>Maintenance Cost</Th><Th>Insurance Expiry</Th><Th>Registration Expiry</Th><Th>Service Due</Th><Th>Status</Th><Th className="no-print"></Th></tr></thead>
           <tbody>
-            {visible.length === 0 && <tr><td colSpan={canDelete ? 12 : 11} className="text-center py-8 text-slate">No vehicles match.</td></tr>}
+            {visible.length === 0 && <TableEmptyState colSpan={canDelete ? 12 : 11} title={q ? "No vehicles match" : "No vehicles yet"} description={q ? "Try another registration number, vehicle type, or driver." : "Add your first vehicle to start fleet tracking."} filtered={Boolean(q)} />}
             {visible.map((v) => (
               <tr key={v.id} className="hover:bg-foam">
                 {canDelete && <Td className="no-print"><RowCheckbox id={v.id} label={v.registration_no} /></Td>}
@@ -157,13 +157,12 @@ export default async function FleetPage({ searchParams }) {
       </BulkSelectProvider>
 
       <h4 className="text-sm font-bold mt-8 mb-2.5">Recent vehicle expenses</h4>
-      <ListFilterBar className="!mb-2.5" searchParam="eq" placeholder="Search vehicle #, category, notes…" />
       <BulkSelectProvider noun="expense log" scopeLabel="shown" actions={canDelete ? [{ key: "delete", label: "Delete", icon: "trash", action: deleteVehicleExpenseLog, busyLabel: "Deleting", doneLabel: "Delete" }] : []}>
       <div className="overflow-x-auto border border-line rounded-2xl">
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam">{canDelete && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Vehicle</Th><Th>Category</Th><Th>Amount</Th><Th>Notes</Th><Th>Details</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
-            {visibleExpenses.length === 0 && <tr><td colSpan={canDelete ? 7 : 6} className="text-center py-6 text-slate">{expenseQuery ? "No expenses match." : "No vehicle expenses logged yet."}</td></tr>}
+            {visibleExpenses.length === 0 && <TableEmptyState colSpan={canDelete ? 7 : 6} title={q ? "No expenses match" : "No vehicle expenses yet"} description={q ? "The module search filters vehicles and expense logs together." : "Fuel and maintenance entries will appear here."} filtered={Boolean(q)} compact />}
             {visibleExpenses.map((e) => (
               <tr key={e.id} className="hover:bg-foam">
                 {canDelete && <Td className="no-print"><RowCheckbox id={e.id} label={`${e.vehicles?.registration_no || "Vehicle"} ${e.category}`} /></Td>}

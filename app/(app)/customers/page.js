@@ -10,6 +10,7 @@ import { bulkImportCustomers, deleteCustomer } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import ListFilterBar from "@/components/ListFilterBar";
+import ModulePageHeader from "@/components/ModulePageHeader";
 import Pager from "@/components/Pager";
 import { fetchAll } from "@/lib/fetchAll";
 import { pageFrom, rangeFor } from "@/lib/listParams";
@@ -136,13 +137,7 @@ export default async function CustomersPage({ searchParams }) {
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Customers" meta={`${matching} of ${allCount} customers\nGenerated ${fmtDate(new Date().toISOString())}`} />
-      <div className="no-print flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
-        <div>
-          <h2 className="font-display text-2xl font-semibold mb-1">Customers</h2>
-          <p className="text-slate text-sm">Customer workspace — book, balances, and quick actions in one place.</p>
-        </div>
-        <CustomerForm mode="create" initialOpen={sp.quick === "new"} {...formProps} />
-      </div>
+      <ModulePageHeader title="Customers" description="Customer workspace — book, balances, and quick actions in one place." actions={<CustomerForm mode="create" initialOpen={sp.quick === "new"} {...formProps} />} />
 
       <div className="no-print dashboard-kpi-grid mb-5">
         <KPI label="TOTAL CUSTOMERS" value={allCount} tone="navy" />

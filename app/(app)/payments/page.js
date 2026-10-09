@@ -10,6 +10,7 @@ import { bulkImportPayments, voidPayment } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import ListFilterBar from "@/components/ListFilterBar";
+import ModulePageHeader from "@/components/ModulePageHeader";
 import Pager from "@/components/Pager";
 import { pageFrom, rangeFor } from "@/lib/listParams";
 import { applyPaymentFilters, matchingCustomerIds, paymentFilters } from "@/lib/listQueries";
@@ -169,8 +170,7 @@ export default async function PaymentsPage({ searchParams }) {
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Payments" meta={`${paymentCount || 0} payments\nGenerated ${fmtDate(todayISO)}`} />
-      <h2 className="no-print font-display text-2xl font-semibold mb-1">Payment Collection</h2>
-      <p className="no-print text-slate text-sm mb-4">Due today, collected today, and every overdue customer that needs a follow-up.</p>
+      <ModulePageHeader title="Payment Collection" description="Due today, collected today, and every overdue customer that needs a follow-up." />
 
       <div className="no-print flex flex-wrap gap-3.5 mb-5">
         <KPI label="COLLECTED TODAY" value={pkr(todaysCollected)} tone="green" sub={`${paidTodayList.length} customers`} />

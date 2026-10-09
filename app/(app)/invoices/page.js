@@ -9,6 +9,7 @@ import RecordPreview from "@/components/RecordPreview";
 import { bulkImportSales, voidInvoice } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import ListFilterBar from "@/components/ListFilterBar";
+import ModulePageHeader from "@/components/ModulePageHeader";
 import Pager from "@/components/Pager";
 import { pageFrom, rangeFor } from "@/lib/listParams";
 import { invoiceFilters, applyInvoiceFilters, matchingCustomerIds } from "@/lib/listQueries";
@@ -52,8 +53,7 @@ export default async function InvoicesPage({ searchParams }) {
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Invoice Center" meta={`${matching} of ${k.total_count ?? 0} invoices\nGenerated ${fmtDate(today)}`} />
-      <h2 className="no-print font-display text-2xl font-semibold mb-1">Invoice Center</h2>
-      <p className="no-print text-slate text-sm mb-4">Search and preview invoices first; open the full document only when you need to act.</p>
+      <ModulePageHeader title="Invoice Center" description="Search and preview invoices first; open the full document only when you need to act." />
 
       <ListFilterBar
         placeholder="Search invoice #, customer name, code or phone…"

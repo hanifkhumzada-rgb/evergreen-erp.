@@ -6,6 +6,7 @@ import { bulkImportPurchases } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import ListFilterBar from "@/components/ListFilterBar";
+import ModulePageHeader from "@/components/ModulePageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ export default async function InventoryPage({ searchParams }) {
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Inventory" meta={`${rows.length} products\nGenerated ${fmtDate(new Date().toISOString())}`} />
-      <h2 className="no-print font-display text-2xl font-semibold mb-4">Inventory</h2>
+      <ModulePageHeader title="Inventory" description="Products, stock levels, units and selling rates." />
       {/* Kept as a sibling form, not nested with the toolbar below — a button
           without an explicit type inside another form submits/reloads instead
           of doing its own action. */}

@@ -17,6 +17,7 @@ import { pageFrom, rangeFor } from "@/lib/listParams";
 import { expenseFilters, applyExpenseFilters } from "@/lib/listQueries";
 import { exportExpenseRows } from "@/lib/exportActions";
 import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
+import ModulePageHeader from "@/components/ModulePageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -68,8 +69,7 @@ export default async function ExpensesPage({ searchParams }) {
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Expenses" meta={`${matching} of ${k.total_count ?? 0} expenses\nGenerated ${fmtDate(today)}`} />
-      <h2 className="no-print font-display text-2xl font-semibold mb-1">Expenses</h2>
-      <p className="no-print text-slate text-sm mb-4">Operating costs by category — search, preview and verify before changing anything.</p>
+      <ModulePageHeader title="Expenses" description="Operating costs by category — search, preview and verify before changing anything." />
 
       <ListFilterBar
         placeholder="Search expense #, description, receipt…"

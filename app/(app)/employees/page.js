@@ -11,6 +11,7 @@ import AttendanceButtons from "@/components/AttendanceButtons";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import ListFilterBar from "@/components/ListFilterBar";
+import ModulePageHeader from "@/components/ModulePageHeader";
 import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
 
 export const dynamic = "force-dynamic";
@@ -75,8 +76,7 @@ export default async function EmployeesPage({ searchParams }) {
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Employees" meta={`${perf.length} employees\nGenerated ${fmtDate(today)}`} />
-      <h2 className="no-print font-display text-2xl font-semibold mb-1">Team Command Center</h2>
-      <p className="no-print mb-5 text-sm text-slate">Attendance, route execution, cash collection and employee accounts—focused on today.</p>
+      <ModulePageHeader title="Team Command Center" description="Attendance, route execution, cash collection and employee accounts—focused on today." />
       <div className="no-print mb-5 flex flex-wrap gap-3.5"><KPI label="ACTIVE TEAM" value={perf.filter((e) => e.is_active).length} tone="navy"/><KPI label="PRESENT TODAY" value={presentCount} tone="green"/><KPI label="DELIVERIES" value={`${completedToday}/${assignedToday}`} tone="aqua" sub="completed / assigned"/><KPI label="CASH COLLECTED" value={pkr(cashToday)} tone="green"/></div>
       {/* Kept as a sibling form, not nested with the toolbar below — a button
           without an explicit type inside another form submits/reloads instead

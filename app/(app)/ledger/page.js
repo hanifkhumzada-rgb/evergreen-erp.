@@ -7,6 +7,7 @@ import WhatsAppButton from "@/components/WhatsAppButton";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import { getBrandingLite } from "@/lib/pdf/business";
 import ListFilterBar from "@/components/ListFilterBar";
+import ModulePageHeader from "@/components/ModulePageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -50,8 +51,7 @@ export default async function LedgerPage({ searchParams }) {
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Customer Ledger" meta={`${rows.length} of ${allRows.length} customers\nGenerated ${fmtDate(new Date().toISOString())}`} />
-      <h2 className="no-print font-display text-2xl font-semibold mb-1">Customer Ledger</h2>
-      <p className="no-print text-slate text-sm mb-4">Pick a customer to see their full account statement.</p>
+      <ModulePageHeader title="Customer Ledger" description="Pick a customer to see their full account statement." />
 
       <div className="no-print flex flex-wrap gap-3.5 mb-5">
         <KPI label="TOTAL RECEIVABLE" value={pkr(totalOutstanding)} tone="coral" />
