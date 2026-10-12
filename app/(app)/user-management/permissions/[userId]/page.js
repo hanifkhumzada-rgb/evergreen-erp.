@@ -7,8 +7,12 @@ import PermissionMatrix from "@/components/PermissionMatrix";
 export const dynamic = "force-dynamic";
 
 export default async function UserPermissionsPage({ params }) {
-  const { userId } = params;
-  const { supabase, user } = await getCurrentProfile();
+  const { userId } = await params;
+  const { supabase, user, roleKey } = await getCurrentProfile();
+
+  if (roleKey !== "owner") {
+    return <div><BackLink /><p className="mt-4 text-sm text-coral">Only an Owner can customize user-specific permissions.</p></div>;
+  }
 
   if (userId === user.id) {
     return (
@@ -34,9 +38,17 @@ export default async function UserPermissionsPage({ params }) {
     );
   }
 
-  const [{ data: roleDefaults }, { data: overrides }] = await Promise.all([
+  if (target.roles?.key === "owner") {
+    return <div><BackLink /><p className="mt-4 text-sm text-coral">Owner permissions are protected and cannot be overridden.</p></div>;
+  }
+
+  const [{ data: roleDefaults }, { data: overrides }, { data: copyUsers }, { data: allRoleDefaults }, { data: allOverrides }, { data: auditRows }] = await Promise.all([
     supabase.from("role_permissions").select("permission_id").eq("role_id", target.role_id),
     supabase.from("user_permission_overrides").select("permission_id, allow").eq("user_id", userId),
+    supabase.from("profiles").select("id, full_name, role_id, roles(key, name)").neq("id", userId).neq("id", user.id).eq("is_active", true).order("full_name"),
+    supabase.from("role_permissions").select("role_id, permission_id"),
+    supabase.from("user_permission_overrides").select("user_id, permission_id, allow"),
+    supabase.from("audit_logs").select("id, created_at, old_value, new_value, profiles(full_name)").eq("module", "permissions").eq("record_id", userId).order("created_at", { ascending: false }).limit(20),
   ]);
 
   const roleDefaultIds = new Set((roleDefaults || []).map((r) => r.permission_id));
@@ -52,6 +64,37 @@ export default async function UserPermissionsPage({ params }) {
     override: overrideByPermId.has(p.id) ? overrideByPermId.get(p.id) : null, // true | false | null
   }));
 
+  const defaultsByRole = new Map();
+  for (const row of allRoleDefaults || []) {
+    if (!defaultsByRole.has(row.role_id)) defaultsByRole.set(row.role_id, new Set());
+    defaultsByRole.get(row.role_id).add(row.permission_id);
+  }
+  const overridesByUser = new Map();
+  for (const row of allOverrides || []) {
+    if (!overridesByUser.has(row.user_id)) overridesByUser.set(row.user_id, new Map());
+    overridesByUser.get(row.user_id).set(row.permission_id, row.allow);
+  }
+  const copySources = (copyUsers || []).filter((entry) => entry.roles?.key !== "owner" && entry.roles?.key !== "customer").map((entry) => {
+    const defaults = defaultsByRole.get(entry.role_id) || new Set();
+    const custom = overridesByUser.get(entry.id) || new Map();
+    return {
+      id: entry.id,
+      name: entry.full_name,
+      role: entry.roles?.name || "—",
+      effective: Object.fromEntries((permissions || []).map((permission) => [permission.key, custom.has(permission.id) ? custom.get(permission.id) : defaults.has(permission.id)])),
+    };
+  });
+
+  const history = (auditRows || []).map((entry) => ({
+    id: entry.id,
+    at: entry.created_at,
+    actor: entry.profiles?.full_name || "System",
+    permission: entry.new_value?.permission || entry.old_value?.permission || "Permissions",
+    from: entry.old_value?.override ?? null,
+    to: entry.new_value?.override ?? null,
+    reason: entry.new_value?.reason || "—",
+  }));
+
   return (
     <div>
       <BackLink />
@@ -60,7 +103,7 @@ export default async function UserPermissionsPage({ params }) {
         {email} · Role: <strong className="text-ink">{target.roles?.name}</strong> · {target.is_active ? "Active" : "Inactive"}
         {!target.is_active && <span className="text-amber ml-1">(a deactivated user has no access at all, regardless of the toggles below)</span>}
       </p>
-      <PermissionMatrix userId={userId} rows={rows} />
+      <PermissionMatrix userId={userId} rows={rows} copySources={copySources} history={history} />
     </div>
   );
 }

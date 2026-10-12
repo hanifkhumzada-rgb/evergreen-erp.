@@ -2377,6 +2377,12 @@ export async function updateUserRole(userId, roleKey) {
   const { data: role } = await supabase.from("roles").select("id, key").eq("key", roleKey).single();
   if (!role) return { error: "Unknown role" };
 
+  const actorRole = await getUserRole(supabase, user);
+  const { data: targetForOwnerGuard } = await supabase.from("profiles").select("roles(key)").eq("id", userId).maybeSingle();
+  if ((role.key === "owner" || targetForOwnerGuard?.roles?.key === "owner") && actorRole !== "owner") {
+    return { error: "Only an Owner can grant or change Owner access." };
+  }
+
   if (role.key !== "owner") {
     const { data: target } = await supabase.from("profiles").select("id, roles(key)").eq("id", userId).maybeSingle();
     if (!target) return { error: "User not found." };
@@ -2441,6 +2447,10 @@ export async function inviteUser(formData) {
   const roleKey = formData.get("role");
   const phone = formData.get("phone") || null;
   const tempPassword = "Evergreen@" + Math.floor(1000 + Math.random() * 9000);
+
+  if (roleKey === "owner" && await getUserRole(supabase, user) !== "owner") {
+    return { error: "Only an Owner can invite another Owner." };
+  }
 
   const { data: authData, error: authError } = await admin.auth.admin.createUser({
     email, password: tempPassword, email_confirm: true,
@@ -2532,77 +2542,58 @@ export async function getUserEmailsForManagement() {
   const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.listUsers({ perPage: 1000 });
   if (error) return { error: error.message };
-  return { ok: true, users: (data?.users || []).map((u) => ({ id: u.id, email: u.email })) };
+  return { ok: true, users: (data?.users || []).map((u) => ({
+    id: u.id,
+    email: u.email,
+    phone: u.phone || null,
+    lastSignInAt: u.last_sign_in_at || null,
+  })) };
 }
 
 // allow: true (grant), false (deny), or null (clear override — fall back
 // to the role default).
 export async function setUserPermissionOverride(userId, permissionKey, allow) {
   const { supabase, user } = await requireUser();
-  const { data: allowedToManage } = await supabase.rpc("fn_has_permission", { perm_key: "users.manage" });
-  if (!allowedToManage) return { error: "You don't have permission to manage permissions." };
+  if (await getUserRole(supabase, user) !== "owner") return { error: "Only an Owner can manage user-specific permissions." };
   if (userId === user.id) return { error: "You can't change your own permissions from this screen." };
-
-  const { data: perm } = await supabase.from("permissions").select("id").eq("key", permissionKey).maybeSingle();
-  if (!perm) return { error: "Unknown permission." };
-
-  if (allow === null) {
-    const { error } = await supabase.from("user_permission_overrides").delete().eq("user_id", userId).eq("permission_id", perm.id);
-    if (!error) await supabase.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "permissions", record_id: userId, new_value: { permission: permissionKey, override: "cleared" } });
-    revalidatePath(`/user-management/permissions/${userId}`);
-    return { ok: !error, error: error?.message };
-  }
-
-  const { error } = await supabase.from("user_permission_overrides")
-    .upsert({ user_id: userId, permission_id: perm.id, allow }, { onConflict: "user_id,permission_id" });
-  if (!error) await supabase.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "permissions", record_id: userId, new_value: { permission: permissionKey, override: allow } });
-  revalidatePath(`/user-management/permissions/${userId}`);
-  return { ok: !error, error: error?.message };
+  return bulkSetUserPermissionOverrides(userId, [{ permissionKey, allow }]);
 }
 
 // Used by Select All / Clear All / Save so the whole grid commits as one
 // round trip instead of one request per cell. updates: [{ permissionKey,
 // allow: true|false|null }].
-export async function bulkSetUserPermissionOverrides(userId, updates) {
+export async function bulkSetUserPermissionOverrides(userId, updates, reason = "") {
   const { supabase, user } = await requireUser();
-  const { data: allowedToManage } = await supabase.rpc("fn_has_permission", { perm_key: "users.manage" });
-  if (!allowedToManage) return { error: "You don't have permission to manage permissions." };
+  if (await getUserRole(supabase, user) !== "owner") return { error: "Only an Owner can manage user-specific permissions." };
   if (userId === user.id) return { error: "You can't change your own permissions from this screen." };
   if (!Array.isArray(updates) || updates.length === 0) return { ok: true };
-
-  const { data: perms } = await supabase.from("permissions").select("id, key");
-  const permByKey = new Map((perms || []).map((p) => [p.key, p.id]));
-
-  const toDelete = updates.filter((u) => u.allow === null).map((u) => permByKey.get(u.permissionKey)).filter(Boolean);
-  const toUpsert = updates.filter((u) => u.allow !== null && permByKey.has(u.permissionKey))
-    .map((u) => ({ user_id: userId, permission_id: permByKey.get(u.permissionKey), allow: u.allow }));
-
-  if (toDelete.length) {
-    const { error } = await supabase.from("user_permission_overrides").delete().eq("user_id", userId).in("permission_id", toDelete);
-    if (error) return { error: error.message };
-  }
-  if (toUpsert.length) {
-    const { error } = await supabase.from("user_permission_overrides").upsert(toUpsert, { onConflict: "user_id,permission_id" });
-    if (error) return { error: error.message };
-  }
-
-  await supabase.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "permissions", record_id: userId, new_value: { bulk_update: updates.length } });
+  const normalized = updates.map((change) => ({
+    permissionKey: String(change?.permissionKey || ""),
+    allow: change?.allow === null ? null : Boolean(change?.allow),
+  }));
+  const { data: changed, error } = await supabase.rpc("fn_apply_user_permission_overrides", {
+    p_user_id: userId,
+    p_changes: normalized,
+    p_reason: String(reason || "").trim() || null,
+  });
+  if (error) return { error: error.message };
   revalidatePath(`/user-management/permissions/${userId}`);
-  return { ok: true };
+  revalidatePath("/user-management");
+  return { ok: true, changed: Number(changed || 0) };
 }
 
 // "Reset" — drop every override for this user so their effective
 // permissions become exactly their role's defaults again.
 export async function resetUserPermissionOverrides(userId) {
   const { supabase, user } = await requireUser();
-  const { data: allowedToManage } = await supabase.rpc("fn_has_permission", { perm_key: "users.manage" });
-  if (!allowedToManage) return { error: "You don't have permission to manage permissions." };
+  if (await getUserRole(supabase, user) !== "owner") return { error: "Only an Owner can reset user-specific permissions." };
   if (userId === user.id) return { error: "You can't change your own permissions from this screen." };
-
-  const { error } = await supabase.from("user_permission_overrides").delete().eq("user_id", userId);
-  if (!error) await supabase.from("audit_logs").insert({ user_id: user.id, action: "USER_CHANGE", module: "permissions", record_id: userId, new_value: { reset: true } });
-  revalidatePath(`/user-management/permissions/${userId}`);
-  return { ok: !error, error: error?.message };
+  const { data: existing, error: readError } = await supabase.from("user_permission_overrides")
+    .select("permissions(key)").eq("user_id", userId);
+  if (readError) return { error: readError.message };
+  const updates = (existing || []).map((row) => ({ permissionKey: row.permissions?.key, allow: null })).filter((row) => row.permissionKey);
+  if (!updates.length) return { ok: true, changed: 0 };
+  return bulkSetUserPermissionOverrides(userId, updates, "Reset to role defaults");
 }
 
 // --- Customer Portal (Phase 4) — staff-side actions ---

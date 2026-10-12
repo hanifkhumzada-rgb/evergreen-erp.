@@ -6,7 +6,10 @@ import UserPicker from "@/components/UserPicker";
 export const dynamic = "force-dynamic";
 
 export default async function PermissionsPickerPage() {
-  const { supabase, user } = await getCurrentProfile();
+  const { supabase, user, roleKey } = await getCurrentProfile();
+  if (roleKey !== "owner") {
+    return <div><h2 className="font-display text-2xl font-semibold">Permissions</h2><p className="mt-4 text-sm text-coral">Only an Owner can manage user-specific permissions.</p></div>;
+  }
   const [{ data: users }, emailsRes] = await Promise.all([
     supabase.from("profiles").select("id, full_name, is_active, roles(key, name)").order("full_name"),
     getUserEmailsForManagement(),
