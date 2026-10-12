@@ -7,6 +7,8 @@ import { voidProductionBatch } from "@/app/actions";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import ListFilterBar from "@/components/ListFilterBar";
+import { TableEmptyState } from "@/components/EmptyState";
+import ModulePageHeader from "@/components/ModulePageHeader";
 import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
 
 export const dynamic = "force-dynamic";
@@ -61,8 +63,7 @@ export default async function ProductionPage({ searchParams }) {
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Production & Filling" meta={`${rows.length} of ${allRows.length} batches\nGenerated ${fmtDate(today)}`} />
-      <h2 className="no-print font-display text-2xl font-semibold mb-1">Production & Filling</h2>
-      <p className="no-print text-slate text-sm mb-5">Bottle filling runs, kept separate from general expenses — quantity × cost per bottle, with caps and materials tracked alongside.</p>
+      <ModulePageHeader title="Production & Filling" description="Bottle filling runs, kept separate from general expenses — quantity × cost per bottle, with caps and materials tracked alongside." />
 
       <div className="no-print flex flex-wrap gap-3.5 mb-6">
         <KPI label="TODAY'S PRODUCTION" value={todayRows.reduce((a, b) => a + Number(b.quantity_filled || 0), 0)} tone="navy" sub={`${todayRows.length} batch${todayRows.length === 1 ? "" : "es"}`} />
@@ -90,7 +91,7 @@ export default async function ProductionPage({ searchParams }) {
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Date</Th><Th>Size</Th><Th>Quantity</Th><Th>Cost/Bottle</Th><Th>Filling Cost</Th><Th>Caps</Th><Th>Cap Cost</Th><Th>Other Material</Th><Th>Supplier</Th><Th>Status</Th><Th>Details</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
-            {allRows.length === 0 && <tr><td colSpan={canVoid ? 13 : 12} className="text-center py-8 text-slate">No production batches recorded yet.</td></tr>}
+            {allRows.length === 0 && <TableEmptyState colSpan={canVoid ? 13 : 12} title="No production batches found" description="Add a production batch or change the current search and month filters." filtered={Boolean(q || monthFilter)} />}
             {allRows.map((b) => (
               <tr key={b.id} className={`hover:bg-foam ${b.voided ? "opacity-60" : ""}`}>
                   {canVoid && <Td className="no-print">{!b.voided ? <RowCheckbox id={b.id} label={`${b.batch_date || b.production_date || ""} ${b.products?.name || ""}`.trim() || "batch"} /> : null}</Td>}

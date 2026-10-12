@@ -5,6 +5,8 @@ import { DocumentActionBar, Th, Td } from "@/components/ui";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import ListFilterBar from "@/components/ListFilterBar";
+import { TableEmptyState } from "@/components/EmptyState";
+import ModulePageHeader from "@/components/ModulePageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -50,9 +52,7 @@ export default async function BottlesPage({ searchParams }) {
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Bottle Tracking" meta={`${customers.length} customers\nGenerated ${fmtDate(new Date().toISOString())}`} />
-      <h2 className="no-print font-display text-2xl font-semibold mb-1">Bottle Tracking</h2>
-      <p className="no-print text-slate text-sm mb-1">Total owned: {totalOwned} bottles across {(products || []).length} sizes · sourced live from bottle_transactions</p>
-      <p className="no-print text-slate text-xs mb-5">Opening + Delivered − Returned − Damaged/Lost ± Adjustments = Current Balance. Click a customer for the full per-size breakdown and movement history.</p>
+      <ModulePageHeader title="Bottle Tracking" description={`Total owned: ${totalOwned} bottles across ${(products || []).length} sizes · Opening + Delivered − Returned − Damaged/Lost ± Adjustments = Current Balance.`} />
 
       <div className="flex gap-5 flex-wrap mb-7">
         <Stat label="Warehouse stock" value={full} />
@@ -79,7 +79,7 @@ export default async function BottlesPage({ searchParams }) {
             </tr>
           </thead>
           <tbody>
-            {customers.length === 0 && <tr><td colSpan={(products || []).length + 4} className="text-center py-8 text-slate">No customers match this search.</td></tr>}
+            {customers.length === 0 && <TableEmptyState colSpan={(products || []).length + 4} title="No customers match" description="Try another customer ID, name, or phone number." filtered />}
             {customers.map((c, i) => (
               <tr key={i} className="hover:bg-foam">
                 <Td className="font-mono-num text-slate">{c.code || "—"}</Td>

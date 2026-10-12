@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { PencilLine } from "lucide-react";
 import { getCurrentProfile } from "@/lib/session";
 import { fmtDate, pkr } from "@/lib/format";
@@ -6,6 +5,8 @@ import { Badge, Th, Td, DocumentActionBar } from "@/components/ui";
 import DeliveryCorrectionForm from "@/components/DeliveryCorrectionForm";
 import RecordPreview from "@/components/RecordPreview";
 import ListFilterBar from "@/components/ListFilterBar";
+import { TableEmptyState } from "@/components/EmptyState";
+import ModulePageHeader from "@/components/ModulePageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -37,10 +38,7 @@ export default async function DeliveryCorrectionsPage({ searchParams }) {
   });
 
   return <div>
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
-      <div><div className="flex items-center gap-2"><PencilLine size={21} className="text-aqua"/><h2 className="font-display text-2xl font-semibold">Delivery Corrections</h2></div><p className="text-sm text-slate mt-1">Safely correct a wrong bottle entry — the bottle balance and customer ledger auto-adjust.</p></div>
-      <Link href="/deliveries" className="no-print px-3 py-2 rounded-xl border border-line bg-card text-xs font-bold hover:bg-foam">Back to Deliveries</Link>
-    </div>
+    <ModulePageHeader icon={PencilLine} title="Delivery Corrections" description="Safely correct a wrong bottle entry — the bottle balance and customer ledger auto-adjust." backHref="/deliveries" />
 
     <div className="no-print flex flex-wrap gap-2.5 mb-4 items-start">
       <ListFilterBar className="!mb-0" placeholder="Search customer, ID, phone, delivery no…" defaults={{ month }} dateFilters={[{ name: "month", label: "Month", type: "month" }, { name: "from", label: "From" }, { name: "to", label: "To" }]} />
@@ -58,7 +56,7 @@ export default async function DeliveryCorrectionsPage({ searchParams }) {
       <table className="w-full min-w-[900px] text-[13px] border-collapse">
         <thead><tr className="bg-foam"><Th>Date</Th><Th>Delivery</Th><Th>Customer</Th><Th>Delivered</Th><Th>Returned</Th><Th>Amount</Th><Th>Collected</Th><Th>Rider</Th><Th>Actions</Th></tr></thead>
         <tbody>
-          {rows.length === 0 && <tr><td colSpan={9} className="py-10 text-center text-sm text-slate">No completed deliveries found for this selection.</td></tr>}
+          {rows.length === 0 && <TableEmptyState colSpan={9} title="No completed deliveries found" description="Try another customer, month, or date range." filtered />}
           {rows.map((d) => {
             const delivered = (d.delivery_items || []).reduce((sum, item) => sum + Number(item.delivered_qty || 0), 0);
             const returned = (d.delivery_items || []).reduce((sum, item) => sum + Number(item.returned_qty || 0), 0);

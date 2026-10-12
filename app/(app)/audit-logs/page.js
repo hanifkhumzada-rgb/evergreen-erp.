@@ -3,6 +3,8 @@ import { fmtDate } from "@/lib/format";
 import { Th, Td, DocumentActionBar } from "@/components/ui";
 import ListFilterBar from "@/components/ListFilterBar";
 import Pager from "@/components/Pager";
+import { TableEmptyState } from "@/components/EmptyState";
+import ModulePageHeader from "@/components/ModulePageHeader";
 import { pageFrom, pageSizeFrom, rangeFor } from "@/lib/listParams";
 import { auditFilters, applyAuditFilters } from "@/lib/listQueries";
 import { exportAuditRows } from "@/lib/exportActions";
@@ -37,8 +39,7 @@ export default async function AuditLogsPage({ searchParams }) {
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Audit Logs" meta={`${total} records\nGenerated ${fmtDate(new Date().toISOString())}`} />
-      <h2 className="no-print font-display text-2xl font-semibold mb-1">Audit Logs</h2>
-      <p className="no-print text-slate text-sm mb-5">A record of who changed what, and when — for accountability across the whole team.</p>
+      <ModulePageHeader title="Audit Logs" description="A record of who changed what, and when — for accountability across the whole team." />
 
       <ListFilterBar
         placeholder="Search action or module…"
@@ -63,7 +64,7 @@ export default async function AuditLogsPage({ searchParams }) {
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam"><Th>When</Th><Th>User</Th><Th>Module</Th><Th>Action</Th><Th>Record</Th></tr></thead>
           <tbody>
-            {(logs || []).length === 0 && <tr><td colSpan={5} className="text-center py-8 text-slate">No audit activity matches this filter.</td></tr>}
+            {(logs || []).length === 0 && <TableEmptyState colSpan={5} title="No audit activity found" description="Try changing the user, module, action, or date filters." filtered />}
             {(logs || []).map((l) => (
               <tr key={l.id} className="hover:bg-foam">
                 <Td>{fmtDate(l.created_at)}</Td>

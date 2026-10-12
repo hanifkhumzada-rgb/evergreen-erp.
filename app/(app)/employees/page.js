@@ -12,6 +12,7 @@ import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import ListFilterBar from "@/components/ListFilterBar";
 import ModulePageHeader from "@/components/ModulePageHeader";
+import { TableEmptyState } from "@/components/EmptyState";
 import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
 
 export const dynamic = "force-dynamic";
@@ -99,7 +100,7 @@ export default async function EmployeesPage({ searchParams }) {
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam">{canManageUsers && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Name</Th><Th>ID</Th><Th>Role</Th><Th>Mobile</Th><Th>Joining Date</Th><Th>Zone</Th><Th>Vehicle</Th><Th>Deliveries</Th><Th>Cash Collected</Th><Th>Advance Due</Th><Th>Today</Th><Th>Actions</Th></tr></thead>
           <tbody>
-            {visible.length === 0 && <tr><td colSpan={canManageUsers ? 13 : 12} className="text-center py-8 text-slate">No employees match.</td></tr>}
+            {visible.length === 0 && <TableEmptyState colSpan={canManageUsers ? 13 : 12} title="No employees match" description="Try another name, employee ID, phone, role, zone, or vehicle." filtered />}
             {visible.map((e) => (
               <tr key={e.id} className="hover:bg-foam">
                 {canManageUsers && <Td className="no-print">{e.id !== me?.id ? <RowCheckbox id={e.id} label={e.full_name} /> : null}</Td>}

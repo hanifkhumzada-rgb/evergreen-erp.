@@ -11,6 +11,7 @@ import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
 import ListFilterBar from "@/components/ListFilterBar";
 import ModulePageHeader from "@/components/ModulePageHeader";
+import { TableEmptyState } from "@/components/EmptyState";
 import Pager from "@/components/Pager";
 import { pageFrom, pageSizeFrom, rangeFor } from "@/lib/listParams";
 import { applyPaymentFilters, matchingCustomerIds, paymentFilters } from "@/lib/listQueries";
@@ -207,7 +208,7 @@ export default async function PaymentsPage({ searchParams }) {
           <table className="w-full text-[13.5px] border-collapse">
             <thead><tr className="bg-foam"><Th>Customer</Th><Th>Amount Paid Today</Th></tr></thead>
             <tbody>
-              {paidTodayList.length === 0 && <tr><td colSpan={2} className="text-center py-8 text-slate">No payments collected today yet.</td></tr>}
+              {paidTodayList.length === 0 && <TableEmptyState colSpan={2} title="No collections today" description="Payments recorded today will appear here." compact />}
               {paidTodayList.map((d) => (
                 <tr key={d.customerId} className="hover:bg-foam">
                   <Td><Link href={`/customers/${d.customerId}`} className="font-semibold text-navy hover:text-aqua">{d.name}</Link></Td>
@@ -268,7 +269,7 @@ export default async function PaymentsPage({ searchParams }) {
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Date</Th><Th>Receipt</Th><Th>Customer</Th><Th>Amount</Th><Th>Method</Th><Th>Collected By</Th><Th>Reference</Th><Th>Status</Th><Th>Details</Th><Th>Actions</Th></tr></thead>
           <tbody>
-            {paymentRows.length === 0 && <tr><td colSpan={canVoid ? 11 : 10} className="text-center py-8 text-slate">No payments match.</td></tr>}
+            {paymentRows.length === 0 && <TableEmptyState colSpan={canVoid ? 11 : 10} title="No payments match" description="Try changing the customer, receipt, method, status, or date filters." filtered />}
             {paymentRows.map((p) => (
               <tr key={p.id} className={`hover:bg-foam ${p.voided ? "opacity-60" : ""}`}>
                 {canVoid && <Td className="no-print">{!p.voided ? <RowCheckbox id={p.id} label={p.receipt_no || p.customers?.name} /> : null}</Td>}

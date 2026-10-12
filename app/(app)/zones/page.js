@@ -8,6 +8,7 @@ import RouteEditForm from "@/components/RouteEditForm";
 import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import { deleteZone, deleteRoute } from "@/app/actions";
 import ListFilterBar from "@/components/ListFilterBar";
+import { TableEmptyState } from "@/components/EmptyState";
 import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
 
 export const dynamic = "force-dynamic";
@@ -93,7 +94,7 @@ export default async function ZonesPage({ searchParams }) {
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam">{canDeleteZone && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Zone</Th><Th>Description</Th><Th>Customers</Th><Th>Revenue</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
-            {visibleZones.length === 0 && <tr><td colSpan={canDeleteZone ? 6 : 5} className="text-center py-8 text-slate">{q ? "No zones match." : "No zones yet — add one to start organizing routes."}</td></tr>}
+            {visibleZones.length === 0 && <TableEmptyState colSpan={canDeleteZone ? 6 : 5} title={q ? "No zones match" : "No zones yet"} description={q ? "Try another zone or route name." : "Add a zone to start organizing delivery routes."} filtered={Boolean(q)} />}
             {visibleZones.map((z) => (
               <tr key={z.id} className="hover:bg-foam">
                 {canDeleteZone && <Td className="no-print"><RowCheckbox id={z.id} label={z.name} /></Td>}
@@ -126,7 +127,7 @@ export default async function ZonesPage({ searchParams }) {
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam">{canDeleteRoute && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Route</Th><Th>Zone</Th><Th>Delivery Boy</Th><Th>Customers</Th><Th>Deliveries</Th><Th>Status</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
-            {visibleRoutes.length === 0 && <tr><td colSpan={canDeleteRoute ? 8 : 7} className="text-center py-8 text-slate">{q ? "No routes match." : "No routes yet — add one, then assign customers to it from Customer Master."}</td></tr>}
+            {visibleRoutes.length === 0 && <TableEmptyState colSpan={canDeleteRoute ? 8 : 7} title={q ? "No routes match" : "No routes yet"} description={q ? "Try another route, zone, rider, or vehicle." : "Add a route, then assign customers from Customer Master."} filtered={Boolean(q)} />}
             {visibleRoutes.map((r) => (
               <tr key={r.id} className="hover:bg-foam">
                 {canDeleteRoute && <Td className="no-print"><RowCheckbox id={r.id} label={r.name} /></Td>}

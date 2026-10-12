@@ -8,6 +8,7 @@ import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentP
 import { getBrandingLite } from "@/lib/pdf/business";
 import ListFilterBar from "@/components/ListFilterBar";
 import ModulePageHeader from "@/components/ModulePageHeader";
+import { TableEmptyState } from "@/components/EmptyState";
 
 export const dynamic = "force-dynamic";
 
@@ -76,7 +77,7 @@ export default async function LedgerPage({ searchParams }) {
         <table className="w-full text-[13.5px] border-collapse">
           <thead className="sticky top-0"><tr className="bg-foam"><Th>Customer</Th><Th>Zone</Th><Th>Opening</Th><Th>Current Balance</Th><Th>Credit Limit</Th><Th className="no-print">&nbsp;</Th></tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-slate">No customers match.</td></tr>}
+            {rows.length === 0 && <TableEmptyState colSpan={6} title="No customers match" description="Try another customer name, ID, phone, zone, or balance filter." filtered />}
             {rows.map((c) => (
               <tr key={c.id} className="hover:bg-foam cursor-pointer">
                 <Td><Link href={`/ledger?customer=${c.id}`} className="font-semibold text-navy hover:text-aqua">{c.name}</Link></Td>

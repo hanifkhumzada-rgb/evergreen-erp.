@@ -6,6 +6,8 @@ import DocumentPrintHeader from "@/components/DocumentPrintHeader";
 import { getBrandingLite } from "@/lib/pdf/business";
 import { isTwilioConfigured } from "@/lib/twilio";
 import ListFilterBar from "@/components/ListFilterBar";
+import { TableEmptyState } from "@/components/EmptyState";
+import ModulePageHeader from "@/components/ModulePageHeader";
 
 export const dynamic = "force-dynamic";
 
@@ -44,8 +46,7 @@ export default async function CommunicationCenterPage({ searchParams }) {
   if (!canView) {
     return (
       <div>
-        <h2 className="font-display text-2xl font-semibold mb-4">Communication Center</h2>
-        <p className="text-xs text-slate border border-line rounded-2xl p-5 max-w-3xl">Communication logs are managed by the Owner.</p>
+        <ModulePageHeader title="Communication Center" description="Communication logs are managed by the Owner." />
       </div>
     );
   }
@@ -66,8 +67,7 @@ export default async function CommunicationCenterPage({ searchParams }) {
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Communication Center" meta={`${rows.length} of ${allRows.length} messages`} />
-      <h2 className="no-print font-display text-2xl font-semibold mb-1">Communication Center</h2>
-      <p className="no-print text-slate text-sm mb-4">Every WhatsApp/SMS send attempt — real Twilio status only, never a faked "sent".</p>
+      <ModulePageHeader title="Communication Center" description={'Every WhatsApp/SMS send attempt — real Twilio status only, never a faked "sent".'} />
       {!configured && (
         <div className="no-print mb-4">
           <Badge text="Twilio isn't configured yet — every send attempt below will show Failed until Settings → Integrations has real credentials." tone="amber" />
@@ -92,7 +92,7 @@ export default async function CommunicationCenterPage({ searchParams }) {
             </tr>
           </thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={8} className="text-center py-8 text-slate">No messages match.</td></tr>}
+            {rows.length === 0 && <TableEmptyState colSpan={8} title="No messages match" description="Try changing the customer, phone, channel, or status filters." filtered />}
             {rows.map((r) => (
               <tr key={r.id} className="hover:bg-foam align-top">
                 <Td className="whitespace-nowrap">{fmtDateTime(r.created_at)}</Td>
