@@ -54,7 +54,7 @@ export default async function PortalPaymentsPage({ searchParams }) {
         {(payments || []).map((payment) => (
           <div key={payment.id} className="bg-card border border-line rounded-2xl p-4 flex items-center justify-between gap-3">
             <div className="min-w-0"><div className="flex items-center gap-1.5 text-sm font-bold"><Wallet size={13} className="text-green shrink-0" /><span className="truncate">{payment.receipt_no || "Payment"}</span></div><div className="text-[11px] text-slate mt-1 break-words">{fmtDate(payment.payment_date)} · {METHOD_LABEL[payment.method] || payment.method}{payment.reference ? ` · ${payment.reference}` : ""}</div></div>
-            <span className="text-sm font-mono-num font-bold text-green shrink-0">{pkr(payment.amount)}</span>
+            <div className="flex shrink-0 flex-col items-end gap-2"><span className="text-sm font-mono-num font-bold text-green">{pkr(payment.amount)}</span><DocumentActionBar compact pdfHref={`/api/pdf/payment-receipt/${payment.id}`} pdfLabel={`Receipt ${payment.receipt_no || ""}`} share={{ title: payment.receipt_no || "Payment Receipt" }} /></div>
           </div>
         ))}
       </div>

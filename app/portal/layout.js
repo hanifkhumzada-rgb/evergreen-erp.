@@ -5,12 +5,12 @@ export const metadata = {
   applicationName: "Evergreen Water Customer",
   icons: {
     icon: [
-      { url: "/favicon-32.png", sizes: "32x32", type: "image/png" },
-      { url: "/ew-mark.svg", sizes: "any", type: "image/svg+xml" },
-      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
-      { url: "/icon-512.png", sizes: "512x512", type: "image/png" },
+      { url: "/favicon-32.png?v=5", sizes: "32x32", type: "image/png" },
+      { url: "/ew-mark.svg?v=5", sizes: "any", type: "image/svg+xml" },
+      { url: "/icon-192.png?v=5", sizes: "192x192", type: "image/png" },
+      { url: "/icon-512.png?v=5", sizes: "512x512", type: "image/png" },
     ],
-    apple: "/apple-touch-icon.png",
+    apple: "/apple-touch-icon.png?v=5",
   },
 };
 

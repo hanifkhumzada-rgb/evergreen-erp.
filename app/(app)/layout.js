@@ -15,6 +15,7 @@ import ErpAppearance from "@/components/ErpAppearance";
 import MobileBottomNav from "@/components/MobileBottomNav";
 import LiveUsers from "@/components/LiveUsers";
 import ErpRefreshButton from "@/components/ErpRefreshButton";
+import Image from "next/image";
 
 export default async function AppLayout({ children }) {
   const { user, profile, roleKey, permissions: effectivePermissions, unreadNotifications } = await getCurrentProfile();
@@ -57,14 +58,18 @@ export default async function AppLayout({ children }) {
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <SidebarToggleButton />
             <NavigationControls />
+            <div className="flex items-center gap-2 min-[430px]:hidden" aria-label="Evergreen Water ERP">
+              <Image src="/ew-mark.svg" width={34} height={34} alt="EW" className="rounded-lg" priority unoptimized />
+              <span className="leading-tight"><span className="block text-xs font-bold">EW ERP</span><span className="topbar-muted block text-[9px]">Pure Drinking Water</span></span>
+            </div>
             <WorkspaceIdentity />
             <div className="topbar-muted hidden 2xl:flex items-center gap-2 whitespace-nowrap text-xs"><span className="topbar-live-dot w-2 h-2 rounded-full animate-pulse" /> Live workspace</div>
             <StaffLocationTracker />
           </div>
           <div className="flex shrink-0 items-center gap-1 sm:gap-2 xl:gap-3">
             <div className="topbar-search flex items-center gap-2 rounded-xl px-2 py-1"><Command size={13} className="topbar-muted hidden md:block" /><GlobalSearch /></div>
-            <ErpRefreshButton />
-            <OfflineIndicator />
+            <div className="hidden sm:block"><ErpRefreshButton /></div>
+            <div className="hidden sm:block"><OfflineIndicator /></div>
             <div className="hidden sm:block">
               <LiveUsers
                 userId={user.id}
@@ -79,7 +84,7 @@ export default async function AppLayout({ children }) {
               {unreadNotifications > 0 && <span className="topbar-dot absolute top-2 right-2 w-2 h-2 rounded-full bg-coral" />}
             </Link>
             <span className="topbar-divider hidden sm:block" aria-hidden="true" />
-            <div className="flex items-center gap-2.5">
+            <div className="hidden items-center gap-2.5 sm:flex">
               <div className="topbar-avatar w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
                 {profile.full_name?.[0]?.toUpperCase()}
               </div>

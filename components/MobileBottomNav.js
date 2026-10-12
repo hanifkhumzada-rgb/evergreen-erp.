@@ -24,17 +24,17 @@ export default function MobileBottomNav({ role, permissions = [] }) {
   });
 
   return (
-    <nav aria-label="Mobile primary navigation" className="no-print fixed inset-x-2 bottom-2 z-40 flex min-h-16 items-stretch justify-around rounded-2xl border border-line bg-card/95 px-1 shadow-lg backdrop-blur-md md:hidden">
+    <nav aria-label="Mobile primary navigation" className="mobile-bottom-nav no-print fixed inset-x-2 bottom-2 z-40 flex min-h-16 items-stretch justify-around rounded-2xl border border-line bg-card/95 px-1 shadow-lg backdrop-blur-md md:hidden">
       {visibleItems.map(({ href, label, icon: Icon }) => {
         const active = pathname.startsWith(href);
         return (
-          <Link key={href} href={href} aria-current={active ? "page" : undefined} className={`flex min-w-[58px] flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold ${active ? "text-aqua" : "text-slate"}`}>
+          <Link key={href} href={href} aria-current={active ? "page" : undefined} className={`flex min-w-[54px] flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold transition-colors ${active ? "bg-navy text-white shadow-sm" : "text-slate"}`}>
             <Icon size={19} strokeWidth={active ? 2.4 : 1.8} />
             <span>{label}</span>
           </Link>
         );
       })}
-      <button type="button" onClick={() => setOpen(true)} className="flex min-w-[58px] flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold text-slate" aria-label="Open all ERP modules">
+      <button type="button" onClick={() => setOpen(true)} className="flex min-w-[54px] flex-1 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-semibold text-slate" aria-label="Open all ERP modules">
         <Menu size={19} strokeWidth={1.8} />
         <span>More</span>
       </button>

@@ -630,6 +630,9 @@ html[data-theme="blue"] .app-shell-bg thead:not(.bg-navy) tr:not(.bg-navy) th { 
 @media (max-width: 767px) {
   .topbar-branded .topbar-search { padding: 0; border-color: transparent; background: transparent; }
 }
+@media (max-width: 429px) {
+  .workspace-topbar .erp-nav-controls > button:nth-child(2) { display: none; }
+}
 @media (max-width: 639px) {
   .app-shell-bg .workspace-topbar {
     min-height: 58px;
@@ -701,6 +704,9 @@ html[data-theme="blue"] .app-shell-bg thead:not(.bg-navy) tr:not(.bg-navy) th { 
   .quick-add-root > button { min-height: 48px; padding: 0 14px; border-radius: 16px; }
   .quick-add-root > div { max-height: calc(100vh - 170px); overflow-y: auto; }
   .app-shell-bg .page-stage { padding-bottom: 150px; }
+  .mobile-bottom-nav,
+  .portal-bottom-nav { bottom: max(8px, env(safe-area-inset-bottom, 0px)); }
+  .portal-mobile-header { padding-top: max(10px, env(safe-area-inset-top, 0px)); }
 }
 
 /* Dashboard and Customer workspace v3 — staff-only responsive structure. */
