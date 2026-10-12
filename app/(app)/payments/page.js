@@ -12,7 +12,7 @@ import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentP
 import ListFilterBar from "@/components/ListFilterBar";
 import ModulePageHeader from "@/components/ModulePageHeader";
 import Pager from "@/components/Pager";
-import { pageFrom, rangeFor } from "@/lib/listParams";
+import { pageFrom, pageSizeFrom, rangeFor } from "@/lib/listParams";
 import { applyPaymentFilters, matchingCustomerIds, paymentFilters } from "@/lib/listQueries";
 import { exportPaymentRows } from "@/lib/exportActions";
 import RecoveryReminderTable from "@/components/RecoveryReminderTable";
@@ -71,7 +71,8 @@ export default async function PaymentsPage({ searchParams }) {
   // also matches customer name/code/phone via a customer-id lookup.
   const historyFilters = paymentFilters(sp);
   const historyPage = pageFrom(sp);
-  const [hFrom, hTo] = rangeFor(historyPage, HISTORY_PAGE_SIZE);
+  const historyPageSize = pageSizeFrom(sp, HISTORY_PAGE_SIZE, [25, 50, 100]);
+  const [hFrom, hTo] = rangeFor(historyPage, historyPageSize);
   const historyCustomerIds = historyFilters.q ? await matchingCustomerIds(supabase, historyFilters.q) : null;
   const paymentQuery = applyPaymentFilters(
     supabase.from("payments").select("*, customers(name, code), profiles!payments_received_by_fkey(full_name)", { count: "exact" }),
@@ -285,7 +286,7 @@ export default async function PaymentsPage({ searchParams }) {
         </table>
       </div>
       </BulkSelectProvider>
-      <Pager basePath="/payments" searchParams={sp} page={historyPage} pageSize={HISTORY_PAGE_SIZE} total={paymentCount || 0} label="Payment history pages" />
+      <Pager basePath="/payments" searchParams={sp} page={historyPage} pageSize={historyPageSize} total={paymentCount || 0} label="Payment history pages" />
       <DocumentPrintFooter />
     </div>
   );

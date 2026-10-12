@@ -13,7 +13,7 @@ import ListFilterBar from "@/components/ListFilterBar";
 import ModulePageHeader from "@/components/ModulePageHeader";
 import Pager from "@/components/Pager";
 import { fetchAll } from "@/lib/fetchAll";
-import { pageFrom, rangeFor } from "@/lib/listParams";
+import { pageFrom, pageSizeFrom, rangeFor } from "@/lib/listParams";
 import { CUSTOMER_LIST_COLUMNS, applyCustomerFilters, customerFilters } from "@/lib/listQueries";
 import { exportCustomerRows } from "@/lib/exportActions";
 import { Truck, Wallet, FilePlus, UserCircle2, Phone, MapPin, ChevronRight } from "lucide-react";
@@ -98,7 +98,8 @@ export default async function CustomersPage({ searchParams }) {
   const filters = customerFilters(sp);
   const { q, zone: zoneFilter, status: statusFilter, type: typeFilter } = filters;
   const requestedPage = pageFrom(sp);
-  const [from, to] = rangeFor(requestedPage, PAGE_SIZE);
+  const pageSize = pageSizeFrom(sp, PAGE_SIZE);
+  const [from, to] = rangeFor(requestedPage, pageSize);
 
   const { supabase, profile } = await getCurrentProfile();
   const monthStartISO = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString();
@@ -265,7 +266,7 @@ export default async function CustomersPage({ searchParams }) {
         </table>
       </div>
       </BulkSelectProvider>
-      <Pager basePath="/customers" searchParams={sp} page={page} pageSize={PAGE_SIZE} total={matching} label="Customer pages" />
+      <Pager basePath="/customers" searchParams={sp} page={page} pageSize={pageSize} total={matching} label="Customer pages" />
       <DocumentPrintFooter />
     </div>
   );

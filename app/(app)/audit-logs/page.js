@@ -3,7 +3,7 @@ import { fmtDate } from "@/lib/format";
 import { Th, Td, DocumentActionBar } from "@/components/ui";
 import ListFilterBar from "@/components/ListFilterBar";
 import Pager from "@/components/Pager";
-import { pageFrom, rangeFor } from "@/lib/listParams";
+import { pageFrom, pageSizeFrom, rangeFor } from "@/lib/listParams";
 import { auditFilters, applyAuditFilters } from "@/lib/listQueries";
 import { exportAuditRows } from "@/lib/exportActions";
 import { getBrandingLite } from "@/lib/pdf/business";
@@ -18,7 +18,8 @@ export default async function AuditLogsPage({ searchParams }) {
   const supabase = await createClient();
   const filters = auditFilters(sp);
   const page = pageFrom(sp);
-  const [from, to] = rangeFor(page, PAGE_SIZE);
+  const pageSize = pageSizeFrom(sp, PAGE_SIZE, [50, 100, 200]);
+  const [from, to] = rangeFor(page, pageSize);
 
   const [branding, { data: logs, count }, { data: modules }, { data: users }] = await Promise.all([
     getBrandingLite(supabase),
@@ -76,7 +77,7 @@ export default async function AuditLogsPage({ searchParams }) {
         </table>
       </div>
 
-      <Pager basePath="/audit-logs" searchParams={sp} page={page} pageSize={PAGE_SIZE} total={total} label="Audit log pages" />
+      <Pager basePath="/audit-logs" searchParams={sp} page={page} pageSize={pageSize} total={total} label="Audit log pages" pageSizes={[50, 100, 200]} />
       <DocumentPrintFooter />
     </div>
   );

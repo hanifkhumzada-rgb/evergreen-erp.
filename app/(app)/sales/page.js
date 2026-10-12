@@ -9,7 +9,9 @@ import ReasonConfirmButton from "@/components/ReasonConfirmButton";
 import ListFilterBar from "@/components/ListFilterBar";
 import Pager from "@/components/Pager";
 import { bulkImportSales, voidInvoice } from "@/app/actions";
-import { pageFrom, rangeFor } from "@/lib/listParams";
+import { pageFrom, pageSizeFrom, rangeFor } from "@/lib/listParams";
+import ModulePageHeader from "@/components/ModulePageHeader";
+import { TableEmptyState } from "@/components/EmptyState";
 import { applyInvoiceFilters, invoiceFilters, matchingCustomerIds } from "@/lib/listQueries";
 import { exportInvoiceRows } from "@/lib/exportActions";
 import { getBrandingLite } from "@/lib/pdf/business";
@@ -28,7 +30,8 @@ export default async function SalesPage({ searchParams }) {
   // term also matches customer name, ID and phone.
   const filters = invoiceFilters(sp);
   const page = pageFrom(sp);
-  const [from, to] = rangeFor(page, PAGE_SIZE);
+  const pageSize = pageSizeFrom(sp, PAGE_SIZE);
+  const [from, to] = rangeFor(page, pageSize);
   const customerIds = filters.q ? await matchingCustomerIds(supabase, filters.q) : null;
   const [branding, { data: invoices, count }, { data: customers }, { data: products }, { data: canVoid }] = await Promise.all([
     getBrandingLite(supabase),
@@ -49,8 +52,7 @@ export default async function SalesPage({ searchParams }) {
   return (
     <div>
       <DocumentPrintHeader branding={branding} title="Sales" meta={`${total} invoices\nGenerated ${fmtDate(today)}`} />
-      <h2 className="no-print font-display text-2xl font-semibold mb-1">Sales</h2>
-      <p className="no-print text-sm text-slate mb-4">Search first, preview any record safely, then open the full invoice only when you need to edit or act.</p>
+      <ModulePageHeader title="Sales" description="Search first, preview any record safely, then open the full invoice only when you need to edit or act." />
 
       <ListFilterBar
         placeholder="Search invoice #, customer name / ID / phone…"
@@ -82,7 +84,7 @@ export default async function SalesPage({ searchParams }) {
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Invoice #</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Total</Th><Th>Status</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={canVoid ? 8 : 7} className="text-center py-8 text-slate">No sales match.</td></tr>}
+            {rows.length === 0 && <TableEmptyState colSpan={canVoid ? 8 : 7} title="No sales match" description="Try changing the search, status, or date filters." filtered />}
             {rows.map((s) => {
               const statusLabel = STATUS_LABEL[s.status] || s.status;
               const previewFields = [
@@ -116,7 +118,7 @@ export default async function SalesPage({ searchParams }) {
         </table>
       </div>
       </BulkSelectProvider>
-      <Pager basePath="/sales" searchParams={sp} page={page} pageSize={PAGE_SIZE} total={total} label="Sales pages" />
+      <Pager basePath="/sales" searchParams={sp} page={page} pageSize={pageSize} total={total} label="Sales pages" />
       <DocumentPrintFooter />
     </div>
   );

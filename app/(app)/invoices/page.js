@@ -11,7 +11,8 @@ import { getBrandingLite } from "@/lib/pdf/business";
 import ListFilterBar from "@/components/ListFilterBar";
 import ModulePageHeader from "@/components/ModulePageHeader";
 import Pager from "@/components/Pager";
-import { pageFrom, rangeFor } from "@/lib/listParams";
+import { pageFrom, pageSizeFrom, rangeFor } from "@/lib/listParams";
+import { TableEmptyState } from "@/components/EmptyState";
 import { invoiceFilters, applyInvoiceFilters, matchingCustomerIds } from "@/lib/listQueries";
 import { exportInvoiceRows } from "@/lib/exportActions";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
@@ -30,7 +31,8 @@ export default async function InvoicesPage({ searchParams }) {
   const supabase = await createClient();
   const filters = invoiceFilters(sp);
   const page = pageFrom(sp);
-  const [from, to] = rangeFor(page, PAGE_SIZE);
+  const pageSize = pageSizeFrom(sp, PAGE_SIZE);
+  const [from, to] = rangeFor(page, pageSize);
   const customerIds = filters.q ? await matchingCustomerIds(supabase, filters.q) : null;
   const [branding, { data: invoices, count }, { data: kpis }, { data: customers }, { data: products }, { data: canVoid }] = await Promise.all([
     getBrandingLite(supabase),
@@ -92,7 +94,7 @@ export default async function InvoicesPage({ searchParams }) {
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Invoice #</Th><Th>Date</Th><Th>Customer</Th><Th>Qty</Th><Th>Total</Th><Th>Status</Th><Th>Details</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
-            {pageRows.length === 0 && <tr><td colSpan={canVoid ? 9 : 8} className="text-center py-8 text-slate">No invoices match.</td></tr>}
+            {pageRows.length === 0 && <TableEmptyState colSpan={canVoid ? 9 : 8} title="No invoices match" description="Try changing the search, status, or date filters." filtered />}
             {pageRows.map((s) => {
               const canVoidThis = canVoid && s.status !== "void" && !["paid", "partially_paid"].includes(s.status);
               const statusLabel = STATUS_LABEL[s.status] || s.status;
@@ -127,7 +129,7 @@ export default async function InvoicesPage({ searchParams }) {
         </table>
       </div>
       </BulkSelectProvider>
-      <Pager basePath="/invoices" searchParams={sp} page={page} pageSize={PAGE_SIZE} total={matching} label="Invoice pages" />
+      <Pager basePath="/invoices" searchParams={sp} page={page} pageSize={pageSize} total={matching} label="Invoice pages" />
       <DocumentPrintFooter />
     </div>
   );

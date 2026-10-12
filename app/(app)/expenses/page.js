@@ -13,7 +13,8 @@ import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentP
 import { Tag } from "lucide-react";
 import ListFilterBar from "@/components/ListFilterBar";
 import Pager from "@/components/Pager";
-import { pageFrom, rangeFor } from "@/lib/listParams";
+import { pageFrom, pageSizeFrom, rangeFor } from "@/lib/listParams";
+import { TableEmptyState } from "@/components/EmptyState";
 import { expenseFilters, applyExpenseFilters } from "@/lib/listQueries";
 import { exportExpenseRows } from "@/lib/exportActions";
 import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
@@ -37,7 +38,8 @@ export default async function ExpensesPage({ searchParams }) {
   const { supabase, profile } = await getCurrentProfile();
   const filters = expenseFilters(sp);
   const page = pageFrom(sp);
-  const [from, to] = rangeFor(page, PAGE_SIZE);
+  const pageSize = pageSizeFrom(sp, PAGE_SIZE);
+  const [from, to] = rangeFor(page, pageSize);
   // The list is paged/filtered in the database; KPIs and category cards come
   // from SECURITY INVOKER aggregate functions (RLS applies), so the page
   // never downloads the full expense history.
@@ -124,7 +126,7 @@ export default async function ExpensesPage({ searchParams }) {
         <table className="w-full text-[13.5px] border-collapse">
           <thead><tr className="bg-foam">{canVoid && <Th className="no-print w-10"><SelectAllCheckbox /></Th>}<Th>Date</Th><Th>Category</Th><Th>Description</Th><Th>Amount</Th><Th>Method</Th><Th>Entered By</Th><Th>Receipt</Th><Th>Status</Th><Th>Details</Th><Th className="no-print">Actions</Th></tr></thead>
           <tbody>
-            {rows.length === 0 && <tr><td colSpan={canVoid ? 11 : 10} className="text-center py-8 text-slate">No expenses match.</td></tr>}
+            {rows.length === 0 && <TableEmptyState colSpan={canVoid ? 11 : 10} title="No expenses match" description="Try changing the search, category, status, or date filters." filtered />}
             {rows.map((e) => {
               const badge = STATUS_BADGE[e.status] || STATUS_BADGE.approved;
               const previewFields = [
@@ -161,7 +163,7 @@ export default async function ExpensesPage({ searchParams }) {
         </table>
       </div>
       </BulkSelectProvider>
-      <Pager basePath="/expenses" searchParams={sp} page={page} pageSize={PAGE_SIZE} total={matching} label="Expense pages" />
+      <Pager basePath="/expenses" searchParams={sp} page={page} pageSize={pageSize} total={matching} label="Expense pages" />
       <DocumentPrintFooter />
     </div>
   );

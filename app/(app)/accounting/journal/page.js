@@ -6,7 +6,7 @@ import { voidJournalEntry } from "@/app/actions";
 import ListFilterBar from "@/components/ListFilterBar";
 import { BulkSelectProvider, SelectAllCheckbox, RowCheckbox } from "@/components/BulkSelect";
 import Pager from "@/components/Pager";
-import { pageFrom, rangeFor } from "@/lib/listParams";
+import { pageFrom, pageSizeFrom, rangeFor } from "@/lib/listParams";
 import { applyJournalFilters } from "@/lib/listQueries";
 import { exportJournalRows } from "@/lib/exportActions";
 import { getBrandingLite } from "@/lib/pdf/business";
@@ -30,7 +30,8 @@ export default async function JournalPage({ searchParams }) {
 
   const filters = { q, from: dateFrom, to: dateTo };
   const page = pageFrom(sp);
-  const [from, to] = rangeFor(page, PAGE_SIZE);
+  const pageSize = pageSizeFrom(sp, PAGE_SIZE);
+  const [from, to] = rangeFor(page, pageSize);
 
   const [{ data: entries, count }, { data: canVoid }, branding] = await Promise.all([
     applyJournalFilters(supabase.from("journal_entries").select("*, journal_lines(*, chart_of_accounts(code, name)), creator:profiles!journal_entries_created_by_fkey(full_name)", { count: "exact" }), filters)
@@ -117,7 +118,7 @@ export default async function JournalPage({ searchParams }) {
         })}
       </div>
       </BulkSelectProvider>
-      <Pager basePath="/accounting/journal" searchParams={sp} page={page} pageSize={PAGE_SIZE} total={count || 0} label="Journal pages" />
+      <Pager basePath="/accounting/journal" searchParams={sp} page={page} pageSize={pageSize} total={count || 0} label="Journal pages" />
     </div>
   );
 }
