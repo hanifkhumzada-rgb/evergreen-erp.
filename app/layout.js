@@ -4,7 +4,7 @@ import Script from "next/script";
 
 export const metadata = {
   title: "Evergreen Water ERP",
-  description: "Evergreen Water's digital headquarters",
+  description: "Evergreen Water — Pure Drinking Water",
   manifest: "/manifest.json",
   applicationName: "Evergreen Water ERP",
   icons: {

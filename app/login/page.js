@@ -123,7 +123,7 @@ export default function LoginPage() {
         <div className="mb-7 flex flex-col items-center text-center">
           <BrandMark size={54} />
           <p className="mt-3 font-display text-lg font-bold text-ink">Evergreen Water</p>
-          <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.19em] text-slate">Your Business in Your Pocket</p>
+          <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.19em] text-aqua">Pure Drinking Water</p>
         </div>
 
           {mode === "signin" ? (

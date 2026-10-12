@@ -91,6 +91,7 @@ export default function PortalLoginPage() {
         <div className="flex flex-col items-center text-center mb-6">
           <Image src="/icon-192.png" width={60} height={60} alt="Evergreen Water" className="rounded-2xl shadow-lg mb-3" priority unoptimized />
           <h1 className="font-display text-xl font-semibold">My Evergreen Water</h1>
+          <p className="mt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-aqua">Pure Drinking Water</p>
           <p className="text-xs text-slate mt-1 max-w-[260px]">Deliveries, payments, bottles and statements—securely in your pocket.</p>
         </div>
 

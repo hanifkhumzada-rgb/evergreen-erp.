@@ -1,6 +1,6 @@
 export const metadata = {
   title: "Evergreen Water Customer",
-  description: "View your approved Evergreen Water deliveries, bottles, invoices and statements.",
+  description: "Evergreen Water — Pure Drinking Water customer portal.",
   manifest: "/portal-manifest.json",
   applicationName: "Evergreen Water Customer",
   icons: {

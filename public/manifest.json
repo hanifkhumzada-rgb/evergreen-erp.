@@ -2,7 +2,7 @@
   "id": "/erp-app",
   "name": "Evergreen Water ERP",
   "short_name": "EW ERP",
-  "description": "Evergreen Water management and delivery workspace",
+  "description": "Evergreen Water — Pure Drinking Water",
   "start_url": "/dashboard",
   "scope": "/",
   "display": "standalone",

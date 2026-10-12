@@ -2,7 +2,7 @@
   "id": "/customer-app",
   "name": "Evergreen Water Customer",
   "short_name": "EW Customer",
-  "description": "Evergreen Water customer deliveries, bottles, invoices and statements",
+  "description": "Evergreen Water — Pure Drinking Water customer portal",
   "start_url": "/portal/login?source=installed_app",
   "scope": "/portal/",
   "display": "standalone",

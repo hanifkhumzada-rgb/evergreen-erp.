@@ -199,9 +199,9 @@ function RailNav({ entries, pathname, unreadNotifications }) {
 
 function BrandHeader({ onCollapse }) {
   return (
-    <div className="flex items-center gap-2 px-1.5 pb-4">
-      <Image src="/ew-mark.svg" width={36} height={36} alt="Evergreen Water" className="rounded-xl flex-shrink-0" priority unoptimized />
-      <span className="min-w-0 flex-1"><span className="block font-display text-sm font-semibold leading-tight">Evergreen Water</span><span className="erp-sidebar-muted block truncate text-[9px] font-medium">Your business in your pocket</span></span>
+    <div className="flex items-center gap-2.5 px-1.5 pb-4">
+      <Image src="/ew-mark.svg" width={38} height={38} alt="EW — Evergreen Water" className="rounded-xl flex-shrink-0" priority unoptimized />
+      <span className="min-w-0 flex-1"><span className="block font-display text-[15px] font-semibold leading-tight">Evergreen Water</span><span className="erp-sidebar-muted mt-0.5 block truncate text-[10px] font-medium leading-tight">Pure Drinking Water</span></span>
       {onCollapse && <button type="button" onClick={onCollapse} title="Collapse sidebar" className="erp-sidebar-icon-btn w-7 h-7 flex items-center justify-center rounded-lg"><ChevronLeft size={16} /></button>}
     </div>
   );
