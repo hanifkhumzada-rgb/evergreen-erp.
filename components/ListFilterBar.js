@@ -1,6 +1,6 @@
 "use client";
 
-import { Search, X, Loader2, CalendarDays, SlidersHorizontal } from "lucide-react";
+import { Search, X, Loader2, CalendarDays, SlidersHorizontal, ChevronLeft, ChevronRight } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 
@@ -58,6 +58,7 @@ export default function ListFilterBar({
 
   const managed = [searchParam, ...filters.map((f) => f.name), ...dateFilters.map((f) => f.name)].filter(Boolean);
   const hasActive = managed.some((k) => searchParams.get(k));
+  const activeCount = managed.filter((k) => searchParams.get(k)).length;
   const monthFilter = dateFilters.find((f) => f.type === "month");
   const selectedMonth = monthFilter ? (searchParams.get(monthFilter.name) || defaults[monthFilter.name] || "") : "";
   const monthLabel = selectedMonth && /^\d{4}-\d{2}$/.test(selectedMonth)
@@ -66,20 +67,52 @@ export default function ListFilterBar({
   const fromFilter = dateFilters.find((f) => f.name === "from");
   const toFilter = dateFilters.find((f) => f.name === "to");
   const showQuickDates = quickDates && fromFilter && toFilter;
-  const iso = (date) => date.toISOString().slice(0, 10);
+  const iso = (date) => {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Karachi", year: "numeric", month: "2-digit", day: "2-digit",
+    }).formatToParts(date);
+    const value = Object.fromEntries(parts.map(({ type, value: part }) => [type, part]));
+    return `${value.year}-${value.month}-${value.day}`;
+  };
+  const startOfWeek = (date) => {
+    const value = new Date(date); const day = value.getDay();
+    value.setDate(value.getDate() - (day === 0 ? 6 : day - 1));
+    return value;
+  };
   const setQuickRange = (kind) => {
     const now = new Date();
     let from = new Date(now); let to = new Date(now);
+    if (kind === "yesterday") { from.setDate(now.getDate() - 1); to = new Date(from); }
+    if (kind === "week") { from = startOfWeek(now); to = new Date(from); to.setDate(from.getDate() + 6); }
     if (kind === "last7") from.setDate(now.getDate() - 6);
     if (kind === "month") { from = new Date(now.getFullYear(), now.getMonth(), 1); to = new Date(now.getFullYear(), now.getMonth() + 1, 0); }
+    if (kind === "lastMonth") { from = new Date(now.getFullYear(), now.getMonth() - 1, 1); to = new Date(now.getFullYear(), now.getMonth(), 0); }
+    if (kind === "last3") { from = new Date(now.getFullYear(), now.getMonth() - 2, 1); to = new Date(now.getFullYear(), now.getMonth() + 1, 0); }
+    if (kind === "year") { from = new Date(now.getFullYear(), 0, 1); to = new Date(now.getFullYear(), 11, 31); }
     apply({ [fromFilter.name]: iso(from), [toFilter.name]: iso(to), ...(monthFilter ? { [monthFilter.name]: "" } : {}) });
+  };
+  const changeMonth = (offset) => {
+    const base = /^\d{4}-\d{2}$/.test(selectedMonth) ? new Date(`${selectedMonth}-01T12:00:00`) : new Date();
+    base.setMonth(base.getMonth() + offset);
+    const month = `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}`;
+    apply({ [monthFilter.name]: month, ...(fromFilter ? { [fromFilter.name]: "" } : {}), ...(toFilter ? { [toFilter.name]: "" } : {}) });
+  };
+  const applyDateValue = (filter, value) => {
+    if (filter.type === "month") {
+      apply({ [filter.name]: value, ...(fromFilter ? { [fromFilter.name]: "" } : {}), ...(toFilter ? { [toFilter.name]: "" } : {}) });
+      return;
+    }
+    apply({ [filter.name]: value, ...(monthFilter ? { [monthFilter.name]: "" } : {}) });
   };
 
   return (
     <div className={`no-print mb-4 rounded-2xl border border-line bg-card p-3 shadow-sm ${className}`} role="search">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[.14em] text-slate"><SlidersHorizontal size={13} /> Search &amp; filters</span>
-        {monthLabel ? <span className="inline-flex items-center gap-1.5 rounded-full bg-aquaSoft px-2.5 py-1 text-[11px] font-bold text-navy"><CalendarDays size={13}/>{monthLabel}</span> : null}
+        <div className="flex items-center gap-2">
+          {activeCount ? <span className="rounded-full border border-aqua/20 bg-aquaSoft px-2 py-1 text-[10px] font-bold text-aqua">{activeCount} active</span> : null}
+          {monthLabel ? <span className="inline-flex items-center gap-1.5 rounded-full bg-aquaSoft px-2.5 py-1 text-[11px] font-bold text-navy"><CalendarDays size={13}/>{monthLabel}</span> : null}
+        </div>
       </div>
       <div className="flex flex-wrap items-center gap-2.5">
       {searchParam && (
@@ -112,16 +145,23 @@ export default function ListFilterBar({
         </select>
       ))}
       {dateFilters.map((f) => (
-        <label key={f.name} className={`flex items-center gap-1.5 text-xs text-slate ${f.type === "month" ? "min-w-[210px]" : ""}`}>
+        <div key={f.name} className={`flex items-center gap-1.5 text-xs text-slate ${f.type === "month" ? "min-w-[250px]" : ""}`}>
           <span className="shrink-0 font-semibold">{f.label}</span>
-          <input type={f.type || "date"} value={searchParams.get(f.name) || defaults[f.name] || ""} onChange={(e) => apply({ [f.name]: e.target.value })}
+          {f.type === "month" ? <button type="button" aria-label="Previous month" onClick={() => changeMonth(-1)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line hover:bg-aquaSoft hover:text-aqua"><ChevronLeft size={14}/></button> : null}
+          <input aria-label={f.label} type={f.type || "date"} value={searchParams.get(f.name) || defaults[f.name] || ""} onChange={(e) => applyDateValue(f, e.target.value)}
             className="min-h-[38px] min-w-0 flex-1 rounded-xl border border-line bg-white px-3 py-2 text-xs font-semibold text-ink" />
-        </label>
+          {f.type === "month" ? <button type="button" aria-label="Next month" onClick={() => changeMonth(1)} className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-line hover:bg-aquaSoft hover:text-aqua"><ChevronRight size={14}/></button> : null}
+        </div>
       ))}
       {showQuickDates ? <div className="flex w-full flex-wrap items-center gap-1.5 border-t border-line pt-2 sm:w-auto sm:border-l sm:border-t-0 sm:pl-2 sm:pt-0">
         <button type="button" onClick={() => setQuickRange("today")} className="rounded-lg px-2.5 py-2 text-[11px] font-semibold text-slate hover:bg-aquaSoft hover:text-aqua">Today</button>
+        <button type="button" onClick={() => setQuickRange("yesterday")} className="rounded-lg px-2.5 py-2 text-[11px] font-semibold text-slate hover:bg-aquaSoft hover:text-aqua">Yesterday</button>
+        <button type="button" onClick={() => setQuickRange("week")} className="rounded-lg px-2.5 py-2 text-[11px] font-semibold text-slate hover:bg-aquaSoft hover:text-aqua">This Week</button>
         <button type="button" onClick={() => setQuickRange("last7")} className="rounded-lg px-2.5 py-2 text-[11px] font-semibold text-slate hover:bg-aquaSoft hover:text-aqua">Last 7 Days</button>
         <button type="button" onClick={() => setQuickRange("month")} className="rounded-lg px-2.5 py-2 text-[11px] font-semibold text-slate hover:bg-aquaSoft hover:text-aqua">This Month</button>
+        <button type="button" onClick={() => setQuickRange("lastMonth")} className="rounded-lg px-2.5 py-2 text-[11px] font-semibold text-slate hover:bg-aquaSoft hover:text-aqua">Last Month</button>
+        <button type="button" onClick={() => setQuickRange("last3")} className="rounded-lg px-2.5 py-2 text-[11px] font-semibold text-slate hover:bg-aquaSoft hover:text-aqua">Last 3 Months</button>
+        <button type="button" onClick={() => setQuickRange("year")} className="rounded-lg px-2.5 py-2 text-[11px] font-semibold text-slate hover:bg-aquaSoft hover:text-aqua">This Year</button>
       </div> : null}
       {hasActive && (
         <button type="button" onClick={() => { setQuery(""); lastApplied.current = ""; apply(Object.fromEntries(managed.map((k) => [k, ""]))); }}

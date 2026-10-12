@@ -72,7 +72,7 @@ export default async function PaymentsPage({ searchParams }) {
   // also matches customer name/code/phone via a customer-id lookup.
   const historyFilters = paymentFilters(sp);
   const historyPage = pageFrom(sp);
-  const historyPageSize = pageSizeFrom(sp, HISTORY_PAGE_SIZE, [25, 50, 100]);
+  const historyPageSize = pageSizeFrom(sp, HISTORY_PAGE_SIZE, [10, 25, 50, 100]);
   const [hFrom, hTo] = rangeFor(historyPage, historyPageSize);
   const historyCustomerIds = historyFilters.q ? await matchingCustomerIds(supabase, historyFilters.q) : null;
   const paymentQuery = applyPaymentFilters(

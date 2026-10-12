@@ -4,7 +4,7 @@ import { hrefWith } from "@/lib/listParams";
 
 // Server-rendered Previous / page numbers / Next for any paginated list.
 // Keeps every other URL param (search, filters, tabs).
-export default function Pager({ basePath, searchParams, page, pageSize, total, param = "page", label = "Pages", pageSizes = [25, 50, 100] }) {
+export default function Pager({ basePath, searchParams, page, pageSize, total, param = "page", label = "Pages", pageSizes = [10, 25, 50, 100] }) {
   const pageCount = Math.max(1, Math.ceil((total || 0) / pageSize));
   if (!total) return null;
   const current = Math.min(page, pageCount);
