@@ -93,7 +93,21 @@ export async function requestPortalOtp(customerCode, customerName, mobile) {
   const normalizedName = (value) => String(value || "").trim().replace(/\s+/g, " ").toLocaleLowerCase("en");
   const nameMatches = normalizedName(candidate?.name) === normalizedName(trimmedName);
   if (!candidate || !candidate.is_active || !nameMatches || !digits || candidateDigits !== digits) {
+    // Make repeated guessing slower without revealing which of the three
+    // identity fields was wrong.
+    await new Promise((resolve) => setTimeout(resolve, 350));
     return { ok: false, error: "Customer ID, name and mobile number don't match our records." };
+  }
+
+  // Evergreen Water currently uses the no-SMS portal mode requested by
+  // the Owner. All three registered identity fields have already matched
+  // the same active customer above; the resulting real Supabase session
+  // remains customer-bound and every portal read is still restricted by
+  // the existing customer RLS policies.
+  const configured = isTwilioConfigured();
+  if (!configured) {
+    const session = await startPortalSession(admin, candidate.id);
+    return session.ok ? { ...session, directLogin: true } : session;
   }
 
   const { data, error } = await admin.rpc("fn_request_customer_otp", { p_mobile: trimmed });
@@ -106,10 +120,7 @@ export async function requestPortalOtp(customerCode, customerName, mobile) {
   const toNumber = customer?.mobile || trimmed;
   const body = `Your Evergreen Water verification code is ${otpCode}. It expires in 5 minutes. Do not share this code with anyone.`;
 
-  const configured = isTwilioConfigured();
-  const sendResult = configured
-    ? await sendTwilioMessage({ channel: "sms", toNumber, body })
-    : { ok: false, error: "SMS not configured" };
+  const sendResult = await sendTwilioMessage({ channel: "sms", toNumber, body });
 
   // Best-effort audit trail in the same notification_logs table every
   // other send goes through — never blocks the OTP flow either way.
@@ -127,18 +138,6 @@ export async function requestPortalOtp(customerCode, customerName, mobile) {
     });
   } catch {}
 
-  // A passwordless testing fallback is disabled by default. It can only be
-  // enabled deliberately in a non-production environment; missing Twilio
-  // credentials must never silently weaken production portal authentication.
-  if (!configured) {
-    const allowVerifiedTestLogin = process.env.NODE_ENV !== "production"
-      && process.env.PORTAL_ALLOW_VERIFIED_TEST_LOGIN === "true";
-    if (allowVerifiedTestLogin) {
-      const session = await startPortalSession(admin, customerId);
-      return session.ok ? { ...session, testingMode: true } : session;
-    }
-    return { ok: false, error: "SMS verification is temporarily unavailable. Please contact Evergreen Water." };
-  }
   if (!sendResult.ok) return { ok: false, error: "Couldn't send the verification code. Please try again shortly." };
   return { ok: true };
 }

@@ -47,7 +47,7 @@ export default function PortalLoginPage() {
     const res = await requestPortalOtp(customerCode, customerName, mobile);
     setLoading(false);
     if (!res.ok) { setError(res.error); return; }
-    if (res.testingMode) {
+    if (res.directLogin || res.testingMode) {
       router.replace(portalReturnPath());
       router.refresh();
       return;
@@ -130,8 +130,7 @@ export default function PortalLoginPage() {
                 />
               </div>
             </label>
-            <p className="text-[11px] text-slate mb-2">Your number must match the one registered with Evergreen Water.</p>
-            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 px-3 py-2 rounded-lg mb-4">Testing mode: SMS verification is temporarily disabled.</p>
+            <p className="text-[11px] text-slate mb-4">Customer ID, name and phone number must exactly match your active Evergreen Water account.</p>
             {error && <p className="text-coral text-xs mb-3 bg-coralSoft px-3 py-2 rounded-lg">{error}</p>}
             <button
               disabled={loading} type="submit"
@@ -172,7 +171,7 @@ export default function PortalLoginPage() {
           </form>
         )}
 
-        <div className="grid grid-cols-3 gap-2 mt-7 text-center"><div><p className="font-bold text-xs text-aqua">Live</p><p className="text-[9px] text-slate">Deliveries</p></div><div className="border-x"><p className="font-bold text-xs text-aqua">Secure</p><p className="text-[9px] text-slate">OTP Login</p></div><div><p className="font-bold text-xs text-aqua">24/7</p><p className="text-[9px] text-slate">Statements</p></div></div>
+        <div className="grid grid-cols-3 gap-2 mt-7 text-center"><div><p className="font-bold text-xs text-aqua">Live</p><p className="text-[9px] text-slate">Deliveries</p></div><div className="border-x"><p className="font-bold text-xs text-aqua">Verified</p><p className="text-[9px] text-slate">Customer Login</p></div><div><p className="font-bold text-xs text-aqua">24/7</p><p className="text-[9px] text-slate">Statements</p></div></div>
         <div className="mt-5 flex justify-center"><PwaInstallButton label="Install Customer App" /></div>
         <p className="text-center text-[11px] text-slate mt-6">
           Not a customer? <a href="/login" className="text-aqua font-semibold">Staff sign in</a>
