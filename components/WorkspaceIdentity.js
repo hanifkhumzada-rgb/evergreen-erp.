@@ -30,7 +30,7 @@ export default function WorkspaceIdentity() {
   const context = match?.[2] || "Secure management workspace";
 
   return (
-    <div className="workspace-context hidden min-[430px]:block">
+    <div className="workspace-context hidden sm:block">
       <div className="workspace-context-label">{context}</div>
       <div className="workspace-context-title">{title}</div>
     </div>
