@@ -54,7 +54,7 @@ const NAV = [
     // Grouped with Deliveries, not with Employees/Fleet admin below — a
     // dispatcher checking where riders are is part of the same morning
     // delivery routine, not a Team & Fleet HR/maintenance task.
-    { href: "/tracking", label: "Live Tracking", icon: Navigation, roles: [...OWNER_ROLES, "manager"] },
+    { href: "/tracking", label: "Live Tracking & Routes", icon: Navigation, roles: [...OWNER_ROLES, "manager", "rider"], selfRoles: ["rider"] },
     { href: "/delivery-corrections", label: "Delivery Corrections", icon: Wrench, roles: [...OWNER_ROLES, "manager"] },
     { href: "/bottle-ledger", label: "Bottle Inventory", icon: Droplet, roles: [...OWNER_ROLES, "manager"] },
     { href: "/production", label: "Production & Filling", icon: Factory, roles: [...OWNER_ROLES, "manager", "accountant"] },
@@ -105,6 +105,7 @@ const NAV = [
 
 
 function canSee(item, normalizedRole, permissionSet) {
+  if (item.selfRoles?.includes(normalizedRole)) return true;
   const permission = PERMISSION_BY_HREF[item.href];
   if (permission) return permissionSet.has(permission);
   return item.roles?.includes(normalizedRole);

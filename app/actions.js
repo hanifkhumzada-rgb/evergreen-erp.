@@ -979,6 +979,8 @@ export async function reportStaffLocation(latitude, longitude) {
   if (typeof latitude !== "number" || typeof longitude !== "number" || Number.isNaN(latitude) || Number.isNaN(longitude)) {
     return { error: "Invalid coordinates." };
   }
+  const { data: roleKey, error: roleError } = await supabase.rpc("fn_current_role_key");
+  if (roleError || roleKey !== "rider") return { error: "Only an authorized Delivery Boy can share duty location." };
   // Insert (this ping) and delete (this user's points older than 24h) touch
   // disjoint rows, so they run in parallel rather than one after the other.
   const [{ error }] = await Promise.all([

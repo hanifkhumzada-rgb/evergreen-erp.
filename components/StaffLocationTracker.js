@@ -18,11 +18,11 @@ export function setLocationSharingEnabled(enabled) {
 // Reports only after this user explicitly turns Location ON on this device.
 // OFF clears the timer immediately; browser permission may remain granted,
 // but no coordinates are requested or uploaded.
-export default function StaffLocationTracker() {
+export default function StaffLocationTracker({ enabledForRole = false }) {
   const timerRef = useRef(null);
 
   useEffect(() => {
-    if (!navigator.geolocation) return;
+    if (!enabledForRole || !navigator.geolocation) return;
 
     const stop = () => {
       if (timerRef.current) clearInterval(timerRef.current);
@@ -57,7 +57,7 @@ export default function StaffLocationTracker() {
       window.removeEventListener("storage", start);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, []);
+  }, [enabledForRole]);
 
   return null;
 }

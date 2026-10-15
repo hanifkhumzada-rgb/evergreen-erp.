@@ -65,13 +65,13 @@ export default async function AppLayout({ children }) {
             </div>
             <WorkspaceIdentity />
             <div className="topbar-muted hidden 2xl:flex items-center gap-2 whitespace-nowrap text-xs"><span className="topbar-live-dot w-2 h-2 rounded-full animate-pulse" /> Live workspace</div>
-            <StaffLocationTracker />
+            <StaffLocationTracker enabledForRole={roleKey === "rider"} />
           </div>
           <div className="flex shrink-0 items-center gap-1 sm:gap-2 xl:gap-3">
             <div className="topbar-search flex items-center gap-2 rounded-xl px-2 py-1"><Command size={13} className="topbar-muted hidden md:block" /><GlobalSearch /></div>
             <div className="hidden sm:block"><ErpRefreshButton /></div>
             <div className="hidden sm:block"><OfflineIndicator /></div>
-            <LocationPermissionCard compact />
+            {roleKey === "rider" ? <LocationPermissionCard compact /> : null}
             <div className="hidden sm:block">
               <LiveUsers
                 userId={user.id}
