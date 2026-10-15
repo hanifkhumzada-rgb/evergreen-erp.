@@ -4,44 +4,30 @@ import { pkr, fmtDate } from "@/lib/format";
 import { Badge, Th, Td, KPI, DocumentActionBar } from "@/components/ui";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
+import FinanceNav from "@/components/FinanceNav";
 
 export const dynamic = "force-dynamic";
 function todayISO() { return new Date().toISOString().slice(0, 10); }
 
-function parseClosing(txn) {
-  let summary = {};
-  try { summary = JSON.parse(txn.description); } catch {}
-  return {
-    id: txn.id,
-    close_date: txn.txn_date,
-    opening_cash: summary.opening_cash ?? 0,
-    collections_total: summary.collections_total ?? 0,
-    expenses_total: summary.expenses_total ?? 0,
-    expected_cash: summary.expected_cash ?? 0,
-    actual_cash: summary.actual_cash ?? 0,
-    difference: Number(txn.amount),
-  };
-}
-
 export default async function DailyClosingPage() {
   const supabase = await createClient();
   const today = todayISO();
-  const [branding, { data: txns }, { data: todayPayments }, { data: todayExpenses }] = await Promise.all([
+  const [branding, { data: closings }, { data: todayPayments }, { data: todayExpenses }] = await Promise.all([
     getBrandingLite(supabase),
-    supabase.from("cash_transactions").select("*").eq("reference_type", "daily_closing").order("txn_date", { ascending: false }).limit(30),
-    supabase.from("payments").select("amount").eq("payment_date", today).eq("voided", false),
-    supabase.from("expenses").select("amount").eq("expense_date", today).in("status", ["approved", "paid"]),
+    supabase.from("daily_closings").select("*").order("close_date", { ascending: false }).limit(30),
+    supabase.from("payments").select("amount,method").eq("payment_date", today).eq("voided", false),
+    supabase.from("expenses").select("amount,payment_method").eq("expense_date", today).in("status", ["approved", "paid"]),
   ]);
-  const closings = (txns || []).map(parseClosing);
   const lastClosing = closings?.[0];
   const defaultOpening = lastClosing ? Number(lastClosing.actual_cash || lastClosing.expected_cash) : 0;
   const alreadyClosed = closings?.find((c) => c.close_date === today);
-  const collectionsToday = (todayPayments || []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
-  const expensesToday = (todayExpenses || []).reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const collectionsToday = (todayPayments || []).filter((row) => row.method === "cash").reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const expensesToday = (todayExpenses || []).filter((row) => row.payment_method === "cash").reduce((sum, row) => sum + Number(row.amount || 0), 0);
   const expectedToday = defaultOpening + collectionsToday - expensesToday;
 
   return (
     <div>
+      <FinanceNav current="/accounting/daily-closing" />
       <DocumentPrintHeader branding={branding} title="Daily Closing" meta={`Cash reconciliation\n${fmtDate(today)}`} />
       <div className="no-print mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -81,7 +67,7 @@ export default async function DailyClosingPage() {
               <tr key={c.id} className="hover:bg-foam">
                 <Td>{fmtDate(c.close_date)}</Td><Td>{pkr(c.opening_cash)}</Td><Td>{pkr(c.collections_total)}</Td><Td>{pkr(c.expenses_total)}</Td>
                 <Td>{pkr(c.expected_cash)}</Td><Td>{pkr(c.actual_cash)}</Td>
-                <Td><span className={Math.abs(c.difference) < 1 ? "text-green font-semibold" : "text-coral font-semibold"}>{pkr(c.difference)}</span></Td>
+                <Td><span className={Math.abs(c.difference) < 1 ? "text-green font-semibold" : "text-coral font-semibold"}>{pkr(c.difference)}</span> <Badge text={c.status} tone={c.status === "approved" ? "green" : "amber"} /></Td>
               </tr>
             ))}
           </tbody>

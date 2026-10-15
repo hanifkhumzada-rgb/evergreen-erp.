@@ -3,6 +3,7 @@ import { pkr, fmtDate } from "@/lib/format";
 import { DocumentActionBar } from "@/components/ui";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
+import FinanceNav from "@/components/FinanceNav";
 
 export const dynamic = "force-dynamic";
 function monthStart() { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().slice(0, 10); }
@@ -12,26 +13,35 @@ export default async function ProfitLossPage({ searchParams }) {
   const from = searchParams?.from || monthStart();
   const to = searchParams?.to || new Date().toISOString().slice(0, 10);
 
-  const [branding, { data: invoices }, { data: expenses }] = await Promise.all([
+  const [branding, { data: lines }] = await Promise.all([
     getBrandingLite(supabase),
-    supabase.from("invoices").select("net_amount").neq("status", "void").gte("invoice_date", from).lte("invoice_date", to),
-    supabase.from("expenses").select("amount, expense_categories(name)").in("status", ["approved", "paid"]).gte("expense_date", from).lte("expense_date", to),
+    supabase.from("journal_lines").select("debit,credit,chart_of_accounts!inner(code,name,type),journal_entries!inner(entry_date,status)").eq("journal_entries.status", "posted").gte("journal_entries.entry_date", from).lte("journal_entries.entry_date", to),
   ]);
-
-  const income = (invoices || []).reduce((a, i) => a + Number(i.net_amount), 0);
-  const cogs = 0;
+  const amountFor = (types) => (lines || []).filter(l => types.includes(l.chart_of_accounts?.type)).reduce((sum,l) => sum + (types.includes("income") ? Number(l.credit)-Number(l.debit) : Number(l.debit)-Number(l.credit)), 0);
+  const income = amountFor(["income"]);
+  const cogs = amountFor(["cogs"]);
   const grossProfit = income - cogs;
-  const opex = (expenses || []).reduce((a, e) => a + Number(e.amount), 0);
+  const opex = amountFor(["expense"]);
   const netProfit = grossProfit - opex;
   const byExpenseCategory = () => {
     const m = {};
-    (expenses || []).forEach((e) => { const n = e.expense_categories?.name || "Other"; m[n] = (m[n] || 0) + Number(e.amount); });
+    (lines || []).filter(l => l.chart_of_accounts?.type === "expense").forEach((e) => { const n = e.chart_of_accounts?.name || "Other Expenses"; m[n] = (m[n] || 0) + Number(e.debit)-Number(e.credit); });
     return Object.entries(m);
   };
-  const byName = (type) => (type === "INCOME" ? [["Sales revenue", income]] : type === "EXPENSE" ? byExpenseCategory() : []);
+  const accountBreakdown = (type) => {
+    const m = {};
+    (lines || []).filter(l => l.chart_of_accounts?.type === type).forEach(l => {
+      const n = l.chart_of_accounts?.name || "Other";
+      const amount = type === "income" ? Number(l.credit)-Number(l.debit) : Number(l.debit)-Number(l.credit);
+      m[n] = (m[n] || 0) + amount;
+    });
+    return Object.entries(m);
+  };
+  const byName = (type) => type === "INCOME" ? accountBreakdown("income") : type === "COGS" ? accountBreakdown("cogs") : type === "EXPENSE" ? byExpenseCategory() : [];
 
   return (
     <div>
+      <FinanceNav current="/accounting/profit-loss" />
       <DocumentPrintHeader branding={branding} title="Profit & Loss" meta={`${fmtDate(from)} – ${fmtDate(to)}`} />
       <h2 className="no-print font-display text-2xl font-semibold mb-1">Profit &amp; Loss</h2>
       <form className="no-print flex flex-wrap gap-2.5 mb-2 items-end">
@@ -43,7 +53,7 @@ export default async function ProfitLossPage({ searchParams }) {
           handlers, never meant to submit the date-range form above (same
           bug class as /customers' "New Customer"). */}
       <div className="no-print flex justify-end mb-3">
-        <DocumentActionBar print share={{ title: "Profit & Loss" }} />
+        <DocumentActionBar print excel={{ rows: [...byName("INCOME").map(([Account,Amount])=>({Section:"Revenue",Account,Amount})),...byName("COGS").map(([Account,Amount])=>({Section:"Cost of Goods Sold",Account,Amount})),...byExpenseCategory().map(([Account,Amount])=>({Section:"Expense",Account,Amount}))], sheetName:"Profit and Loss", reportTitle:"Profit & Loss", branding }} share={{ title: "Profit & Loss" }} />
       </div>
 
       <div className="border border-line rounded-2xl p-6 max-w-lg">
@@ -54,7 +64,7 @@ export default async function ProfitLossPage({ searchParams }) {
         <Section title="Operating Expenses" items={byName("EXPENSE")} total={opex} negative />
         <Row label="Net Profit" value={netProfit} bold big />
       </div>
-      <p className="text-xs text-slate mt-3">Figures are calculated live from invoices and expenses — nothing here is hardcoded. This is a heuristic P&amp;L (no cost-of-goods-sold or chart-of-accounts engine in the live database yet).</p>
+      <p className="text-xs text-slate mt-3">Figures come only from posted journal lines in the selected period. Draft, rejected and reversed source records are excluded from the report.</p>
       <DocumentPrintFooter />
     </div>
   );

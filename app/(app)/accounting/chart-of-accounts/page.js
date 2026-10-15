@@ -1,13 +1,16 @@
 import { createClient } from "@/lib/supabase/server";
 import { pkr } from "@/lib/format";
 import { Th, Td } from "@/components/ui";
+import Link from "next/link";
+import FinanceNav from "@/components/FinanceNav";
 
 export const dynamic = "force-dynamic";
 
-export default async function ChartOfAccountsPage() {
+export default async function ChartOfAccountsPage({ searchParams }) {
+  const q = ((await searchParams)?.q || "").trim();
   const supabase = await createClient();
   const [{ data: accounts }, { data: balances }] = await Promise.all([
-    supabase.from("chart_of_accounts").select("*").eq("is_active", true).order("code"),
+    (q ? supabase.from("chart_of_accounts").select("*").eq("is_active", true).or(`code.ilike.%${q.replace(/[,()*]/g, " ")}%,name.ilike.%${q.replace(/[,()*]/g, " ")}%`).order("code") : supabase.from("chart_of_accounts").select("*").eq("is_active", true).order("code")),
     supabase.from("v_trial_balance").select("account_id, balance"),
   ]);
 
@@ -19,8 +22,10 @@ export default async function ChartOfAccountsPage() {
 
   return (
     <div>
+      <FinanceNav current="/accounting/chart-of-accounts" />
       <h2 className="font-display text-2xl font-semibold mb-1">Chart of Accounts</h2>
       <p className="text-slate text-sm mb-5">Live account balances, calculated from posted journal entries.</p>
+      <form className="no-print mb-4 flex max-w-md gap-2"><input className="in flex-1" name="q" defaultValue={q} placeholder="Search code or account name"/><button className="rounded-xl bg-navy px-4 text-xs font-semibold text-white">Search</button></form>
 
       {byType.map(({ type, rows }) => rows.length > 0 && (
         <div key={type} className="mb-6">
@@ -32,7 +37,7 @@ export default async function ChartOfAccountsPage() {
                 {rows.map((a) => (
                   <tr key={a.id} className="hover:bg-foam">
                     <Td className="font-mono-num text-xs">{a.code}</Td>
-                    <Td className="font-semibold">{a.name}</Td>
+                    <Td className="font-semibold"><Link className="hover:text-aqua" href={`/accounting/general-ledger?account=${a.id}`}>{a.name}</Link>{a.account_group && <div className="text-[11px] font-normal text-slate">{a.account_group}</div>}</Td>
                     <Td>{pkr(balanceMap[a.id] || 0)}</Td>
                   </tr>
                 ))}
