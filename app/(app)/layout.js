@@ -59,9 +59,9 @@ export default async function AppLayout({ children }) {
           <div className="flex min-w-0 items-center gap-2 sm:gap-3">
             <SidebarToggleButton />
             <NavigationControls />
-            <div className="flex items-center gap-2 min-[430px]:hidden" aria-label="Evergreen Water ERP">
-              <Image src="/ew-mark.svg" width={34} height={34} alt="EW" className="rounded-lg" priority unoptimized />
-              <span className="leading-tight"><span className="block text-xs font-bold">EW ERP</span><span className="topbar-muted block text-[9px]">Pure Drinking Water</span></span>
+            <div className="flex w-[58px] shrink-0 flex-col items-center justify-center sm:hidden" aria-label="Evergreen Water ERP">
+              <Image src="/ew-mark.svg" width={40} height={40} alt="Evergreen Water" className="rounded-[11px]" priority unoptimized />
+              <span className="mt-0.5 whitespace-nowrap text-center text-[8px] font-bold leading-none tracking-tight">Evergreen Water</span>
             </div>
             <WorkspaceIdentity />
             <div className="topbar-muted hidden 2xl:flex items-center gap-2 whitespace-nowrap text-xs"><span className="topbar-live-dot w-2 h-2 rounded-full animate-pulse" /> Live workspace</div>
