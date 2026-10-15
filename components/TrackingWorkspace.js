@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Activity, Clock3, MapPin, Navigation, RefreshCw, Route, Search, Signal, Truck } from "lucide-react";
 import LiveTrackingMap from "@/components/LiveTrackingMap";
 import LocationPermissionCard from "@/components/LocationPermissionCard";
@@ -26,6 +27,8 @@ function DeliveryList({ deliveries }) {
 }
 
 export default function TrackingWorkspace({ roleKey, canMonitor, currentUser, riders, deliveries, routes, historyCount }) {
+  const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
   const riderMode = roleKey === "rider";
   const [tab, setTab] = useState(riderMode ? "duty" : "control");
   const [query, setQuery] = useState("");
@@ -39,7 +42,7 @@ export default function TrackingWorkspace({ roleKey, canMonitor, currentUser, ri
   const tabs = riderMode ? [["duty", "My Duty"], ["route", "My Route"]] : [["control", "Live Control"], ["routes", "Route Progress"], ["history", "History"]];
 
   return <div className="space-y-4">
-    <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-aqua">Live Tracking & Routes</p><h1 className="font-display text-2xl font-semibold">{riderMode ? `My Duty · ${currentUser.name}` : "Live Control Center"}</h1><p className="mt-1 text-xs text-slate">Foreground GPS for Chrome and installed EW app. Locked-screen tracking is not guaranteed.</p></div><button type="button" onClick={() => window.location.reload()} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-line bg-card px-3 text-xs font-bold"><RefreshCw size={15}/>Refresh</button></div>
+    <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-[10px] font-bold uppercase tracking-[0.18em] text-aqua">Live Tracking & Routes</p><h1 className="font-display text-2xl font-semibold">{riderMode ? `My Duty · ${currentUser.name}` : "Live Control Center"}</h1><p className="mt-1 text-xs text-slate">Foreground GPS for Chrome and installed EW app. Locked-screen tracking is not guaranteed.</p></div><button type="button" disabled={refreshing} onClick={() => startRefresh(() => router.refresh())} className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-line bg-card px-3 text-xs font-bold disabled:cursor-wait disabled:opacity-60"><RefreshCw size={15} className={refreshing ? "animate-spin" : ""}/>{refreshing ? "Refreshing…" : "Refresh live data"}</button></div>
     <div className="flex gap-1 overflow-x-auto rounded-2xl border border-line bg-card p-1">{tabs.map(([key,label]) => <button key={key} onClick={() => setTab(key)} className={`min-h-10 flex-1 whitespace-nowrap rounded-xl px-3 text-xs font-bold ${tab === key ? "bg-navy text-white" : "text-slate"}`}>{label}</button>)}</div>
     {riderMode && tab === "duty" ? <><LocationPermissionCard/><div className="grid grid-cols-2 gap-2 sm:grid-cols-4"><Kpi label="Total" value={deliveries.length} icon={Truck}/><Kpi label="Done" value={completed} icon={Activity} tone="text-green"/><Kpi label="Pending" value={pending} icon={Clock3} tone="text-amber"/><Kpi label="Skipped" value={skipped} icon={MapPin} tone="text-coral"/></div><DeliveryList deliveries={deliveries}/></> : null}
     {riderMode && tab === "route" ? <><div className="rounded-2xl border border-aqua/20 bg-aquaSoft p-4"><p className="text-xs font-bold">Assigned route</p><p className="mt-1 text-lg font-semibold">{routes.map((r) => r.name).join(", ") || "No route assigned"}</p></div><DeliveryList deliveries={deliveries}/></> : null}
