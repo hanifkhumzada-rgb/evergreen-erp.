@@ -635,10 +635,12 @@ html[data-theme="blue"] .app-shell-bg thead:not(.bg-navy) tr:not(.bg-navy) th { 
 }
 @media (max-width: 639px) {
   .app-shell-bg .workspace-topbar {
-    min-height: 58px;
-    padding-left: 12px;
-    padding-right: 12px;
+    min-height: 68px;
+    gap: 4px;
+    padding-left: 8px;
+    padding-right: 8px;
   }
+  .workspace-topbar > div { gap: 3px; }
   .app-shell-bg .page-stage {
     padding: 16px 12px 92px;
   }
