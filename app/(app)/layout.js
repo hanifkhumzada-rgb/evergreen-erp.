@@ -16,6 +16,7 @@ import MobileBottomNav from "@/components/MobileBottomNav";
 import LiveUsers from "@/components/LiveUsers";
 import ErpRefreshButton from "@/components/ErpRefreshButton";
 import Image from "next/image";
+import LocationPermissionCard from "@/components/LocationPermissionCard";
 
 export default async function AppLayout({ children }) {
   const { user, profile, roleKey, permissions: effectivePermissions, unreadNotifications } = await getCurrentProfile();
@@ -70,6 +71,7 @@ export default async function AppLayout({ children }) {
             <div className="topbar-search flex items-center gap-2 rounded-xl px-2 py-1"><Command size={13} className="topbar-muted hidden md:block" /><GlobalSearch /></div>
             <div className="hidden sm:block"><ErpRefreshButton /></div>
             <div className="hidden sm:block"><OfflineIndicator /></div>
+            <LocationPermissionCard compact />
             <div className="hidden sm:block">
               <LiveUsers
                 userId={user.id}

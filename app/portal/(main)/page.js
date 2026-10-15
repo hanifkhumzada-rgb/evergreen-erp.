@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Droplet, Wallet, Calendar, Truck, RotateCcw, Bell, PackagePlus, CalendarOff, MessageCircle, ArrowRight } from "lucide-react";
 import { requirePortalCustomer } from "@/lib/portal/session";
 import { pkr, fmtDate } from "@/lib/format";
-import CustomerRiderMap from "@/components/portal/CustomerRiderMapLazy";
+import PortalTrackingControl from "@/components/portal/PortalTrackingControl";
 import PortalWelcome from "@/components/portal/PortalWelcome";
 
 export const dynamic = "force-dynamic";
@@ -121,11 +121,7 @@ export default async function PortalDashboardPage() {
         ) : (
           <div className="bg-card border border-line rounded-2xl p-4 text-xs text-slate">No delivery scheduled for today yet. <Link href="/portal/deliveries" className="block font-semibold text-aqua mt-2">View previous deliveries →</Link></div>
         )}
-        {outForDelivery && riderLocation && (
-          <div className="mt-2.5">
-            <CustomerRiderMap riderId={outForDelivery.rider_id} initialLocation={riderLocation} />
-          </div>
-        )}
+        {outForDelivery && riderLocation && <PortalTrackingControl riderId={outForDelivery.rider_id} initialLocation={riderLocation} />}
       </div>
 
       <div className="grid grid-cols-2 gap-3">

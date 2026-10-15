@@ -1,67 +1,63 @@
 "use client";
-import { MapPinOff } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef } from "react";
 import { reportStaffLocation } from "@/app/actions";
 
+export const LOCATION_SHARING_KEY = "ew-location-sharing-enabled";
+export const LOCATION_SHARING_EVENT = "ew-location-sharing-change";
 const INTERVAL_MS = 45000;
 
-// Mounted once, globally, in app/(app)/layout.js — every logged-in staff
-// member (Owner/Admin/Manager/Accountant/Rider) reports their position
-// while the app is open, not just riders during an active delivery
-// (generalized from the original rider-only, delivery-scoped design; see
-// migration 0038 and components/LiveTrackingMap.js). Sends one position
-// on mount, then every ~45s, but only while the tab is actually visible
-// in the foreground (Page Visibility API) so it doesn't drain the
-// battery running in a background tab. Declining the permission prompt
-// (or a device with no geolocation support) just stops silently — no
-// error surfaced, no effect on the rest of the app.
-//
-// Note: this is a materially more invasive default than the original
-// design — continuous location tracking of office staff (not just
-// riders actively out on a delivery) whenever they have the app open.
+export function isLocationSharingEnabled() {
+  return typeof window !== "undefined" && localStorage.getItem(LOCATION_SHARING_KEY) === "true";
+}
+
+export function setLocationSharingEnabled(enabled) {
+  localStorage.setItem(LOCATION_SHARING_KEY, String(enabled));
+  window.dispatchEvent(new CustomEvent(LOCATION_SHARING_EVENT, { detail: { enabled } }));
+}
+
+// Reports only after this user explicitly turns Location ON on this device.
+// OFF clears the timer immediately; browser permission may remain granted,
+// but no coordinates are requested or uploaded.
 export default function StaffLocationTracker() {
-  const [denied, setDenied] = useState(false);
   const timerRef = useRef(null);
-  const deniedRef = useRef(false);
 
   useEffect(() => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) return;
+    if (!navigator.geolocation) return;
+
+    const stop = () => {
+      if (timerRef.current) clearInterval(timerRef.current);
+      timerRef.current = null;
+    };
 
     const sendPosition = () => {
-      if (deniedRef.current || document.visibilityState !== "visible") return;
+      if (!isLocationSharingEnabled() || document.visibilityState !== "visible") return;
       navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          reportStaffLocation(pos.coords.latitude, pos.coords.longitude).catch(() => {});
-        },
-        (err) => {
-          if (err.code === err.PERMISSION_DENIED) {
-            deniedRef.current = true;
-            setDenied(true);
-          }
-          // Timeout/position-unavailable — try again on the next tick, no
-          // need to surface a transient GPS hiccup.
-        },
+        (pos) => reportStaffLocation(pos.coords.latitude, pos.coords.longitude).catch(() => {}),
+        () => {},
         { enableHighAccuracy: true, timeout: 20000, maximumAge: 30000 }
       );
     };
 
-    sendPosition();
-    timerRef.current = setInterval(sendPosition, INTERVAL_MS);
+    const start = () => {
+      stop();
+      if (!isLocationSharingEnabled()) return;
+      sendPosition();
+      timerRef.current = setInterval(sendPosition, INTERVAL_MS);
+    };
 
     const onVisibilityChange = () => { if (document.visibilityState === "visible") sendPosition(); };
+    start();
+    window.addEventListener(LOCATION_SHARING_EVENT, start);
+    window.addEventListener("storage", start);
     document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
-      clearInterval(timerRef.current);
+      stop();
+      window.removeEventListener(LOCATION_SHARING_EVENT, start);
+      window.removeEventListener("storage", start);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, []);
 
-  // Nothing to show on the happy path — this is a background reporter,
-  // not a UI element. A denied permission gets one quiet, unobtrusive
-  // line in the header area so someone who declined understands why
-  // "Live Tracking" won't show them, without it reading like an error.
-  if (!denied) return null;
-  const note = "Location sharing is off (permission declined) — you won't appear on Live Tracking.";
-  return <span className="topbar-muted no-print hidden md:inline-flex h-8 w-8 items-center justify-center rounded-lg" title={note} aria-label={note} role="img"><MapPinOff size={16} /></span>;
+  return null;
 }
