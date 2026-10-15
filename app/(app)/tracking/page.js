@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import LiveTrackingMap from "@/components/LiveTrackingMap";
+import LocationPermissionCard from "@/components/LocationPermissionCard";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,7 @@ export default async function TrackingPage() {
     <div>
       <h2 className="font-display text-2xl font-semibold mb-1">Live Tracking</h2>
       <p className="text-sm text-slate mb-4">Current position of every logged-in staff member (Owner/Admin/Manager/Accountant/Rider) with the app open. Updates live — no need to refresh.</p>
+      <LocationPermissionCard />
       <LiveTrackingMap riders={staffRows} />
     </div>
   );
