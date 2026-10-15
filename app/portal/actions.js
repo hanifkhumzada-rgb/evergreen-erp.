@@ -182,6 +182,74 @@ export async function submitCustomerIssue(formData) {
   return { ok: true };
 }
 
+async function createPortalRequest({ issueType, description, duplicateKey }) {
+  const { supabase, customerId } = await requirePortalCustomer();
+  const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+  const { data: duplicate } = await supabase
+    .from("customer_issues")
+    .select("id")
+    .eq("customer_id", customerId)
+    .eq("issue_type", issueType)
+    .in("status", ["open", "under_review"])
+    .ilike("description", `%Request key: ${duplicateKey}%`)
+    .gte("created_at", since)
+    .limit(1)
+    .maybeSingle();
+  if (duplicate) return { ok: false, error: "A matching request is already pending. Please wait for our team to review it." };
+
+  const { error } = await supabase.from("customer_issues").insert({
+    customer_id: customerId,
+    issue_type: issueType,
+    description: `${description}\nRequest key: ${duplicateKey}`,
+  });
+  if (error) return { ok: false, error: "We couldn't submit your request. Please try again." };
+  revalidatePath("/portal");
+  revalidatePath("/portal/support");
+  return { ok: true };
+}
+
+export async function submitWaterDeliveryRequest(formData) {
+  const quantity = Math.trunc(Number(formData.get("quantity")));
+  const preferredDate = String(formData.get("preferred_date") || "").trim();
+  const address = String(formData.get("address") || "").trim().slice(0, 300);
+  const remarks = String(formData.get("remarks") || "").trim().slice(0, 500);
+  if (!Number.isInteger(quantity) || quantity < 1 || quantity > 20) return { ok: false, error: "Enter a quantity between 1 and 20 bottles." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(preferredDate)) return { ok: false, error: "Select a preferred delivery date." };
+  const today = new Date().toISOString().slice(0, 10);
+  if (preferredDate < today) return { ok: false, error: "Preferred date cannot be in the past." };
+  if (!address) return { ok: false, error: "Enter the delivery address." };
+  return createPortalRequest({
+    issueType: "Water Delivery Request",
+    duplicateKey: `${preferredDate}-${quantity}`,
+    description: `Quantity: ${quantity} x 19L\nPreferred date: ${preferredDate}\nDelivery address: ${address}${remarks ? `\nRemarks: ${remarks}` : ""}`,
+  });
+}
+
+export async function submitPaymentConfirmation(formData) {
+  const method = String(formData.get("method") || "").trim().slice(0, 50);
+  const amount = Number(formData.get("amount"));
+  const paymentDate = String(formData.get("payment_date") || "").trim();
+  const reference = String(formData.get("reference") || "").trim().slice(0, 100);
+  if (!method || !Number.isFinite(amount) || amount <= 0 || !paymentDate || !reference) return { ok: false, error: "Complete all payment fields, including the transaction reference." };
+  return createPortalRequest({
+    issueType: "Payment Confirmation",
+    duplicateKey: reference.toLowerCase(),
+    description: `Method: ${method}\nAmount: PKR ${amount.toFixed(2)}\nPayment date: ${paymentDate}\nTransaction reference: ${reference}\nStatus: Pending verification — do not post to ledger until verified.`,
+  });
+}
+
+export async function submitProfileCorrection(formData) {
+  const field = String(formData.get("field") || "").trim().slice(0, 50);
+  const requestedValue = String(formData.get("requested_value") || "").trim().slice(0, 300);
+  const reason = String(formData.get("reason") || "").trim().slice(0, 300);
+  if (!field || !requestedValue) return { ok: false, error: "Select a field and enter the correct information." };
+  return createPortalRequest({
+    issueType: "Profile Correction Request",
+    duplicateKey: `${field}-${requestedValue}`.toLowerCase(),
+    description: `Field: ${field}\nRequested value: ${requestedValue}${reason ? `\nReason: ${reason}` : ""}\nStatus: Requires staff verification before customer master update.`,
+  });
+}
+
 export async function submitCustomerFeedback(formData) {
   const { supabase, customerId } = await requirePortalCustomer();
   const overall = Number(formData.get("overall_rating"));

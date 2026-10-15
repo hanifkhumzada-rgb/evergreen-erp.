@@ -1,5 +1,7 @@
 import { User, Phone, MapPin, Droplet } from "lucide-react";
 import { requirePortalCustomer } from "@/lib/portal/session";
+import ProfileCorrectionForm from "@/components/portal/ProfileCorrectionForm";
+import PwaInstallButton from "@/components/PwaInstallButton";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +37,8 @@ export default async function PortalProfilePage() {
         <Row icon={Droplet} label="Delivery Frequency" value={customer?.delivery_frequency} />
         <Row icon={Droplet} label="Payment Frequency" value={customer?.payment_frequency} />
       </div>
-      <p className="text-[11px] text-slate text-center">To update your details, please contact Evergreen Water directly.</p>
+      <div className="rounded-2xl border border-line bg-card p-4 text-center"><p className="mb-3 text-xs font-bold">Evergreen Water on your home screen</p><PwaInstallButton label="Install Evergreen Water App" /></div>
+      <ProfileCorrectionForm />
     </div>
   );
 }

@@ -1,12 +1,12 @@
 {
-  "id": "/customer-app",
-  "name": "Evergreen Water Customer",
-  "short_name": "EW Customer",
+  "id": "/portal/",
+  "name": "Evergreen Water",
+  "short_name": "EW Water",
   "description": "Evergreen Water — Pure Drinking Water customer portal",
   "start_url": "/portal/login?source=installed_app",
   "scope": "/portal/",
   "display": "standalone",
-  "background_color": "#EAF6FB",
+  "background_color": "#FFFFFF",
   "theme_color": "#103B64",
   "orientation": "portrait-primary",
   "icons": [

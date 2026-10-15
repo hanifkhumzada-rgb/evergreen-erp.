@@ -2,8 +2,8 @@
 // below (see the fetch handler comment) — this alone clears the corrupted
 // chunks that were causing "Something went wrong" indefinitely, in every
 // tab on this origin, until this deploy.
-const CACHE_NAME = "evergreen-shell-v5";
-const SHELL_ASSETS = ["/manifest.json", "/portal-manifest.json", "/ew-mark.svg", "/apple-touch-icon.png", "/icon-192.png", "/icon-512.png"];
+const CACHE_NAME = "evergreen-shell-v6";
+const SHELL_ASSETS = ["/manifest.json", "/portal-manifest.json", "/ew-mark.svg", "/apple-touch-icon.png", "/icon-192.png", "/icon-512.png", "/portal-offline.html"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -42,6 +42,14 @@ self.addEventListener("fetch", (event) => {
 
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
+
+  // Portal navigations are network-only so authenticated HTML and private
+  // financial content are never cached. If the network is unavailable, the
+  // only response is a static, customer-neutral offline screen.
+  if (request.mode === "navigate" && (url.pathname === "/portal" || url.pathname.startsWith("/portal/"))) {
+    event.respondWith(fetch(request).catch(() => caches.match("/portal-offline.html")));
+    return;
+  }
 
   const isShellAsset = SHELL_ASSETS.includes(url.pathname) || url.pathname.startsWith("/_next/static/");
   if (!isShellAsset) return;

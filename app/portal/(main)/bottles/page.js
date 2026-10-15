@@ -1,6 +1,7 @@
 import { Droplet } from "lucide-react";
 import { requirePortalCustomer } from "@/lib/portal/session";
 import { fmtDate } from "@/lib/format";
+import Link from "next/link";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ export default async function PortalBottlesPage() {
         <div className="font-mono-num text-2xl font-bold mt-1">{totalBalance} bottles</div>
         {customer?.bottle_limit && <div className="text-[11px] text-[#9CC9C5] mt-1">Limit: {customer.bottle_limit} bottles</div>}
       </div>
+      <Link href="/portal/support?type=Bottle%20Return%20Dispute" className="rounded-2xl border border-aqua/30 bg-aquaSoft px-4 py-3 text-center text-xs font-bold text-aqua">Report Bottle Difference</Link>
 
       {(balances || []).length > 0 && (
         <div className="grid grid-cols-2 gap-3">

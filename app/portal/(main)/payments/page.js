@@ -6,6 +6,7 @@ import { portalPaymentFilters, portalPaymentsQuery, PORTAL_METHOD_LABEL as METHO
 import { exportPortalPayments } from "@/lib/portal/exportActions";
 import { requirePortalCustomer } from "@/lib/portal/session";
 import { fmtDate, pkr } from "@/lib/format";
+import PaymentConfirmationForm from "@/components/portal/PaymentConfirmationForm";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export default async function PortalPaymentsPage({ searchParams }) {
   return (
     <div className="flex flex-col gap-4">
       <div><h1 className="font-display text-xl font-semibold">Payments</h1><p className="text-xs text-slate mt-1">Receipts and references for your approved payments.</p></div>
+      <PaymentConfirmationForm />
       <ListFilterBar className="!mb-0" placeholder="Search receipt or reference" dateFilters={[{ name: "month", label: "Month", type: "month" }]} />
       <div className="flex flex-wrap gap-2">
         <DocumentActionBar

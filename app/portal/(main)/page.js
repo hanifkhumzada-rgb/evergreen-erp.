@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Droplet, Wallet, Calendar, Truck, RotateCcw, Bell, PackagePlus, CalendarOff, MessageCircle } from "lucide-react";
+import { Droplet, Wallet, Calendar, Truck, RotateCcw, Bell, PackagePlus, CalendarOff, MessageCircle, ArrowRight } from "lucide-react";
 import { requirePortalCustomer } from "@/lib/portal/session";
 import { pkr, fmtDate } from "@/lib/format";
 import CustomerRiderMap from "@/components/portal/CustomerRiderMapLazy";
@@ -33,7 +33,7 @@ export default async function PortalDashboardPage() {
   const [
     { data: customer }, { data: todayDeliveries }, { data: monthDeliveries },
     { data: bottleBalances }, { data: customerBalance }, { data: lastPayment }, { data: recentNotifications },
-    { data: businessSettings },
+    { data: businessSettings }, { data: nextDeliveries },
   ] = await Promise.all([
     supabase.from("customers").select("name, code, payment_frequency, bottle_limit").eq("id", customerId).maybeSingle(),
     supabase.from("deliveries").select("id, delivery_no, status, amount, rider_id, delivered_at, delivery_items(delivered_qty, returned_qty, products(name))")
@@ -49,6 +49,7 @@ export default async function PortalDashboardPage() {
     // other reader of this table) and is readable by any authenticated
     // session, customer portal included (p_settings_select).
     supabase.from("business_settings").select("customer_live_tracking_enabled").maybeSingle(),
+    supabase.from("deliveries").select("delivery_date, status").eq("customer_id", customerId).gte("delivery_date", today).neq("status", "cancelled").order("delivery_date", { ascending: true }).limit(1),
   ]);
 
   const liveTrackingEnabled = businessSettings?.customer_live_tracking_enabled !== false;
@@ -84,6 +85,10 @@ export default async function PortalDashboardPage() {
   return (
     <div className="flex flex-col gap-5">
       <PortalWelcome name={customer?.name} code={customer?.code} date={fmtDate(today)} />
+
+      <Link href="/portal/request" className="group flex items-center justify-between rounded-3xl bg-gradient-to-r from-aqua to-ocean px-5 py-4 text-white shadow-lg shadow-aqua/15">
+        <span><span className="block text-base font-bold">Request Water Delivery</span><span className="mt-0.5 block text-[11px] text-white/80">Order 19L bottles for your preferred date</span></span><span className="grid h-10 w-10 place-items-center rounded-2xl bg-white/15 transition-transform group-hover:translate-x-1"><ArrowRight size={20}/></span>
+      </Link>
 
       <div className="grid grid-cols-3 gap-2 rounded-2xl border border-line bg-card p-2 text-center text-[11px] font-bold">
         <Link href="/portal/deliveries" className="rounded-xl py-3 hover:bg-aquaSoft focus-visible:outline focus-visible:outline-aqua"><Truck size={18} className="mx-auto mb-1 text-aqua"/>Delivery history</Link>
@@ -128,6 +133,7 @@ export default async function PortalDashboardPage() {
         <Stat icon={Calendar} label="Payment Cycle" value={freq} sub={nextDueDate ? `Estimated next date: ${fmtDate(nextDueDate.toISOString())}` : "Check statement for invoice due dates"} tone="card" href="/portal/statement" />
         <Stat icon={Droplet} label="Bottles with you" value={totalBottleBalance} sub="Issued minus empty bottles returned" tone="card" href="/portal/bottles" />
         <Stat icon={Wallet} label="Last Payment" value={lastPayment ? pkr(lastPayment.amount) : "—"} sub={lastPayment ? fmtDate(lastPayment.payment_date) : "No payments yet"} tone="card" href="/portal/payments" />
+        <Stat icon={Truck} label="Next Delivery" value={nextDeliveries?.[0] ? fmtDate(nextDeliveries[0].delivery_date) : "Not scheduled"} sub={nextDeliveries?.[0] ? String(nextDeliveries[0].status).replaceAll("_", " ") : "Request water when needed"} tone="card" href="/portal/request" />
       </div>
 
       <div>
