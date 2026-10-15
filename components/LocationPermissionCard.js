@@ -3,18 +3,21 @@
 import { useEffect, useState } from "react";
 import { CheckCircle2, LocateFixed, MapPinOff, Settings } from "lucide-react";
 import { reportStaffLocation } from "@/app/actions";
-import { isLocationSharingEnabled, LOCATION_SHARING_EVENT, setLocationSharingEnabled } from "@/components/StaffLocationTracker";
+import { isLocationSharingEnabled, LOCATION_SHARING_EVENT, LOCATION_STATUS_EVENT, setLocationSharingEnabled } from "@/components/StaffLocationTracker";
 
 export default function LocationPermissionCard({ compact = false }) {
   const [permission, setPermission] = useState("prompt");
   const [enabled, setEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [trackingStatus, setTrackingStatus] = useState(null);
 
   useEffect(() => {
     setEnabled(isLocationSharingEnabled());
     const sync = () => setEnabled(isLocationSharingEnabled());
+    const syncStatus = (event) => setTrackingStatus(event.detail || null);
     window.addEventListener(LOCATION_SHARING_EVENT, sync);
+    window.addEventListener(LOCATION_STATUS_EVENT, syncStatus);
     if (!navigator.geolocation) { setPermission("unsupported"); return; }
     if (!navigator.permissions?.query) return;
     let result;
@@ -23,7 +26,7 @@ export default function LocationPermissionCard({ compact = false }) {
       setPermission(status.state);
       status.onchange = () => setPermission(status.state);
     }).catch(() => {});
-    return () => { if (result) result.onchange = null; window.removeEventListener(LOCATION_SHARING_EVENT, sync); };
+    return () => { if (result) result.onchange = null; window.removeEventListener(LOCATION_SHARING_EVENT, sync); window.removeEventListener(LOCATION_STATUS_EVENT, syncStatus); };
   }, []);
 
   function turnOff() {
@@ -42,7 +45,7 @@ export default function LocationPermissionCard({ compact = false }) {
       setLocationSharingEnabled(true);
       setEnabled(true);
       setPermission("granted");
-      setMessage("Location sharing is ON. Updates continue while ERP is open and visible.");
+      setMessage("Duty started. Location updates while ERP is open and visible.");
     }, (error) => {
       setBusy(false);
       if (error.code === error.PERMISSION_DENIED) {
@@ -66,7 +69,7 @@ export default function LocationPermissionCard({ compact = false }) {
   return <section className={`mb-4 rounded-2xl border p-4 ${enabled ? "border-green/25 bg-greenSoft" : "border-aqua/25 bg-aquaSoft"}`}>
     <div className="flex items-start gap-3">
       <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl ${enabled ? "bg-green text-white" : "bg-white text-aqua"}`}>{enabled ? <CheckCircle2 size={20}/> : permission === "denied" ? <MapPinOff size={20}/> : <LocateFixed size={20}/>}</span>
-      <div className="min-w-0 flex-1"><h3 className="text-sm font-bold">My Location: {enabled ? "ON" : "OFF"}</h3><p className="mt-1 text-[11px] leading-relaxed text-slate">{enabled ? "Your position updates while ERP is open and visible." : "Turn it on when duty starts and off when duty ends."}</p></div>
+      <div className="min-w-0 flex-1"><h3 className="text-sm font-bold">My Location: {enabled ? "ON" : "OFF"}</h3><p className="mt-1 text-[11px] leading-relaxed text-slate">{enabled ? "Your position updates while ERP is open and visible." : "Turn it on when duty starts and off when duty ends."}</p>{enabled && trackingStatus ? <p className="mt-1 text-[10px] font-bold uppercase tracking-wide text-aqua">{trackingStatus.state === "live" ? "Live" : trackingStatus.state === "stationary" ? "Stationary" : trackingStatus.state === "poor" ? "Poor accuracy" : trackingStatus.state === "offline" ? "Offline" : trackingStatus.state === "stale" ? "Stale" : "Connecting"}{trackingStatus.accuracy ? ` · ±${trackingStatus.accuracy}m` : ""}</p> : null}</div>
       <button type="button" onClick={enabled ? turnOff : turnOn} disabled={busy || permission === "unsupported"} role="switch" aria-checked={enabled} className={`relative h-7 w-12 shrink-0 rounded-full transition-colors disabled:opacity-50 ${enabled ? "bg-green" : "bg-slate/30"}`}><span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${enabled ? "translate-x-6" : "translate-x-1"}`}/></button>
     </div>
     {!enabled && permission !== "unsupported" && <button type="button" onClick={turnOn} disabled={busy} className="mt-3 flex w-full items-center justify-center gap-2 rounded-xl bg-navyLight px-4 py-3 text-xs font-bold text-white disabled:opacity-60"><LocateFixed size={16}/>{busy ? "Getting Location…" : "Start Duty & Location"}</button>}
