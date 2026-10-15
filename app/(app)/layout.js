@@ -69,7 +69,7 @@ export default async function AppLayout({ children }) {
           </div>
           <div className="flex shrink-0 items-center gap-1 sm:gap-2 xl:gap-3">
             <div className="topbar-search flex items-center gap-2 rounded-xl px-2 py-1"><Command size={13} className="topbar-muted hidden md:block" /><GlobalSearch /></div>
-            <div className="hidden sm:block"><ErpRefreshButton /></div>
+            <ErpRefreshButton />
             <div className="hidden sm:block"><OfflineIndicator /></div>
             {roleKey === "rider" ? <LocationPermissionCard compact /> : null}
             <div className="hidden sm:block">
