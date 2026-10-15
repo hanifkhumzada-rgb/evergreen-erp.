@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import { Focus, Lock, Map, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import "leaflet/dist/leaflet.css";
 
@@ -41,7 +42,10 @@ export default function LiveTrackingMap({ riders: initialRiders }) {
   const markersRef = useRef({});
   const fittedRef = useRef(false);
   const [riders, setRiders] = useState(initialRiders);
+  const [interactive, setInteractive] = useState(false);
   const [, forceTick] = useState(0);
+
+  useEffect(() => { setRiders(initialRiders); }, [initialRiders]);
 
   useEffect(() => {
     const supabase = createClient();
@@ -109,6 +113,8 @@ export default function LiveTrackingMap({ riders: initialRiders }) {
       if (cancelled || !containerRef.current || mapRef.current) return;
       leafletRef.current = L;
       const map = L.map(containerRef.current).setView(DEFAULT_CENTER, 12);
+      [map.dragging, map.touchZoom, map.doubleClickZoom, map.scrollWheelZoom, map.boxZoom, map.keyboard]
+        .forEach((control) => control?.disable());
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
         maxZoom: 19,
@@ -125,12 +131,39 @@ export default function LiveTrackingMap({ riders: initialRiders }) {
 
   useEffect(() => { updateMarkers(riders); }, [riders]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const controls = [map.dragging, map.touchZoom, map.doubleClickZoom, map.scrollWheelZoom, map.boxZoom, map.keyboard];
+    controls.forEach((control) => interactive ? control?.enable() : control?.disable());
+    if (interactive) map.invalidateSize();
+  }, [interactive]);
+
+  const fitRiders = () => {
+    const map = mapRef.current;
+    const L = leafletRef.current;
+    const points = riders.filter((r) => r.location).map((r) => [r.location.latitude, r.location.longitude]);
+    if (!map || !L) return;
+    if (points.length) map.fitBounds(L.latLngBounds(points), { padding: [36, 36], maxZoom: 15 });
+    else map.setView(DEFAULT_CENTER, 12);
+  };
+
   const located = riders.filter((r) => r.location);
   const unlocated = riders.filter((r) => !r.location);
 
   return (
-    <div>
-      <div ref={containerRef} className="w-full rounded-2xl border border-line" style={{ height: "480px" }} />
+    <div className="min-w-0">
+      <div className={`relative overflow-hidden rounded-2xl border border-line bg-foam ${interactive ? "ring-2 ring-aqua/40" : ""}`}>
+        <div ref={containerRef} className="h-[320px] w-full sm:h-[420px] xl:h-[480px]" aria-label="Live staff location map" />
+        {!interactive ? <button type="button" onClick={() => setInteractive(true)} className="absolute inset-0 z-[500] flex items-center justify-center bg-navy/5" aria-label="Enable map interaction">
+          <span className="flex items-center gap-2 rounded-xl bg-card/95 px-4 py-3 text-xs font-bold text-ink shadow-lg"><Map size={16}/>Tap to interact with map</span>
+        </button> : null}
+        <div className="absolute right-2 top-2 z-[600] flex gap-2">
+          <button type="button" onClick={fitRiders} className="grid h-9 w-9 place-items-center rounded-lg bg-card text-ink shadow" title="Fit all riders" aria-label="Fit all riders"><Focus size={16}/></button>
+          {interactive ? <button type="button" onClick={() => setInteractive(false)} className="flex h-9 items-center gap-1 rounded-lg bg-navy px-3 text-[11px] font-bold text-white shadow" aria-label="Exit map interaction"><X size={15}/>Exit map</button> : null}
+        </div>
+        {!interactive ? <div className="pointer-events-none absolute bottom-2 left-2 z-[600] flex items-center gap-1 rounded-lg bg-card/90 px-2 py-1 text-[10px] font-semibold text-slate"><Lock size={11}/>Page scrolling stays active</div> : null}
+      </div>
       <div className="no-print mt-3 flex flex-wrap gap-2">
         {riders.length === 0 && <p className="text-sm text-slate">No staff configured for this business.</p>}
         {located.map((r) => {
