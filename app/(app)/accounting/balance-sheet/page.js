@@ -3,6 +3,7 @@ import { pkr, fmtDate } from "@/lib/format";
 import { DocumentActionBar } from "@/components/ui";
 import { getBrandingLite } from "@/lib/pdf/business";
 import DocumentPrintHeader, { DocumentPrintFooter } from "@/components/DocumentPrintHeader";
+import FinanceNav from "@/components/FinanceNav";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,7 @@ export default async function BalanceSheetPage() {
 
   return (
     <div>
+      <FinanceNav current="/accounting/balance-sheet" />
       <DocumentPrintHeader branding={branding} title="Balance Sheet" meta={`As of ${fmtDate(new Date().toISOString())}`} />
       <h2 className="no-print font-display text-2xl font-semibold mb-1">Balance Sheet</h2>
       <p className="no-print text-slate text-sm mb-5">Assets, liabilities and equity as of today — calculated live from posted journal entries.</p>

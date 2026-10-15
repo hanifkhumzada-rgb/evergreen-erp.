@@ -963,24 +963,28 @@ export async function skipTodayDelivery(customerId, note) {
   return { ok: true };
 }
 
-// Live GPS staff tracking — called every ~45s by StaffLocationTracker,
-// mounted for every logged-in staff member (Owner/Admin/Manager/
-// Accountant/Rider) while the app tab is in the foreground, not just
-// riders on an active delivery (generalized from the original rider-only
-// design — see migration 0038). No revalidatePath: nothing on the page
+// Live duty GPS tracking — called by StaffLocationTracker for an explicitly
+// opted-in Delivery Boy while the app is visible. Movement and heartbeat
+// thresholds are handled client-side, with a server-side 10s write guard.
+// No revalidatePath: nothing on the page
 // that calls this needs to re-render off the back of it — the Live
 // Tracking page picks up new rows through its own Supabase Realtime
 // subscription instead. RLS (p_staff_locations_insert) is the real gate
 // here — user_id/business_id trust the session, not the caller's input,
-// so this can't be used to spoof another staff member's position, and a
-// customer-portal session is rejected outright.
+// so this can't spoof another employee. The matching rider-only RLS policy
+// is restored by the Smart Live Route migration.
 export async function reportStaffLocation(latitude, longitude) {
   const { supabase, user } = await requireUser();
   if (typeof latitude !== "number" || typeof longitude !== "number" || Number.isNaN(latitude) || Number.isNaN(longitude)) {
     return { error: "Invalid coordinates." };
   }
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) return { error: "Coordinates are outside the valid GPS range." };
+  const { data: roleKey, error: roleError } = await supabase.rpc("fn_current_role_key");
+  if (roleError || roleKey !== "rider") return { error: "Only an authorized Delivery Boy can share duty location." };
   // Insert (this ping) and delete (this user's points older than 24h) touch
   // disjoint rows, so they run in parallel rather than one after the other.
+  const { data: latest } = await supabase.from("staff_locations").select("recorded_at").eq("user_id", user.id).order("recorded_at", { ascending: false }).limit(1).maybeSingle();
+  if (latest && Date.now() - new Date(latest.recorded_at).getTime() < 10000) return { ok: true, suppressed: true };
   const [{ error }] = await Promise.all([
     supabase.from("staff_locations").insert({ user_id: user.id, latitude, longitude }),
     supabase.from("staff_locations").delete().eq("user_id", user.id).lt("recorded_at", new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()),
@@ -1088,35 +1092,51 @@ export async function closeDay(formData) {
   const actualCash = Number(formData.get("actual_cash"));
   const differenceReason = String(formData.get("difference_reason") || "").trim();
 
-  const { data: invoices } = await supabase.from("invoices").select("net_amount").eq("invoice_date", closeDate).neq("status", "void");
-  const { data: payments } = await supabase.from("payments").select("amount").eq("payment_date", closeDate).eq("voided", false);
-  const { data: expenses } = await supabase.from("expenses").select("amount").eq("expense_date", closeDate).in("status", ["approved", "paid"]);
+  const { data: closingId, error } = await supabase.rpc("fn_close_finance_day", { p_date: closeDate, p_opening: openingCash, p_actual: actualCash, p_reason: differenceReason || null });
+  if (error) return { error: error.message };
+  const { data: closing } = await supabase.from("daily_closings").select("expected_cash,difference").eq("id", closingId).single();
+  revalidatePath("/accounting/daily-closing");
+  revalidatePath("/accounting/approvals");
+  return { ok: true, difference: Number(closing?.difference || 0), expectedCash: Number(closing?.expected_cash || 0) };
+}
 
-  const salesTotal = (invoices || []).reduce((a, s) => a + Number(s.net_amount), 0);
-  const collectionsTotal = (payments || []).reduce((a, p) => a + Number(p.amount), 0);
-  const expensesTotal = (expenses || []).reduce((a, e) => a + Number(e.amount), 0);
-  const expectedCash = openingCash + collectionsTotal - expensesTotal;
-  const difference = actualCash - expectedCash;
-  if (Math.abs(difference) >= 1 && differenceReason.length < 5) return { error: "Explain the cash difference before closing the day." };
-
-  const { data: cashAccount } = await supabase.from("cash_accounts").select("id").eq("is_active", true).limit(1).maybeSingle();
-  if (!cashAccount) return { error: "No cash account configured" };
-
-  const summary = JSON.stringify({ close_date: closeDate, opening_cash: openingCash, collections_total: collectionsTotal, expenses_total: expensesTotal, expected_cash: expectedCash, actual_cash: actualCash, difference, difference_reason: differenceReason || null, status: "closed" });
-  const { error } = await supabase.from("cash_transactions").insert({
-    account_id: cashAccount.id,
-    txn_date: closeDate,
-    type: "adjustment",
-    amount: difference,
-    reference_type: "daily_closing",
-    description: summary,
-    created_by: user.id,
+export async function createFinanceVoucher(payload) {
+  const { supabase } = await requireUser();
+  const { data, error } = await supabase.rpc("fn_create_finance_voucher", {
+    p_voucher_type: payload.voucherType, p_entry_date: payload.entryDate,
+    p_description: payload.description, p_reference: payload.reference || null,
+    p_lines: payload.lines, p_idempotency_key: payload.idempotencyKey,
+    p_submit_for_approval: payload.submit !== false, p_attachment_path: payload.attachmentPath || null,
   });
   if (error) return { error: error.message };
+  revalidatePath("/accounting/journal"); revalidatePath("/accounting/approvals");
+  return { ok: true, id: data };
+}
 
-  await supabase.from("audit_logs").insert({ user_id: user.id, action: "CLOSE_DAY", module: "cash_transactions", new_value: { close_date: closeDate, difference, difference_reason: differenceReason || null } });
-  revalidatePath("/accounting/daily-closing");
-  return { ok: true, difference, expectedCash };
+export async function decideFinanceVoucher(entryId, approve, reason) {
+  const { supabase } = await requireUser();
+  const { error } = await supabase.rpc("fn_approve_finance_voucher", { p_entry_id: entryId, p_approve: Boolean(approve), p_reason: reason || null });
+  if (error) return { error: error.message };
+  revalidatePath("/accounting/journal"); revalidatePath("/accounting/approvals");
+  return { ok: true };
+}
+
+export async function importFinanceStatement(payload) {
+  const { supabase, user } = await requireUser();
+  const businessId = await getUserBusinessId(supabase, user.id);
+  if (!businessId) return { error: "No business is assigned to this user." };
+  if (!payload.cashAccountId || !Array.isArray(payload.rows) || !payload.rows.length) return { error: "Choose an account and provide statement rows." };
+  const { data: imported, error } = await supabase.from("bank_statement_imports").insert({
+    business_id: businessId, cash_account_id: payload.cashAccountId, file_name: payload.fileName,
+    file_hash: payload.fileHash, statement_from: payload.rows[0]?.txn_date || null,
+    statement_to: payload.rows[payload.rows.length - 1]?.txn_date || null, imported_by: user.id,
+  }).select("id").single();
+  if (error) return { error: error.code === "23505" ? "This statement file was already imported." : error.message };
+  const rows = payload.rows.slice(0, 5000).map((row) => ({ ...row, import_id: imported.id, business_id: businessId }));
+  const { error: lineError } = await supabase.from("bank_statement_lines").insert(rows);
+  if (lineError) return { error: lineError.code === "23505" ? "Duplicate statement transactions detected; the import was held for review." : lineError.message };
+  revalidatePath("/accounting/reconciliation");
+  return { ok: true, imported: rows.length };
 }
 
 export async function addVehicle(formData) {

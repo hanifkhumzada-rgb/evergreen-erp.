@@ -10,6 +10,8 @@ import { pageFrom, pageSizeFrom, rangeFor } from "@/lib/listParams";
 import { applyJournalFilters } from "@/lib/listQueries";
 import { exportJournalRows } from "@/lib/exportActions";
 import { getBrandingLite } from "@/lib/pdf/business";
+import FinanceNav from "@/components/FinanceNav";
+import FinanceVoucherForm from "@/components/FinanceVoucherForm";
 
 export const dynamic = "force-dynamic";
 
@@ -33,10 +35,11 @@ export default async function JournalPage({ searchParams }) {
   const pageSize = pageSizeFrom(sp, PAGE_SIZE);
   const [from, to] = rangeFor(page, pageSize);
 
-  const [{ data: entries, count }, { data: canVoid }, branding] = await Promise.all([
+  const [{ data: entries, count }, { data: canVoid }, { data: accounts }, branding] = await Promise.all([
     applyJournalFilters(supabase.from("journal_entries").select("*, journal_lines(*, chart_of_accounts(code, name)), creator:profiles!journal_entries_created_by_fkey(full_name)", { count: "exact" }), filters)
       .order("entry_date", { ascending: false }).order("created_at", { ascending: false }).order("id").range(from, to),
     supabase.rpc("fn_has_permission", { perm_key: "journal.delete" }),
+    supabase.from("chart_of_accounts").select("id,code,name").eq("is_active", true).order("code"),
     getBrandingLite(supabase),
   ]);
   // Only this page's entries need their "Voided" flag: look up reversals
@@ -49,8 +52,10 @@ export default async function JournalPage({ searchParams }) {
 
   return (
     <div>
+      <FinanceNav current="/accounting/journal" />
       <h2 className="font-display text-2xl font-semibold mb-1">Journal Entries</h2>
       <p className="text-slate text-sm mb-5">Double-entry postings generated automatically from sales, payments and expenses.</p>
+      <FinanceVoucherForm accounts={accounts || []} />
 
       <div className="no-print flex flex-wrap gap-2.5 mb-4 items-start">
         <ListFilterBar className="!mb-0" placeholder="Search entry #, reference, description…" dateFilters={[{ name: "from", label: "From" }, { name: "to", label: "To" }]} />
@@ -87,6 +92,7 @@ export default async function JournalPage({ searchParams }) {
                   {je.reference && <span className="text-slate text-xs ml-2">· {je.reference}</span>}
                   {je.source_module === "journal_void" && <span className="ml-2"><Badge text="Reversal" tone="slate" /></span>}
                   {alreadyVoided && <span className="ml-2"><Badge text="Voided" tone="coral" /></span>}
+                  {je.status && je.status !== "posted" && <span className="ml-2"><Badge text={je.status} tone={je.status === "rejected" ? "coral" : "amber"} /></span>}
                   <RecordStamp date={je.created_at} user={je.creator?.full_name} className="ml-3" />
                 </div>
                 <div className="flex items-center gap-2.5">
