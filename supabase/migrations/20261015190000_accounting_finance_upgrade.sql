@@ -1,6 +1,12 @@
 -- Accounting & Finance upgrade. Additive only: historical postings are not
 -- rewritten or backfilled. Opening balances must be reconciled explicitly.
 
+create schema if not exists backup;
+create table if not exists backup.finance_chart_of_accounts_20261015 as table public.chart_of_accounts;
+create table if not exists backup.finance_journal_entries_20261015 as table public.journal_entries;
+create table if not exists backup.finance_journal_lines_20261015 as table public.journal_lines;
+create table if not exists backup.finance_daily_closings_20261015 as table public.daily_closings;
+
 alter table public.chart_of_accounts add column if not exists parent_account_id uuid references public.chart_of_accounts(id);
 alter table public.chart_of_accounts add column if not exists account_group text;
 alter table public.chart_of_accounts add column if not exists opening_balance numeric(14,2) not null default 0;
@@ -19,6 +25,16 @@ alter table public.journal_entries add column if not exists attachment_path text
 create unique index if not exists uq_journal_idempotency on public.journal_entries(business_id,idempotency_key) where idempotency_key is not null;
 create unique index if not exists uq_journal_source_once on public.journal_entries(business_id,source_module,source_id) where source_module is not null and source_id is not null and source_module <> 'journal_void';
 create index if not exists idx_journal_business_status_date on public.journal_entries(business_id,status,entry_date desc);
+
+create or replace view public.v_trial_balance with (security_invoker=true) as
+select coa.id account_id,coa.code,coa.name,coa.type,
+ coalesce(sum(jl.debit) filter(where je.status='posted'),0::numeric) total_debit,
+ coalesce(sum(jl.credit) filter(where je.status='posted'),0::numeric) total_credit,
+ coalesce(sum(jl.debit-jl.credit) filter(where je.status='posted'),0::numeric) balance
+from public.chart_of_accounts coa
+left join public.journal_lines jl on jl.account_id=coa.id
+left join public.journal_entries je on je.id=jl.journal_id
+where coa.is_active group by coa.id,coa.code,coa.name,coa.type order by coa.code;
 
 create table if not exists public.bank_statement_imports (
   id uuid primary key default gen_random_uuid(), business_id uuid not null references public.businesses(id),
@@ -143,3 +159,51 @@ revoke all on function public.fn_close_finance_day(date,numeric,numeric,text) fr
 grant execute on function public.fn_create_finance_voucher(text,date,text,text,jsonb,text,boolean,text) to authenticated;
 grant execute on function public.fn_approve_finance_voucher(uuid,boolean,text) to authenticated;
 grant execute on function public.fn_close_finance_day(date,numeric,numeric,text) to authenticated;
+
+-- Received inventory purchases create exactly one AP journal. Re-running the
+-- refresh updates that same source journal while purchase items are assembled.
+create or replace function public.fn_refresh_purchase_journal(p_purchase_id uuid) returns void
+language plpgsql security definer set search_path='' as $$
+declare p public.purchases%rowtype; v_total numeric; v_journal uuid; v_inventory uuid; v_payable uuid;
+begin
+ select * into p from public.purchases where id=p_purchase_id;
+ if p.id is null or p.status::text<>'received' then return; end if;
+ select coalesce(sum(quantity*rate-coalesce(discount,0)),0) into v_total from public.purchase_items where purchase_id=p.id;
+ if v_total<=0 then return; end if;
+ select id into v_inventory from public.chart_of_accounts where business_id=p.business_id and code='1200';
+ select id into v_payable from public.chart_of_accounts where business_id=p.business_id and code='2000';
+ if v_inventory is null or v_payable is null then raise exception 'inventory or payable account is not configured'; end if;
+ select id into v_journal from public.journal_entries where business_id=p.business_id and source_module='purchases' and source_id=p.id;
+ if v_journal is null then
+   insert into public.journal_entries(entry_no,entry_date,reference,description,source_module,source_id,created_by,business_id,voucher_type,status,idempotency_key,posted_at)
+   values('PUR-'||left(p.id::text,8),p.purchase_date,p.purchase_no,'Inventory purchase','purchases',p.id,p.created_by,p.business_id,'purchase','posted','purchase:'||p.id,now()) returning id into v_journal;
+ else delete from public.journal_lines where journal_id=v_journal; end if;
+ insert into public.journal_lines(journal_id,account_id,debit,credit,business_id) values
+  (v_journal,v_inventory,v_total,0,p.business_id),(v_journal,v_payable,0,v_total,p.business_id);
+end $$;
+
+create or replace function public.fn_purchase_item_journal_trigger() returns trigger
+language plpgsql security definer set search_path='' as $$
+begin
+ if tg_op='DELETE' then perform public.fn_refresh_purchase_journal(old.purchase_id); return old;
+ else perform public.fn_refresh_purchase_journal(new.purchase_id); return new; end if;
+end $$;
+drop trigger if exists trg_purchase_item_journal on public.purchase_items;
+create constraint trigger trg_purchase_item_journal after insert or update or delete on public.purchase_items
+deferrable initially deferred for each row execute function public.fn_purchase_item_journal_trigger();
+
+create or replace function public.fn_supplier_payment_journal_trigger() returns trigger
+language plpgsql security definer set search_path='' as $$
+declare v_payable uuid; v_cash uuid; v_journal uuid;
+begin
+ select id into v_payable from public.chart_of_accounts where business_id=new.business_id and code='2000';
+ select id into v_cash from public.chart_of_accounts where business_id=new.business_id and code=case when new.method::text='cash' then '1000' else '1010' end;
+ if v_payable is null or v_cash is null then raise exception 'payable or cash/bank account is not configured'; end if;
+ insert into public.journal_entries(entry_no,entry_date,reference,description,source_module,source_id,created_by,business_id,voucher_type,status,idempotency_key,posted_at)
+ values('SP-'||left(new.id::text,8),new.payment_date,new.reference,'Supplier payment','supplier_payments',new.id,new.created_by,new.business_id,'payment','posted','supplier-payment:'||new.id,now()) returning id into v_journal;
+ insert into public.journal_lines(journal_id,account_id,debit,credit,business_id) values
+  (v_journal,v_payable,new.amount,0,new.business_id),(v_journal,v_cash,0,new.amount,new.business_id);
+ return new;
+end $$;
+drop trigger if exists trg_supplier_payment_journal on public.supplier_payments;
+create trigger trg_supplier_payment_journal after insert on public.supplier_payments for each row execute function public.fn_supplier_payment_journal_trigger();
