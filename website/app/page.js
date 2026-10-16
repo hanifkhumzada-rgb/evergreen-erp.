@@ -104,7 +104,7 @@ export default function HomePage() {
           <div className="hero-actions"><a className="button button-primary" href="#order">Request a delivery <Icon name="arrow" /></a><a className="call-link" href={"tel:" + callPhone}><Icon name="phone" /> Call 0347 7104010</a></div>
           <div className="hero-points"><span><Icon name="check" /> 19L bottles</span><span><Icon name="check" /> WhatsApp support</span></div>
         </div>
-        <div className="hero-art reveal"><div className="hero-halo"/><img src="/evergreen-19l-bottle.png" alt="A reusable 19-litre Evergreen Water bottle" fetchPriority="high"/><div className="bottle-card"><span className="card-icon"><Icon name="drop"/></span><span><b>19-litre bottle</b><small>Home delivery request</small></span></div></div>
+        <div className="hero-art reveal"><div className="hero-halo"/><img src="/evergreen-19l-bottle-ew.png" alt="A reusable 19-litre Evergreen Water bottle" fetchPriority="high"/><div className="bottle-card"><span className="card-icon"><Icon name="drop"/></span><span><b>19-litre bottle</b><small>Home delivery request</small></span></div></div>
         <a className="scroll-link" href="#service">SCROLL TO EXPLORE <span>↓</span></a>
       </section>
 
@@ -118,7 +118,7 @@ export default function HomePage() {
       </section>
 
       <section className="product-section">
-        <div className="product-art"><img src="/evergreen-19l-bottle.png" alt="" loading="lazy"/></div>
+        <div className="product-art"><img src="/evergreen-19l-bottle-ew.png" alt="" loading="lazy"/></div>
         <div className="product-copy"><span className="eyebrow">EVERGREEN WATER • EW</span><h2>A simple way to keep<br/>your home supplied.</h2><p>Tell us your contact details, delivery address and bottle quantity. We’ll receive your request and get back to you to confirm the next steps.</p><a className="light-link" href="#order">Request your delivery <Icon name="arrow"/></a><div className="product-points"><span><Icon name="check"/> Convenient home service</span><span><Icon name="check"/> Delivery confirmed by our team</span></div></div>
       </section>
 
