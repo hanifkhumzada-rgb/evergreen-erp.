@@ -76,7 +76,12 @@ export default function HomePage() {
       setStatus("Please check your name, phone number, quantity and delivery address.");
       return;
     }
-    const reference = "EW-" + crypto.randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase();
+    let reference = "";
+    try { reference = sessionStorage.getItem("ew_pending_request_reference") || ""; } catch {}
+    if (!reference) {
+      reference = "EW-" + crypto.randomUUID().toUpperCase();
+      try { sessionStorage.setItem("ew_pending_request_reference", reference); } catch {}
+    }
     const deliveryAddress = [
       "Area / Zone: " + area,
       building ? "Building / Society: " + building : "",
@@ -98,7 +103,7 @@ export default function HomePage() {
       if (!url || !key) throw new Error("Unavailable");
       const supabase = createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } });
       const { error } = await supabase.from("website_order_requests").insert({
-        customer_name: name, phone, delivery_address: deliveryAddress, bottle_quantity: quantity, note,
+        customer_name: name, phone, delivery_address: deliveryAddress, bottle_quantity: quantity, note, request_reference: reference,
       });
       if (error) throw error;
       setRef(reference);
@@ -112,7 +117,7 @@ export default function HomePage() {
   }
 
   const directWhatsApp = waLink("Assalam-o-Alaikum, I would like to ask about Evergreen Water 19L delivery.");
-  const navItems = [["Our water", "#water"], ["How it works", "#how"], ["Delivery areas", "#areas"], ["Track order", PORTAL], ["Customer login", PORTAL], ["Contact", "#contact"]];
+  const navItems = [["Home", "#home"], ["Our water", "#water"], ["How it works", "#how"], ["Delivery areas", "#areas"], ["Track order", PORTAL], ["Customer login", PORTAL], ["Contact", "#contact"]];
 
   return <main id="home">
     <div className="announcement"><span className="announcement-dot" />Karachi delivery requests are open <i /> <a href="#order">Request your 19L delivery <Icon name="arrow" size={14}/></a></div>
