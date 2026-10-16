@@ -50,6 +50,7 @@ const NAV = [
   { type: "link", href: "/smart-entry", label: "Smart Entry", icon: Sparkles, roles: [...OWNER_ROLES, "manager", "accountant", "rider"] },
   { type: "group", key: "operations", label: "Operations", icon: Truck, items: [
     { href: "/customers", label: "Customers", icon: Users, roles: [...OWNER_ROLES, "manager"] },
+    { href: "/website-orders", label: "Website Orders", icon: MessageSquare, roles: [...OWNER_ROLES, "manager"] },
     { href: "/deliveries", label: "Deliveries", icon: Truck, roles: [...OWNER_ROLES, "manager", "rider"] },
     // Grouped with Deliveries, not with Employees/Fleet admin below — a
     // dispatcher checking where riders are is part of the same morning
